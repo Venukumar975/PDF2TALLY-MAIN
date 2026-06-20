@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tally Automation Suite</title>
+    <!-- Font fallback layout for robust offline operations -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+    </style>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <!-- ========================================== -->
+    <!-- LICENSE ACTIVATION OVERLAY (LOCK SCREEN)   -->
+    <!-- ========================================== -->
+    <div id="license-overlay" class="overlay hidden">
+        <div class="glass-card activation-box animate-fade-in">
+            <div class="activation-header">
+                <span class="icon-pulse">🛡️</span>
+                <h2>Activate Your Suite</h2>
+                <p>A valid offline registration key is required to unlock this installation.</p>
+            </div>
+            
+            <div class="activation-body">
+                <div class="signature-container">
+                    <label>This Machine's Signature ID:</label>
+                    <div class="signature-badge">
+                        <span id="machine-sig-display">FETCHING-SIG...</span>
+                        <button onclick="copySignature()" title="Copy Signature" class="btn-copy">
+                            <!-- Copy SVG Icon -->
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </div>
+                    <small>Share this ID with the administrator to receive your Activation Key.</small>
+                </div>
+                
+                <div class="activation-form">
+                    <label for="activation-key-input">Enter Activation Key:</label>
+                    <input type="text" id="activation-key-input" placeholder="ACT-YYYYMMDD-XXXXXXXX" autocomplete="off">
+                    <button id="btn-activate" class="btn btn-primary" onclick="submitActivation()">Activate Software</button>
+                </div>
+                
+                <div id="activation-error" class="alert alert-danger hidden"></div>
+            </div>
+            
+            <div class="activation-footer">
+                <span>🔐 Offline Cryptographic Verification Protocol (v1.0.0)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MAIN APPLICATION WORKSPACE                 -->
+    <!-- ========================================== -->
+    <div id="app-workspace" class="app-layout hidden">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="app-sidebar">
+            <div class="brand">
+                <div class="logo">🎛️</div>
+                <div class="brand-text">
+                    <h1>Tally Suite</h1>
+                    <span>AUTOMATION ENGINE</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#bank-tab" class="nav-item active" onclick="switchTab('bank-tab')">
+                    <span class="nav-icon">📊</span>
+                    <span>Bank Statement</span>
+                </a>
+                <a href="#cash-tab" class="nav-item" onclick="switchTab('cash-tab')">
+                    <span class="nav-icon">🔮</span>
+                    <span>Ashramam Ledger</span>
+                </a>
+                <a href="#formats-tab" class="nav-item" onclick="switchTab('formats-tab')">
+                    <span class="nav-icon">📋</span>
+                    <span>Supported Formats</span>
+                </a>
+                <a href="#lexicon-tab" class="nav-item" onclick="switchTab('lexicon-tab')">
+                    <span class="nav-icon">🗂️</span>
+                    <span>Name Translation Dictionary</span>
+                </a>
+                <a href="#license-tab" class="nav-item" onclick="switchTab('license-tab')">
+                    <span class="nav-icon">🛡️</span>
+                    <span>License & Status</span>
+                </a>
+                <a href="#admin-tab" id="admin-nav-item" class="nav-item hidden" onclick="switchTab('admin-tab')">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Admin Console</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-status-widget">
+                    <div class="status-indicator"></div>
+                    <div>
+                        <p class="status-title">Activated Copy</p>
+                        <p id="license-expiry-side" class="status-sub">Lifetime</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN WINDOW VIEWPORT -->
+        <main class="app-content">
+            
+            <!-- SECTION 1: BANK STATEMENT CONVERTER -->
+            <section id="bank-tab" class="tab-pane active animate-fade-in">
+                <header class="section-header">
+                    <h2>Bank Statement to Tally Converter</h2>
+                    <p>Load your State Bank of India (SBI) or Bank of Baroda (BOB) bank statements and convert them to Tally XML files for easy import.</p>
+                </header>
+                
+                <div class="grid-2-1">
+                    <!-- LEFT COLUMN: INPUT CONTROLS -->
+                    <div class="glass-card">
+                        <h3>1. Import Settings</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="bank-type-select">Select Bank</label>
+                                <select id="bank-type-select">
+                                    <option value="State Bank of India (SBI)">State Bank of India (SBI)</option>
+                                    <option value="Bank of Baroda (BOB)">Bank of Baroda (BOB)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="strategy-select">Conversion Mode</label>
+                                <select id="strategy-select" onchange="toggleDateFilter('bank')">
+                                    <option value="Whole Document">Convert Entire File</option>
+                                    <option value="First Chunk">Convert First Part Only</option>
+                                    <option value="Continuation Chunk">Convert from Date Onwards</option>
+                                </select>
+                            </div>
+                            
+                            <div id="bank-date-filter-group" class="form-group hidden">
+                                <label for="bank-cutoff-date">Start Date (Convert transactions on or after this date)</label>
+                                <input type="date" id="bank-cutoff-date" value="2025-04-01">
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <h3>2. Select Bank Statement PDF</h3>
+                        <div id="bank-dropzone" class="dropzone">
+                            <input type="file" id="bank-file-input" accept=".pdf" class="hidden-input" onchange="handleFileSelect('bank')">
+                            <div class="dropzone-text">
+                                <span class="dropzone-icon">📥</span>
+                                <p class="dropzone-title">Drag & drop your bank statement PDF here</p>
+                                <p class="dropzone-sub">or click to browse your folders</p>
+                            </div>
+                            <div id="bank-file-badge" class="file-badge hidden">
+                                <span class="file-icon">📄</span>
+                                <span id="bank-file-name" class="file-name">filename.pdf</span>
+                                <button onclick="clearFile('bank')" class="btn-clear">&times;</button>
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="bank-debit-ledger">Bank Ledger Name (as written in Tally Prime)</label>
+                                <input type="text" id="bank-debit-ledger" placeholder="e.g. STATE BANK OF INDIA" value="STATE BANK OF INDIA">
+                            </div>
+                            <div class="form-group">
+                                <label for="bank-credit-ledger">Transaction Ledger Name (as written in Tally Prime)</label>
+                                <input type="text" id="bank-credit-ledger" placeholder="e.g. Suspense" value="Suspense">
+                            </div>
+                        </div>
+                        
+                        <div class="actions-bar">
+                            <button id="btn-convert-bank" class="btn btn-primary btn-block" onclick="runBankConversion()">
+                                <span id="bank-btn-text">Convert PDF to Tally XML ⚡</span>
+                                <span id="bank-spinner" class="spinner-small hidden"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: QUICK INFO -->
+                    <div class="sidebar-info">
+                        <div class="glass-card gradient-border-card">
+                            <h3>🔍 Automatic Safety Checks</h3>
+                            <p>This app does not guess text. It reads the direct text inside the PDF and runs 3 automatic checks to ensure 100% accuracy:</p>
+                            <ul class="benefit-list">
+                                <li><strong>1. Total Amount Check:</strong> Double checks that transaction counts and overall totals match the PDF exactly.</li>
+                                <li><strong>2. Line-by-Line Check:</strong> Inspects dates, amounts, and directions (Deposits/Withdrawals) for every entry.</li>
+                                <li><strong>3. Order Check (No Skips):</strong> Prevents duplicate entries or skipped lines in Tally.</li>
+                            </ul>
+                        </div>
+                        <div class="glass-card status-msg-box" id="bank-status-info">
+                            <p class="neutral-status">Waiting for bank statement file...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTTOM AREA: RESULTS DISPLAY -->
+                <div id="bank-results" class="results-container hidden animate-fade-in">
+                    <div class="glass-card">
+                        <div class="results-header">
+                            <h3>📊 Conversion Summary & Check Results</h3>
+                            <span class="badge success" id="bank-audit-badge">🟢 VERIFIED & MATCHED</span>
+                        </div>
+                        
+                        <div class="metrics-strip">
+                            <div class="metric-card">
+                                <span class="metric-label">Total Transactions</span>
+                                <span class="metric-value" id="m-bank-count">0</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Total Deposits (Incoming Money)</span>
+                                <span class="metric-value text-success" id="m-bank-inflow">₹ 0.00</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Total Withdrawals (Outgoing Money)</span>
+                                <span class="metric-value text-danger" id="m-bank-outflow">₹ 0.00</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Calculated Closing Balance</span>
+                                <span class="metric-value" id="m-bank-closing">₹ 0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- EXPORT DESK -->
+                        <div class="export-deck">
+                            <div class="export-widget">
+                                <h4>XML File for Tally Import</h4>
+                                <p>Ready-to-use XML file to import directly into your Tally Prime books.</p>
+                                <button onclick="triggerDownload('xml_bank')" class="btn btn-primary btn-block">Download Tally XML (.xml)</button>
+                            </div>
+                            <div class="export-widget">
+                                <h4>Excel File for Checking</h4>
+                                <p>An Excel spreadsheet to preview transactions, ledger assignments, and running balances.</p>
+                                <button onclick="triggerDownload('xlsx_bank')" class="btn btn-secondary btn-block">Download Excel Preview (.xlsx)</button>
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- MONTHLY BAR CHART -->
+                        <div class="chart-section">
+                            <h4>📈 Monthly Inflow vs Outflow Comparison</h4>
+                            <div class="chart-container" id="bank-chart-canvas">
+                                <!-- SVG Chart injected here -->
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- LEDGER DATAGRID -->
+                        <div class="table-section">
+                            <h4>📋 Month-by-Month Summary Table</h4>
+                            <div class="table-wrapper">
+                                <table id="bank-summary-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Month</th>
+                                            <th>Transaction Count</th>
+                                            <th>Opening Balance</th>
+                                            <th>Received (₹)</th>
+                                            <th>Spent (₹)</th>
+                                            <th>Closing Balance</th>
+                                            <th>Verification Check</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Rows injected by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 2: ASHRAMAM CASH RECEIPTS LEDGER -->
+            <section id="cash-tab" class="tab-pane hidden animate-fade-in">
+                <header class="section-header">
+                    <h2>Ashramam Cash Receipts</h2>
+                    <p>Upload cash receipts files, automatically translate names from Telugu to English, and review translation lists.</p>
+                </header>
+
+                <div class="grid-2-1">
+                    <!-- LEFT COLUMN: INPUT CONTROLS -->
+                    <div class="glass-card">
+                        <h3>1. Import Settings</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="cash-cutoff-date">Convert entries from this date onwards</label>
+                                <input type="date" id="cash-cutoff-date" value="2025-04-01">
+                            </div>
+                            <div class="form-group">
+                                <label for="cash-debit-ledger">Debit Ledger (Cash Account)</label>
+                                <input type="text" id="cash-debit-ledger" value="Cash">
+                            </div>
+                            <div class="form-group">
+                                <label for="cash-credit-ledger">Credit Ledger (Donation Ledger)</label>
+                                <input type="text" id="cash-credit-ledger" value="Annadana Prasadam Donations Received">
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <h3>2. Select Receipts Excel File (.xlsx / .csv)</h3>
+                        <div id="cash-dropzone" class="dropzone">
+                            <input type="file" id="cash-file-input" accept=".xlsx, .xls, .csv" class="hidden-input" onchange="handleFileSelect('cash')">
+                            <div class="dropzone-text">
+                                <span class="dropzone-icon">📁</span>
+                                <p class="dropzone-title">Drag & drop your Excel cash sheet here</p>
+                                <p class="dropzone-sub">or click to browse your folders</p>
+                            </div>
+                            <div id="cash-file-badge" class="file-badge hidden">
+                                <span class="file-icon">📊</span>
+                                <span id="cash-file-name" class="file-name">ledger.xlsx</span>
+                                <button onclick="clearFile('cash')" class="btn-clear">&times;</button>
+                            </div>
+                        </div>
+                        
+                        <div class="actions-bar">
+                            <button id="btn-convert-cash" class="btn btn-primary btn-block" onclick="runCashConversion()">
+                                <span id="cash-btn-text">Convert Receipts to Tally 🔮</span>
+                                <span id="cash-spinner" class="spinner-small hidden"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: TRANSLATION INFO -->
+                    <div class="sidebar-info">
+                        <div class="glass-card gradient-border-card">
+                            <h3>📜 Telugu to English Translation</h3>
+                            <p>The system automatically translates donor names written in Telugu script to English letters.</p>
+                            <p>Any names that look unusual or need careful spelling checks are shown below for you to review and correct if needed.</p>
+                        </div>
+                        <div class="glass-card status-msg-box" id="cash-status-info">
+                            <p class="neutral-status">Waiting for cash receipts file...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTTOM AREA: TRANSLATION DESK & RESULTS -->
+                <div id="cash-results" class="results-container hidden animate-fade-in">
+                    <!-- TRANSLATION WORKSPACE -->
+                    <div class="glass-card" id="translation-desk-card">
+                        <h3>📋 Name Translation Review Desk</h3>
+                        <p class="card-desc">Review and correct Telugu-to-English translations from the spreadsheet before saving your final files.</p>
+                        
+                        <div class="tabs-sub">
+                            <button class="btn-subtab active" onclick="switchSubTab('subtab-critical')">
+                                ⚠️ Names Needing Review (<span id="count-critical-flags">0</span>)
+                            </button>
+                            <button class="btn-subtab" onclick="switchSubTab('subtab-all')">
+                                🗂️ View All Mapped Names (<span id="count-all-donors">0</span>)
+                            </button>
+                        </div>
+
+                        <!-- SUBTAB 1: NAMES NEEDING REVIEW -->
+                        <div id="subtab-critical" class="subtab-pane active">
+                            <div class="alert alert-info">
+                                💡 <strong>Spelling review:</strong> Review accented characters or long names. Correcting a name will update your name translation dictionary for future conversions.
+                            </div>
+                            <div class="table-editor-wrapper">
+                                <table id="cash-flags-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Original Telugu Input</th>
+                                            <th>English Translation (Editable)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Editable rows injected here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- SUBTAB 2: ALL DIRECTORY REVIEW -->
+                        <div id="subtab-all" class="subtab-pane hidden">
+                            <div class="search-bar-container">
+                                <input type="text" id="directory-search-input" placeholder="Search names..." onkeyup="filterDirectoryTable()">
+                            </div>
+                            <div class="table-editor-wrapper">
+                                <table id="cash-directory-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Original Telugu Input</th>
+                                            <th>English Translation (Editable)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Editable rows injected here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="actions-bar mt-2">
+                            <button class="btn btn-secondary" onclick="saveTranslationDesk()">
+                                Save Changes & Update List 💾
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- METRICS & EXPORTS -->
+                    <div class="glass-card">
+                        <div class="results-header">
+                            <h3>📊 Ingested Cash Data Metrics</h3>
+                            <span class="badge success">🟢 INGESTED SUCCESSFULLY</span>
+                        </div>
+
+                        <div class="metrics-strip">
+                            <div class="metric-card">
+                                <span class="metric-label">Voucher Receipts Created</span>
+                                <span class="metric-value" id="m-cash-count">0</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Cumulative Money In</span>
+                                <span class="metric-value text-success" id="m-cash-total">₹ 0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- DOWNLOAD DECKS -->
+                        <div class="export-deck">
+                            <div class="export-widget">
+                                <h4>Tally XML Receipts File</h4>
+                                <p>Ready-to-use XML file containing all cash receipts to import into Tally.</p>
+                                <button onclick="triggerDownload('xml_cash')" class="btn btn-primary btn-block">Download Receipts XML (.xml)</button>
+                            </div>
+                            <div class="export-widget">
+                                <h4>Excel Preview Workbook</h4>
+                                <p>Excel file showing transactions separated by month for verification.</p>
+                                <button onclick="triggerDownload('xlsx_cash')" class="btn btn-secondary btn-block">Download Excel Preview (.xlsx)</button>
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- CHART -->
+                        <div class="chart-section">
+                            <h4>📊 Month-by-Month Receipts Collections</h4>
+                            <div class="chart-container" id="cash-chart-canvas">
+                                <!-- SVG Chart injected by JS -->
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- DATAGRID -->
+                        <div class="table-section">
+                            <h4>📋 Monthly Collections Summary Table</h4>
+                            <div class="table-wrapper">
+                                <table id="cash-summary-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Month</th>
+                                            <th>Transaction Count</th>
+                                            <th>Amount Collected (₹)</th>
+                                            <th>Verification Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Injected by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 3: SUPPORTED FORMATS -->
+            <section id="formats-tab" class="tab-pane hidden animate-fade-in">
+                <header class="section-header">
+                    <h2>Supported Formats Guide</h2>
+                    <p>Learn which bank statement formats and Excel layouts are supported by the converter engine.</p>
+                </header>
+
+                <div class="alert alert-danger" style="margin-bottom: 25px; border-left: 5px solid #ef4444; background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px;">
+                    <strong>⚠️ Text-Copyable PDFs ONLY (No Scanned Documents):</strong> Only upload digital PDFs where you can select and copy the text. Scanned images, mobile phone photos, or photocopy PDFs are NOT supported because this app runs offline and does not use visual character guessing (OCR).
+                </div>
+
+                <div class="glass-card" style="margin-bottom: 25px;">
+                    <h3>🏦 Bank of Baroda (BOB) Statements</h3>
+                    <p>The app supports standard BOB digital e-statements. The system reads them using these rules:</p>
+                    <ul class="benefit-list" style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>Date Format:</strong> Must be in the format <code>DD-MM-YYYY</code> (e.g. <code>02-04-2025</code>).</li>
+                        <li><strong>Columns:</strong> The statement must have columns for: Transaction Date, Value Date, Description/Narration, Amount (Withdrawal/Deposit), and Running Balance.</li>
+                        <li><strong>Running Balance:</strong> Running balance must end with a clean <code>Cr</code> or <code>Dr</code> marker.</li>
+                        <li><strong>Opening Balance:</strong> The parser searches for the exact phrase "Opening Balance" to extract the starting balance.</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card" style="margin-bottom: 25px;">
+                    <h3>🏦 State Bank of India (SBI) Statements</h3>
+                    <p>The system automatically supports <strong>4 different formats</strong> of digital SBI statements:</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+                        <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <h4 style="color: #8b5cf6; margin-top: 0;">1. Corporate Tabular Format (Branch Code)</h4>
+                            <p style="font-size: 0.9rem; color: #9ca3af;">Used for corporate accounts. It contains columns: 
+                            <code>[Txn Date] [Value Date] [Description] [Ref No/Cheque No] [Branch Code] [Debit] [Credit] [Balance]</code>.</p>
+                            <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 8px;"><strong>Dates:</strong> <code>DD/MM/YYYY</code> (e.g. <code>15/05/2025</code>).</p>
+                        </div>
+                        
+                        <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <h4 style="color: #8b5cf6; margin-top: 0;">2. Standard Numeric Slash Format</h4>
+                            <p style="font-size: 0.9rem; color: #9ca3af;">Standard personal account e-statement format with columns separated by slashes in the dates.</p>
+                            <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 8px;"><strong>Dates:</strong> <code>DD/MM/YYYY</code> (e.g. <code>11/01/2026</code>).</p>
+                        </div>
+                        
+                        <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <h4 style="color: #8b5cf6; margin-top: 0;">3. Textual Month Tabular Format</h4>
+                            <p style="font-size: 0.9rem; color: #9ca3af;">Standard retail e-statement format containing day, textual abbreviated month, and year.</p>
+                            <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 8px;"><strong>Dates:</strong> <code>D MMM YYYY</code> (e.g. <code>4 Jun 2025</code> or <code>10 May 2025</code>).</p>
+                        </div>
+
+                        <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <h4 style="color: #8b5cf6; margin-top: 0;">4. Legacy Wrapped Line Format</h4>
+                            <p style="font-size: 0.9rem; color: #9ca3af;">Older e-statement formats where dates and descriptions wrap across multiple lines of text.</p>
+                            <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 8px;"><strong>Dates:</strong> <code>D MMM YYYY</code> (e.g. <code>9 May 2025</code>).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <h3>🌾 Ashramam Cash Receipts Excel</h3>
+                    <p>The spreadsheet must contain clean columns for your receipts batch. The converter expects the following details:</p>
+                    <ul class="benefit-list" style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>File Types:</strong> Excel Workbooks (<code>.xlsx</code>, <code>.xls</code>) or comma-separated tables (<code>.csv</code>).</li>
+                        <li><strong>Expected Columns:</strong> Receipt Date, Name of Donor, Amount, and Receipt Number.</li>
+                        <li><strong>Automatic Translation:</strong> Names written in Telugu script (like <code>రామారావు</code>) are translated automatically to English script (like <code>Ramarao</code>) using our integrated dictionary.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION 4: LEXICON MANAGER -->
+            <section id="lexicon-tab" class="tab-pane hidden animate-fade-in">
+                <header class="section-header">
+                    <h2>Name Translation Dictionary</h2>
+                    <p>Directly search, add, edit, or delete Telugu-to-English name translations stored in the dictionary.</p>
+                </header>
+
+                <div class="glass-card">
+                    <div class="lexicon-toolbar">
+                        <div class="search-box">
+                            <input type="text" id="lexicon-search" placeholder="Search dictionary names..." onkeyup="searchLexiconTable()">
+                        </div>
+                        <button class="btn btn-primary" onclick="openAddLexiconModal()">➕ Add New Mapping</button>
+                    </div>
+
+                    <div class="table-wrapper max-h-500">
+                        <table id="lexicon-manager-table">
+                            <thead>
+                                <tr>
+                                    <th>Telugu Name</th>
+                                    <th>English Mapped Name</th>
+                                    <th width="150">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Lexicon mappings loaded by AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ADD ENTRY MODAL -->
+                <div id="add-lexicon-modal" class="modal-overlay hidden">
+                    <div class="glass-card modal-content animate-fade-in">
+                        <div class="modal-header">
+                            <h3>Add Translation Entry</h3>
+                            <button onclick="closeAddLexiconModal()" class="btn-close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="new-telugu-term">Telugu Term / Name (e.g. గారూ)</label>
+                                <input type="text" id="new-telugu-term" placeholder="Enter Telugu script term">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-english-term">English Translation (e.g. Garu)</label>
+                                <input type="text" id="new-english-term" placeholder="Enter plain English equivalent">
+                            </div>
+                            <div id="modal-error" class="alert alert-danger hidden"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeAddLexiconModal()">Cancel</button>
+                            <button class="btn btn-primary" onclick="submitNewLexiconEntry()">Save Entry</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 4: LICENSE DETAILS & INFORMATION -->
+            <section id="license-tab" class="tab-pane hidden animate-fade-in">
+                <header class="section-header">
+                    <h2>License Status & Application Registry</h2>
+                    <p>Review licensing credentials, check active device keys, or deactivate this computer registry.</p>
+                </header>
+
+                <div class="grid-2-1">
+                    <!-- LEFT COLUMN: LICENSE INFO -->
+                    <div class="glass-card">
+                        <h3>🔑 License Information</h3>
+                        <div class="license-info-strip">
+                            <div class="info-row">
+                                <span class="info-label">Computer Signature:</span>
+                                <span class="info-value text-highlight" id="lic-info-signature">FETCHING-SIG...</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Authorization Status:</span>
+                                <span class="info-value" id="lic-info-status">Checking...</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Active Role:</span>
+                                <span class="info-value text-success" id="lic-info-role">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Active Key Expiration:</span>
+                                <span class="info-value" id="lic-info-expiry">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Days Remaining:</span>
+                                <span class="info-value" id="lic-info-days">-</span>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+
+                        <div class="actions-bar">
+                            <button class="btn btn-danger" onclick="deactivateLicense()">Deactivate Copy on this Computer 🔓</button>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: SYSTEM DEETS -->
+                    <div class="sidebar-info">
+                        <div class="glass-card">
+                            <h3>💻 Environment Information</h3>
+                            <p><strong>Version:</strong> 1.0.0 (Stable Release)</p>
+                            <p><strong>Operation Mode:</strong> 100% Client-Side Localhost (No Cloud Dependencies)</p>
+                            <p><strong>Support Contact:</strong> contact@yourdomain.com</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 5: ADMIN CONSOLE -->
+            <section id="admin-tab" class="tab-pane hidden animate-fade-in">
+                <header class="section-header">
+                    <h2>Administrator Licensing Console</h2>
+                    <p>Generate, monitor, and configure client activation keys with device locking and granular validity durations.</p>
+                </header>
+
+                <div class="grid-2-1">
+                    <!-- LEFT COLUMN: GENERATE CONTROLS -->
+                    <div class="glass-card">
+                        <h3>🔑 Generate Activation Key</h3>
+                        
+                        <div class="form-grid">
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label for="admin-target-sig">Target Machine Signature ID</label>
+                                <input type="text" id="admin-target-sig" placeholder="e.g. 456A-755B-2CA7-28CE" autocomplete="off" style="text-align: left; font-family: monospace;">
+                                <small style="color: var(--text-muted); margin-top: 4px; display: block;">Enter the signature ID provided by the client device.</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="admin-role-select">Authorization Role</label>
+                                <select id="admin-role-select">
+                                    <option value="USER">Standard User (Conversions Only)</option>
+                                    <option value="ADMIN">Administrator (Full App + Console Access)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="admin-duration-select">Validity Duration</label>
+                                <select id="admin-duration-select">
+                                    <option value="1min">1 Minute (Debug/Testing)</option>
+                                    <option value="5min">5 Minutes (Debug/Testing)</option>
+                                    <option value="1day">1 Day</option>
+                                    <option value="1week">1 Week</option>
+                                    <option value="1month">1 Month</option>
+                                    <option value="4month">4 Months</option>
+                                    <option value="1year">1 Year</option>
+                                    <option value="lifetime">Lifetime (Full Time)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <div class="actions-bar">
+                            <button id="btn-generate-key" class="btn btn-primary btn-block" onclick="generateAdminKey()">
+                                <span>Generate Cryptographic Activation Key ⚡</span>
+                            </button>
+                        </div>
+                        
+                        <div id="admin-key-result-container" class="signature-container hidden" style="margin-top: 25px;">
+                            <label>Generated Activation Key:</label>
+                            <div class="signature-badge">
+                                <span id="admin-generated-key-display" style="font-size: 1.1rem; word-break: break-all;">ACT-USER-XXXXX-XXXXX</span>
+                                <button onclick="copyGeneratedAdminKey()" title="Copy Key" class="btn-copy">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                </button>
+                            </div>
+                            <small style="color: var(--text-success); font-weight: 500; margin-top: 6px; display: block;">Share this activation code with the client.</small>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: ADMIN HELP -->
+                    <div class="sidebar-info">
+                        <div class="glass-card gradient-border-card">
+                            <h3>🛡️ Security & Collisions</h3>
+                            <p>Keys generated here utilize SHA-256 HMAC checksum verification. They are cryptographically secure and locked strictly to the client's hardware configuration.</p>
+                            <ul class="benefit-list" style="margin-top: 10px;">
+                                <li><strong>Device Locked:</strong> A key generated for one signature will not activate any other machine.</li>
+                                <li><strong>Sub-Day Expiry:</strong> Time-sensitive keys (1 or 5 mins) automatically expire without server connections.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+        </main>
+    </div>
+
+    <!-- MAIN FRONTEND CONTROLLERS -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

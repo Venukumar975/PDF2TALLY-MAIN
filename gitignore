@@ -1,0 +1,36 @@
+# Python bytecode and cash artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual Environments (Heavy local dependencies)
+venv/
+.venv/
+env/
+ENV/
+python/
+
+# Private environment variable matrices
+.env
+.env.*
+
+# Local data input/output drop zones
+uploads/
+temp_uploads/
+outputs/
+
+*.txt
+# Local spreadsheet and data file footprints
+*.xlsx
+*.xml
+*.json
+
+
+build/
+dist/
+logs/
+
+# Source Control tracking data
+.git/
+.gitignore

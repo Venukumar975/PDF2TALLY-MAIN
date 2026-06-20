@@ -1,0 +1,528 @@
+import os
+import io
+import tempfile
+from flask import Blueprint, request, jsonify, render_template, send_file, redirect, url_for
+from datetime import datetime, date, timedelta
+
+# Import core licensing modules
+import licensing
+
+# Import banking core modules
+from services.pdf_reader import extract_text
+from services.statement_validator import build_validation_report
+from services.xml_generator import generate_tally_xml
+from services.xlsx_viewer import export_xml_audit_workbook
+
+# Import Ashramam Custom Modules
+from parsers.cash_parser import parse_cash_workbook, load_lexicon, save_lexicon
+from services.cash_validator import run_cash_audit
+from services.cash_xlsx_writer import build_nested_tally_sheets
+from services.cash_xml_generator import generate_ashramam_tally_xml
+
+# Import custom logger
+from services.logger import logger
+
+routes_bp = Blueprint("routes", __name__)
+
+# Global in-memory cache to hold generated file data for download
+# Keys: "xml_bank", "xlsx_bank", "xml_cash", "xlsx_cash"
+FILE_CACHE = {
+    "xml_bank": None,
+    "xlsx_bank": None,
+    "xml_cash": None,
+    "xlsx_cash": None,
+    # Download file names
+    "xml_bank_filename": "tally_import.xml",
+    "xlsx_bank_filename": "statement_audit_viewer.xlsx",
+    "xml_cash_filename": "Ashramam_Cash_Receipts.xml",
+    "xlsx_cash_filename": "Tally_Nested_Sheets_Preview.xlsx"
+}
+
+# In-memory transaction storage for reprocessing
+LAST_CONVERSION = {
+    "bank_txns": None,
+    "bank_type": None,
+    "bank_opening_bal": 0.0,
+    "bank_sanitized_text": "",
+    "cash_file_bytes": None,
+    "cash_cutoff_date": None
+}
+
+# -------------------------------------------------------------
+# PAGE ROUTERS
+# -------------------------------------------------------------
+@routes_bp.route("/")
+def index():
+    return render_template("index.html")
+
+@routes_bp.route("/activate")
+def activate_page():
+    status = licensing.check_activation()
+    if status["activated"]:
+        return redirect("/")
+    return render_template("index.html")  # SPA handles rendering based on license status
+
+# -------------------------------------------------------------
+# LICENSE API
+# -------------------------------------------------------------
+@routes_bp.route("/api/status", methods=["GET"])
+def api_status():
+    return jsonify(licensing.check_activation())
+
+@routes_bp.route("/api/admin/generate_key", methods=["POST"])
+def api_admin_generate_key():
+    # 1. Authorize: Check if client is Master Admin OR active session has ADMIN role
+    status = licensing.check_activation()
+    if status.get("signature") != licensing.MASTER_ADMIN_SIGNATURE and status.get("role") != "ADMIN":
+        return jsonify({"success": False, "message": "Unauthorized. Requires Administrator privileges."}), 403
+        
+    data = request.get_json() or {}
+    target_sig = data.get("signature", "").strip().upper()
+    role = data.get("role", "USER").strip().upper()
+    duration = data.get("duration", "").strip().lower()
+    
+    if not target_sig:
+        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
+        
+    if role not in ["USER", "ADMIN"]:
+        return jsonify({"success": False, "message": "Invalid role. Must be USER or ADMIN."}), 400
+        
+    now = datetime.now()
+    if duration == "1min":
+        expiry_dt = now + timedelta(minutes=1)
+        expiry_val = str(int(expiry_dt.timestamp()))
+    elif duration == "5min":
+        expiry_dt = now + timedelta(minutes=5)
+        expiry_val = str(int(expiry_dt.timestamp()))
+    elif duration == "1day":
+        expiry_dt = now + timedelta(days=1)
+        expiry_val = str(int(expiry_dt.timestamp()))
+    elif duration == "1week":
+        expiry_dt = now + timedelta(days=7)
+        expiry_val = str(int(expiry_dt.timestamp()))
+    elif duration == "1month":
+        expiry_dt = now + timedelta(days=30)
+        expiry_val = str(int(expiry_dt.timestamp()))
+    elif duration == "4month":
+        expiry_dt = now + timedelta(days=120)
+        expiry_val = str(int(expiry_dt.timestamp()))
+    elif duration == "1year":
+        expiry_dt = now + timedelta(days=365)
+        expiry_val = str(int(expiry_dt.timestamp()))
+    elif duration == "lifetime":
+        expiry_val = "LIFETIME"
+    else:
+        return jsonify({"success": False, "message": f"Unsupported duration: {duration}"}), 400
+        
+    key = licensing.generate_activation_key(target_sig, role, expiry_val)
+    return jsonify({
+        "success": True,
+        "key": key,
+        "role": role,
+        "duration": duration,
+        "expiry_timestamp": expiry_val
+    })
+
+@routes_bp.route("/api/activate", methods=["POST"])
+def api_activate():
+    data = request.get_json() or {}
+    key = data.get("key", "").strip()
+    if not key:
+        return jsonify({"success": False, "message": "Key is required."}), 400
+        
+    success, msg = licensing.activate(key)
+    return jsonify({"success": success, "message": msg})
+
+@routes_bp.route("/api/deactivate", methods=["POST"])
+def api_deactivate():
+    licensing.deactivate()
+    return jsonify({"success": True, "message": "Deactivated successfully."})
+
+# -------------------------------------------------------------
+# CONVERSION API: BANK STATEMENT PDF
+# -------------------------------------------------------------
+@routes_bp.route("/api/convert_bank", methods=["POST"])
+def api_convert_bank():
+    try:
+        # Clear previous bank cache instantly on new file upload attempt
+        FILE_CACHE["xml_bank"] = None
+        FILE_CACHE["xlsx_bank"] = None
+        LAST_CONVERSION["bank_txns"] = None
+        LAST_CONVERSION["bank_opening_bal"] = 0.0
+        LAST_CONVERSION["bank_sanitized_text"] = ""
+
+        # Check files
+        if "file" not in request.files:
+            return jsonify({"success": False, "message": "No file uploaded."}), 400
+            
+        uploaded_file = request.files["file"]
+        bank_type = request.form.get("bank_type", "").strip()
+        strategy_type = request.form.get("strategy_type", "Whole Document").strip()
+        cutoff_date_str = request.form.get("cutoff_date", "").strip()
+        
+        debit_ledger = request.form.get("debit_ledger", "").strip()
+        credit_ledger = request.form.get("credit_ledger", "").strip()
+        
+        if not bank_type:
+            return jsonify({"success": False, "message": "Bank type is required."}), 400
+            
+        # Parse boundary date
+        boundary_date = None
+        if cutoff_date_str:
+            try:
+                boundary_date = datetime.strptime(cutoff_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+                
+        # Save temp file
+        fd, temp_path = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+        uploaded_file.save(temp_path)
+        
+        try:
+            # Extract PDF text matrix
+            text = extract_text(temp_path)
+            
+            # Verify bank profile using dynamic configs
+            from parsers.router import verify_bank_profile, route_to_parser, get_opening_balance_parser
+            if not verify_bank_profile(bank_type, text):
+                return jsonify({
+                    "success": False, 
+                    "message": f"Bank Profile Mismatch! The PDF content does not match the selected bank profile ({bank_type})."
+                }), 400
+                
+            # Process strategies (Whole Document, First Chunk, Continuation Chunk)
+            from strategies import WholeChunk, FirstChunk, ContinuationChunk
+            
+            # Resolve parser for opening balance dynamically!
+            try:
+                parse_opening_func = get_opening_balance_parser(bank_type)
+            except Exception as parser_err:
+                logger.error(f"Failed to resolve opening balance parser: {str(parser_err)}")
+                return jsonify({"success": False, "message": str(parser_err)}), 400
+            
+            if strategy_type == "Whole Document":
+                sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
+            elif strategy_type == "First Chunk":
+                sanitized_text, opening_bal = FirstChunk.process_strategy(text, parse_opening_func)
+            elif strategy_type == "Continuation Chunk":
+                if not boundary_date:
+                    boundary_date = date(2025, 4, 1)
+                sanitized_text, opening_bal = ContinuationChunk.process_strategy(text, parse_opening_func, bank_type, boundary_date)
+            else:
+                sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
+                
+            # Extract transactions via dynamic router mapping
+            transactions = route_to_parser(bank_type, sanitized_text)
+            
+            if not transactions:
+                return jsonify({"success": False, "message": "No valid transaction rows found in PDF statement."}), 400
+                
+            # Cache inputs for reprocessing ledger names
+            LAST_CONVERSION["bank_txns"] = transactions
+            LAST_CONVERSION["bank_type"] = bank_type
+            LAST_CONVERSION["bank_opening_bal"] = opening_bal
+            LAST_CONVERSION["bank_sanitized_text"] = sanitized_text
+            
+            # Build initial preview with ledger names
+            if not debit_ledger:
+                debit_ledger = "BANK OF BARODA" if "BOB" in bank_type else "STATE BANK OF INDIA"
+            if not credit_ledger:
+                credit_ledger = "Suspense"
+                
+            # Generate XML & Excel
+            xml_text = generate_tally_xml(
+                transactions, 
+                output_path=None, 
+                bank_ledger=debit_ledger, 
+                suspense_ledger=credit_ledger, 
+                opening_balance=opening_bal
+            )
+            
+            validation_report = build_validation_report(
+                sanitized_text, 
+                transactions, 
+                xml_text, 
+                debit_ledger, 
+                credit_ledger
+            )
+            
+            # Create Excel audit workbook
+            fd_xlsx, temp_xlsx = tempfile.mkstemp(suffix=".xlsx")
+            os.close(fd_xlsx)
+            export_xml_audit_workbook(xml_text, temp_xlsx, bank_ledger=debit_ledger, suspense_ledger=credit_ledger)
+            with open(temp_xlsx, "rb") as f:
+                xlsx_data = f.read()
+            try:
+                os.remove(temp_xlsx)
+            except Exception:
+                pass
+                
+            # Update cache
+            FILE_CACHE["xml_bank"] = xml_text.encode("utf-8")
+            FILE_CACHE["xlsx_bank"] = xlsx_data
+            
+            # Setup file names
+            prefix = "BOB" if "BOB" in bank_type else "SBI"
+            FILE_CACHE["xml_bank_filename"] = f"{prefix}_tally_import.xml"
+            FILE_CACHE["xlsx_bank_filename"] = f"{prefix}_statement_audit_viewer.xlsx"
+            
+            # Formulate response
+            return jsonify({
+                "success": True,
+                "report": validation_report,
+                "debit_ledger": debit_ledger,
+                "credit_ledger": credit_ledger
+            })
+            
+        finally:
+            # Cleanup PDF
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+                
+    except Exception as e:
+        logger.error(f"Bank statement conversion failed: {str(e)}", exc_info=True)
+        return jsonify({"success": False, "message": f"Conversion error: {str(e)}"}), 500
+
+@routes_bp.route("/api/reprocess_bank", methods=["POST"])
+def api_reprocess_bank():
+    try:
+        data = request.get_json() or {}
+        debit_ledger = data.get("debit_ledger", "").strip()
+        credit_ledger = data.get("credit_ledger", "").strip()
+        
+        transactions = LAST_CONVERSION.get("bank_txns")
+        bank_type = LAST_CONVERSION.get("bank_type")
+        opening_bal = LAST_CONVERSION.get("bank_opening_bal")
+        sanitized_text = LAST_CONVERSION.get("bank_sanitized_text")
+        
+        if not transactions or not bank_type:
+            return jsonify({"success": False, "message": "No active bank session found. Please upload file first."}), 400
+            
+        if not debit_ledger:
+            debit_ledger = "BANK OF BARODA" if "BOB" in bank_type else "STATE BANK OF INDIA"
+        if not credit_ledger:
+            credit_ledger = "Suspense"
+            
+        # Re-generate files
+        xml_text = generate_tally_xml(
+            transactions, 
+            output_path=None, 
+            bank_ledger=debit_ledger, 
+            suspense_ledger=credit_ledger, 
+            opening_balance=opening_bal
+        )
+        
+        validation_report = build_validation_report(
+            sanitized_text, 
+            transactions, 
+            xml_text, 
+            debit_ledger, 
+            credit_ledger
+        )
+        
+        # Create Excel audit workbook
+        fd_xlsx, temp_xlsx = tempfile.mkstemp(suffix=".xlsx")
+        os.close(fd_xlsx)
+        export_xml_audit_workbook(xml_text, temp_xlsx, bank_ledger=debit_ledger, suspense_ledger=credit_ledger)
+        with open(temp_xlsx, "rb") as f:
+            xlsx_data = f.read()
+        try:
+            os.remove(temp_xlsx)
+        except Exception:
+            pass
+            
+        # Update cache
+        FILE_CACHE["xml_bank"] = xml_text.encode("utf-8")
+        FILE_CACHE["xlsx_bank"] = xlsx_data
+        
+        return jsonify({
+            "success": True,
+            "report": validation_report,
+            "debit_ledger": debit_ledger,
+            "credit_ledger": credit_ledger
+        })
+        
+    except Exception as e:
+        logger.error(f"Reprocessing bank ledger names failed: {str(e)}", exc_info=True)
+        return jsonify({"success": False, "message": f"Reprocessing error: {str(e)}"}), 500
+
+# -------------------------------------------------------------
+# CONVERSION API: ASHRAMAM CASH RECEIPTS LEDGER
+# -------------------------------------------------------------
+@routes_bp.route("/api/convert_cash", methods=["POST"])
+def api_convert_cash():
+    try:
+        # Clear previous cash cache instantly on new file upload attempt
+        FILE_CACHE["xml_cash"] = None
+        FILE_CACHE["xlsx_cash"] = None
+        LAST_CONVERSION["cash_file_bytes"] = None
+
+        # Check files
+        if "file" not in request.files:
+            return jsonify({"success": False, "message": "No file uploaded."}), 400
+            
+        uploaded_file = request.files["file"]
+        cutoff_date_str = request.form.get("cutoff_date", "").strip()
+        debit_ledger = request.form.get("debit_ledger", "Cash").strip()
+        credit_ledger = request.form.get("credit_ledger", "Annadana Prasadam Donations Received").strip()
+        
+        # Parse boundary date
+        boundary_date = None
+        if cutoff_date_str:
+            try:
+                boundary_date = datetime.strptime(cutoff_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+                
+        # Read file bytes in memory so we can re-process if lexicon updates
+        file_bytes = uploaded_file.read()
+        LAST_CONVERSION["cash_file_bytes"] = file_bytes
+        LAST_CONVERSION["cash_cutoff_date"] = boundary_date
+        
+        # Ingest cash workbook
+        file_stream = io.BytesIO(file_bytes)
+        transactions, flagged_map, master_names_map = parse_cash_workbook(file_stream, start_date_cutoff=boundary_date)
+        
+        # Run validations
+        audit_report = run_cash_audit(transactions)
+        
+        # Build preview files
+        xml_text = generate_ashramam_tally_xml(transactions, cash_ledger=debit_ledger, donation_ledger=credit_ledger)
+        excel_preview = build_nested_tally_sheets(transactions, cash_ledger=debit_ledger, donation_ledger=credit_ledger)
+        
+        # Cache file downloads
+        FILE_CACHE["xml_cash"] = xml_text.encode("utf-8")
+        FILE_CACHE["xlsx_cash"] = excel_preview
+        
+        return jsonify({
+            "success": True,
+            "report": audit_report,
+            "flagged_names": flagged_map,
+            "master_names": master_names_map,
+            "debit_ledger": debit_ledger,
+            "credit_ledger": credit_ledger
+        })
+        
+    except ValueError as val_err:
+        return jsonify({"success": False, "message": f"Validation failed: {str(val_err)}"}), 400
+    except Exception as e:
+        logger.error(f"Ashramam ledger conversion failed: {str(e)}", exc_info=True)
+        return jsonify({"success": False, "message": f"Conversion error: {str(e)}"}), 500
+
+@routes_bp.route("/api/reprocess_cash", methods=["POST"])
+def api_reprocess_cash():
+    try:
+        data = request.get_json() or {}
+        debit_ledger = data.get("debit_ledger", "Cash").strip()
+        credit_ledger = data.get("credit_ledger", "Annadana Prasadam Donations Received").strip()
+        
+        file_bytes = LAST_CONVERSION.get("cash_file_bytes")
+        boundary_date = LAST_CONVERSION.get("cash_cutoff_date")
+        
+        if not file_bytes:
+            return jsonify({"success": False, "message": "No active ledger session. Please upload file first."}), 400
+            
+        file_stream = io.BytesIO(file_bytes)
+        transactions, flagged_map, master_names_map = parse_cash_workbook(file_stream, start_date_cutoff=boundary_date)
+        
+        audit_report = run_cash_audit(transactions)
+        
+        # Re-generate downloads
+        xml_text = generate_ashramam_tally_xml(transactions, cash_ledger=debit_ledger, donation_ledger=credit_ledger)
+        excel_preview = build_nested_tally_sheets(transactions, cash_ledger=debit_ledger, donation_ledger=credit_ledger)
+        
+        # Cache updates
+        FILE_CACHE["xml_cash"] = xml_text.encode("utf-8")
+        FILE_CACHE["xlsx_cash"] = excel_preview
+        
+        return jsonify({
+            "success": True,
+            "report": audit_report,
+            "flagged_names": flagged_map,
+            "master_names": master_names_map,
+            "debit_ledger": debit_ledger,
+            "credit_ledger": credit_ledger
+        })
+        
+    except Exception as e:
+        logger.error(f"Reprocessing cash ledger failed: {str(e)}", exc_info=True)
+        return jsonify({"success": False, "message": f"Reprocessing error: {str(e)}"}), 500
+
+# -------------------------------------------------------------
+# LEXICON MANAGING API
+# -------------------------------------------------------------
+@routes_bp.route("/api/lexicon", methods=["GET"])
+def api_get_lexicon():
+    return jsonify(load_lexicon())
+
+@routes_bp.route("/api/lexicon/update", methods=["POST"])
+def api_update_lexicon():
+    try:
+        data = request.get_json() or {}
+        updates = data.get("updates", {}) # format: { "telugu_name": "english_name" }
+        deletes = data.get("deletes", [])  # list of telugu keys to delete
+        
+        lexicon = load_lexicon()
+        updated_count = 0
+        
+        # Process deletes
+        for k in deletes:
+            if k in lexicon:
+                del lexicon[k]
+                updated_count += 1
+                
+        # Helper function to save both macro and micro split tokens (matches Streamlit dual-layer logic)
+        def save_dual_layer_tokens(telugu_phrase, english_phrase, lexicon_dict):
+            has_updates = False
+            
+            # Layer 1: Macro
+            if lexicon_dict.get(telugu_phrase) != english_phrase:
+                lexicon_dict[telugu_phrase] = english_phrase
+                has_updates = True
+                
+            # Layer 2: Micro split words (only if word count matches 1-to-1)
+            t_words = telugu_phrase.strip().split()
+            e_words = english_phrase.strip().split()
+            if len(t_words) == len(e_words):
+                for tw, ew in zip(t_words, e_words):
+                    if lexicon_dict.get(tw) != ew:
+                        lexicon_dict[tw] = ew
+                        has_updates = True
+            return has_updates
+
+        # Process updates
+        for telugu_key, english_val in updates.items():
+            telugu_key = telugu_key.strip()
+            english_val = english_val.strip()
+            if telugu_key and english_val:
+                if save_dual_layer_tokens(telugu_key, english_val, lexicon):
+                    updated_count += 1
+                    
+        if updated_count > 0:
+            save_lexicon(lexicon)
+            
+        return jsonify({"success": True, "message": f"Successfully updated {updated_count} mapping(s)."})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+# -------------------------------------------------------------
+# FILE DOWNLOAD ROUTER
+# -------------------------------------------------------------
+@routes_bp.route("/api/download/<file_type>", methods=["GET"])
+def api_download(file_type):
+    # Valid file types: "xml_bank", "xlsx_bank", "xml_cash", "xlsx_cash"
+    if file_type not in FILE_CACHE or FILE_CACHE[file_type] is None:
+        return f"<h3>Error: No generated output file found for Type '{file_type}'. Convert a statement first.</h3>", 404
+        
+    data = FILE_CACHE[file_type]
+    filename = FILE_CACHE.get(f"{file_type}_filename", "output_file")
+    
+    mimetype = "application/xml" if "xml" in file_type else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    
+    return send_file(
+        io.BytesIO(data),
+        mimetype=mimetype,
+        download_name=filename,
+        as_attachment=True
+    )
