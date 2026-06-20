@@ -550,14 +550,109 @@
 
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, date
 import xml.etree.ElementTree as ET
+import re
 
 BALANCE_TOLERANCE = 0.01
 
+def _check_statement_coverage(text, transactions):
+    if not transactions:
+        return {"passed": True, "message": ""}
+        
+    last_txn = transactions[-1]
+    last_date_str = last_txn["gl_date"] # format "dd-mm-yyyy"
+    
+    try:
+        last_date = datetime.strptime(last_date_str, "%d-%m-%Y").date()
+    except Exception:
+        return {"passed": True, "message": ""}
+        
+    # Try to find the line index of the last parsed transaction
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    last_txn_idx = -1
+    
+    # Search from the end of the lines list upwards
+    last_bal_str = f"{abs(float(last_txn['balance'])):.2f}"
+    
+    for idx in range(len(lines) - 1, -1, -1):
+        line = lines[idx]
+        # Check if the line contains the balance or a significant part of narration
+        if last_bal_str in line or (last_txn.get("narration") and last_txn["narration"][:20] in line):
+            last_txn_idx = idx
+            break
+            
+    if last_txn_idx == -1:
+        # Fallback: if we couldn't find the exact line, search in the last 20% of the document
+        last_txn_idx = int(len(lines) * 0.8)
+        
+    # Now scan all lines after last_txn_idx for potential unparsed transactions
+    unparsed_rows = []
+    
+    months_map = {
+        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+        "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12
+    }
+    months_pattern = "|".join(months_map.keys())
+    
+    for idx in range(last_txn_idx + 1, len(lines)):
+        line = lines[idx]
+        parts = line.split()
+        
+        # Check for date patterns in the line
+        has_date = False
+        parsed_line_date = None
+        
+        # Pattern 1: DD-MM-YYYY or DD/MM/YYYY
+        m1 = re.search(r"\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b", line)
+        if m1:
+            try:
+                day, month, year = int(m1.group(1)), int(m1.group(2)), int(m1.group(3))
+                parsed_line_date = date(year, month, day)
+                has_date = True
+            except ValueError:
+                pass
+                
+        # Pattern 2: DD MMM YYYY or DD MMM
+        if not has_date:
+            m2 = re.search(rf"\b(\d{{1,2}})\s+({months_pattern})[a-z]*(?:\s+(\d{{4}}))?\b", line, re.IGNORECASE)
+            if m2:
+                try:
+                    day = int(m2.group(1))
+                    month = months_map[m2.group(2).lower()]
+                    year = int(m2.group(3)) if m2.group(3) else last_date.year
+                    parsed_line_date = date(year, month, day)
+                    has_date = True
+                except ValueError:
+                    pass
+                    
+        # Check if this line has decimals (amount-like or balance-like)
+        has_decimal = False
+        for p in parts:
+            p_clean = p.replace(",", "").strip()
+            if re.match(r"^-?\d+\.\d{2}$", p_clean):
+                has_decimal = True
+                break
+                
+        if has_date and has_decimal and parsed_line_date:
+            # Check if this parsed date is later than our last parsed transaction date
+            if parsed_line_date > last_date:
+                unparsed_rows.append((line, parsed_line_date))
+                
+    if unparsed_rows:
+        first_unparsed_line, unparsed_date = unparsed_rows[0]
+        unparsed_date_str = unparsed_date.strftime("%d-%m-%Y")
+        return {
+            "passed": False,
+            "message": f"Unparsed transaction data detected (Latest date in PDF: {unparsed_date_str}, Last parsed transaction: {last_date_str})."
+        }
+        
+    return {"passed": True, "message": ""}
+
+
 def build_validation_report(text, transactions, xml_text, bank_ledger, suspense_ledger):
     """
-    Main entry point performing the clear 3-Check Audit Pipeline.
+    Main entry point performing the clear 3-Check Audit Pipeline + Statement Coverage.
     """
     xml_root = ET.fromstring(xml_text)
     xml_vouchers = xml_root.findall(".//VOUCHER")
@@ -568,12 +663,14 @@ def build_validation_report(text, transactions, xml_text, bank_ledger, suspense_
     check_1_report = _run_check_1_summary_match(valid_txns, xml_vouchers, bank_ledger)
     check_2_report = _run_check_2_parallel_match(valid_txns, xml_vouchers, bank_ledger)
     check_3_report = _run_check_3_sequence_integrity(xml_vouchers)
+    coverage_report = _check_statement_coverage(text, valid_txns)
 
     pipeline_passed = (
         check_1_report["overall_totals_match"] and 
         check_1_report["monthly_mismatch_count"] == 0 and
         check_2_report["mismatch_count"] == 0 and
-        check_3_report["integrity_passed"]
+        check_3_report["integrity_passed"] and
+        coverage_report["passed"]
     )
 
     return {
@@ -584,6 +681,7 @@ def build_validation_report(text, transactions, xml_text, bank_ledger, suspense_
             "credit_total": check_1_report["pdf_totals"]["credit"],
             "debit_total": check_1_report["pdf_totals"]["debit"],
             "is_reconciled": pipeline_passed,
+            "audit_message": coverage_report["message"],
             "type_counts": dict(Counter(t.get("type", "UNKNOWN") for t in transactions)),
             "balance_movement_error_count": check_2_report["mismatch_count"],
             "balance_movement_errors": check_2_report["mismatches"],

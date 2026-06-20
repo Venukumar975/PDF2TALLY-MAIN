@@ -416,7 +416,11 @@ async function runBankConversion() {
         
         if (data.success) {
             renderBankResults(data);
-            updateStatusBox("bank", "✅ PDF Ingestion & Verification Chain Complete!", "success");
+            if (data.report.statement.is_reconciled) {
+                updateStatusBox("bank", "✅ PDF Ingestion & Verification Chain Complete!", "success");
+            } else {
+                updateStatusBox("bank", `⚠️ Warning: ${data.report.statement.audit_message || "Audit pipeline validation checks failed."}`, "danger");
+            }
         } else {
             updateStatusBox("bank", `❌ Error: ${data.message}`, "danger");
         }
@@ -449,7 +453,11 @@ async function reprocessBankLedgers() {
         const data = await res.json();
         if (data.success) {
             renderBankResults(data);
-            alert("Ledger settings applied and files re-generated successfully!");
+            if (data.report.statement.is_reconciled) {
+                updateStatusBox("bank", "✅ Custom Ledger settings applied and files re-generated successfully!", "success");
+            } else {
+                updateStatusBox("bank", `⚠️ Warning: ${data.report.statement.audit_message || "Audit pipeline validation checks failed."}`, "danger");
+            }
         } else {
             alert(`Error: ${data.message}`);
         }

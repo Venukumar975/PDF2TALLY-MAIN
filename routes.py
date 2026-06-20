@@ -203,17 +203,29 @@ def api_convert_bank():
             
             if strategy_type == "Whole Document":
                 sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
+                transactions = route_to_parser(bank_type, sanitized_text)
             elif strategy_type == "First Chunk":
                 sanitized_text, opening_bal = FirstChunk.process_strategy(text, parse_opening_func)
+                transactions = route_to_parser(bank_type, sanitized_text)
             elif strategy_type == "Continuation Chunk":
                 if not boundary_date:
                     boundary_date = date(2025, 4, 1)
-                sanitized_text, opening_bal = ContinuationChunk.process_strategy(text, parse_opening_func, bank_type, boundary_date)
+                sanitized_text, _ = ContinuationChunk.process_strategy(text, parse_opening_func, bank_type, boundary_date)
+                # Parse full transactions list first to ensure correct Dr/Cr classification and prevent skips
+                full_transactions = route_to_parser(bank_type, text)
+                # Filter parsed transactions by boundary date
+                transactions = []
+                for txn in full_transactions:
+                    try:
+                        txn_date = datetime.strptime(txn["gl_date"], "%d-%m-%Y").date()
+                        if txn_date >= boundary_date:
+                            transactions.append(txn)
+                    except Exception:
+                        pass
+                opening_bal = None
             else:
                 sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
-                
-            # Extract transactions via dynamic router mapping
-            transactions = route_to_parser(bank_type, sanitized_text)
+                transactions = route_to_parser(bank_type, sanitized_text)
             
             if not transactions:
                 return jsonify({"success": False, "message": "No valid transaction rows found in PDF statement."}), 400

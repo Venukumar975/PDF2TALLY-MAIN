@@ -1,35 +1,30 @@
 import sys
+from datetime import datetime, date
 from services.pdf_reader import extract_text
 from parsers.sbi_parser import parse_transactions
 
-def test_sbi_parsing():
-    print("[TEST] Extracting text from sbi_statement.pdf...")
-    try:
-        text = extract_text("sbi_statement.pdf")
-        if not text:
-            print("[FAIL] No text extracted from PDF.")
-            return
-        
-        print(f"[TEST] Text length: {len(text)} characters.")
-        
-        print("[TEST] Parsing transactions...")
-        txns = parse_transactions(text)
-        
-        print(f"[TEST] Successfully parsed {len(txns)} transactions!")
-        if txns:
-            print("\nFirst 3 transactions:")
-            for t in txns[:3]:
-                print(t)
-            print("\nLast 3 transactions:")
-            for t in txns[-3:]:
-                print(t)
-        else:
-            print("[FAIL] Parser returned zero transactions.")
+def test_new_continuation_logic():
+    print("[TEST] Extracting text...")
+    text = extract_text("sbi_statement.pdf")
+    
+    boundary = date(2025, 6, 10)
+    print(f"[TEST] Parsing full transactions first...")
+    full_txns = parse_transactions(text)
+    
+    print(f"[TEST] Filtering transactions from {boundary} onwards...")
+    txns = []
+    for t in full_txns:
+        t_date = datetime.strptime(t["gl_date"], "%d-%m-%Y").date()
+        if t_date >= boundary:
+            txns.append(t)
             
-    except Exception as e:
-        print(f"[ERROR] Test failed with exception: {e}")
-        import traceback
-        traceback.print_exc()
+    print(f"[TEST] Filtered transaction count: {len(txns)}")
+    if txns:
+        print("\nFirst 5 parsed transactions (should start with 10-06-2025 and have correct types):")
+        for t in txns[:5]:
+            print(t)
+    else:
+        print("[FAIL] No transactions matched.")
 
 if __name__ == "__main__":
-    test_sbi_parsing()
+    test_new_continuation_logic()
