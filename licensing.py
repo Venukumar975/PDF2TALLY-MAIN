@@ -95,7 +95,7 @@ _license_cache = {
     "error_type": None
 }
 
-OBFUSCATED_BACKEND_URL = "aHR0cDovLzEyNy4wLjAuMTo4MDAw"
+OBFUSCATED_BACKEND_URL = "aHR0cHM6Ly9waWthY2h1OTc1LnB5dGhvbmFueXdoZXJlLmNvbQ=="
 
 def get_cloud_backend_url():
     url = os.environ.get("PDF2TALLY_CLOUD_URL")
