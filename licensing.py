@@ -5,6 +5,7 @@ import platform
 import subprocess
 import json
 from datetime import datetime, date
+import time
 
 SECRET_SALT = "PDF2TALLY_SECURE_OFFLINE_LICENSE_SALT_2026_@#$!"
 LICENSE_FILE_PATH = os.path.expanduser("~/.pdf2tally.lic")
