@@ -673,6 +673,15 @@ def build_validation_report(text, transactions, xml_text, bank_ledger, suspense_
         coverage_report["passed"]
     )
 
+    audit_msg = coverage_report["message"]
+    # Prompt the user to check the first transaction type if the 0.00 fallback was active
+    if valid_txns and valid_txns[0].get("is_fallback_type"):
+        fallback_msg = "Since no starting/previous balance was provided or found, the first transaction type was inferred using a 0.00 fallback. Please verify if the first transaction type is correct."
+        if audit_msg:
+            audit_msg += " " + fallback_msg
+        else:
+            audit_msg = fallback_msg
+
     return {
         "statement": {
             "transaction_count": len(transactions),
@@ -681,7 +690,7 @@ def build_validation_report(text, transactions, xml_text, bank_ledger, suspense_
             "credit_total": check_1_report["pdf_totals"]["credit"],
             "debit_total": check_1_report["pdf_totals"]["debit"],
             "is_reconciled": pipeline_passed,
-            "audit_message": coverage_report["message"],
+            "audit_message": audit_msg,
             "type_counts": dict(Counter(t.get("type", "UNKNOWN") for t in transactions)),
             "balance_movement_error_count": check_2_report["mismatch_count"],
             "balance_movement_errors": check_2_report["mismatches"],

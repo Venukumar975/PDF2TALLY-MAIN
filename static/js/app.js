@@ -396,6 +396,7 @@ async function runBankConversion() {
     const cutoffDate = document.getElementById("bank-cutoff-date").value;
     const debitLedger = document.getElementById("bank-debit-ledger").value.trim();
     const creditLedger = document.getElementById("bank-credit-ledger").value.trim();
+    const prevBalance = document.getElementById("bank-prev-balance") ? document.getElementById("bank-prev-balance").value.trim() : "";
     
     const formData = new FormData();
     formData.append("file", state.files.bank);
@@ -404,6 +405,7 @@ async function runBankConversion() {
     formData.append("cutoff_date", cutoffDate);
     formData.append("debit_ledger", debitLedger);
     formData.append("credit_ledger", creditLedger);
+    formData.append("prev_balance", prevBalance);
     
     updateStatusBox("bank", "⏳ Step 1: Running verification & row extraction...", "info");
     
@@ -663,7 +665,7 @@ function populateTranslationTables(flaggedNames, masterNames) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${telugu}</td>
-                <td><input type="text" class="flag-input" data-telugu="${telugu}" value="${flaggedNames[telugu]}"></td>
+                <td><input type="text" class="flag-input" data-telugu="${telugu}" data-original="${flaggedNames[telugu]}" value="${flaggedNames[telugu]}"></td>
             `;
             flagsTbody.appendChild(tr);
         });
@@ -682,7 +684,7 @@ function populateTranslationTables(flaggedNames, masterNames) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${telugu}</td>
-                <td><input type="text" class="dir-input" data-telugu="${telugu}" value="${masterNames[telugu]}"></td>
+                <td><input type="text" class="dir-input" data-telugu="${telugu}" data-original="${masterNames[telugu]}" value="${masterNames[telugu]}"></td>
             `;
             dirTbody.appendChild(tr);
         });
@@ -692,17 +694,23 @@ function populateTranslationTables(flaggedNames, masterNames) {
 async function saveTranslationDesk() {
     const updates = {};
     
-    // Pull updates from inputs
+    // Pull updates from inputs (only if modified by the user)
     document.querySelectorAll("#cash-flags-table .flag-input").forEach(input => {
         const telugu = input.getAttribute("data-telugu");
         const val = input.value.trim();
-        if (val) updates[telugu] = val;
+        const original = (input.getAttribute("data-original") || "").trim();
+        if (val && val !== original) {
+            updates[telugu] = val;
+        }
     });
     
     document.querySelectorAll("#cash-directory-table .dir-input").forEach(input => {
         const telugu = input.getAttribute("data-telugu");
         const val = input.value.trim();
-        if (val) updates[telugu] = val;
+        const original = (input.getAttribute("data-original") || "").trim();
+        if (val && val !== original) {
+            updates[telugu] = val;
+        }
     });
     
     if (Object.keys(updates).length === 0) {
@@ -876,6 +884,38 @@ async function submitNewLexiconEntry() {
     }
 }
 
+async function cleanLexiconMismatches() {
+    if (!confirm("Are you sure you want to clean the translation dictionary? This will remove all English-to-English word mappings, leaving only Telugu-to-English mappings.")) {
+        return;
+    }
+    
+    try {
+        const btn = document.querySelector('button[onclick="cleanLexiconMismatches()"]');
+        const origText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "🧹 Cleaning...";
+        
+        const res = await fetch("/api/lexicon/clean", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+        
+        btn.disabled = false;
+        btn.innerHTML = origText;
+        
+        if (data.success) {
+            alert(data.message);
+            loadLexiconManager();
+        } else {
+            alert(`Error cleaning dictionary: ${data.message}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Failed to clean dictionary. Communication error.");
+    }
+}
+
 // ==========================================
 // DYNAMIC SVG CHART GENERATOR (NO DEPENDENCIES)
 // ==========================================
@@ -1017,10 +1057,14 @@ function addReprocessButton(type, reprocessCallback) {
 function toggleDateFilter(type) {
     const strat = document.getElementById("strategy-select").value;
     const filter = document.getElementById("bank-date-filter-group");
-    if (strat === "Continuation Chunk") {
-        filter.classList.remove("hidden");
+    const prevBalGroup = document.getElementById("bank-prev-balance-group");
+    
+    if (strat === "Incomplete statement (Continuation)") {
+        if (filter) filter.classList.remove("hidden");
+        if (prevBalGroup) prevBalGroup.classList.remove("hidden");
     } else {
-        filter.classList.add("hidden");
+        if (filter) filter.classList.add("hidden");
+        if (prevBalGroup) prevBalGroup.classList.add("hidden");
     }
 }
 

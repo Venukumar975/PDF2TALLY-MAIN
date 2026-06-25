@@ -44,6 +44,7 @@ PyInstaller.__main__.run([
     '--collect-all=pdfplumber',
     '--collect-all=pypdfium2',
     '--collect-all=flask',
+    '--collect-all=aksharamukha',
     '--add-data=parsers;parsers',
     '--add-data=services;services',
     '--add-data=strategies;strategies',

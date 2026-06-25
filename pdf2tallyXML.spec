@@ -3,12 +3,14 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('parsers', 'parsers'), ('services', 'services'), ('strategies', 'strategies'), ('slicers', 'slicers'), ('templates', 'templates'), ('static', 'static'), ('telugu_mappings.json', '.')]
 binaries = []
-hiddenimports = ['marisa-trie', 'itsdangerous', 'click', 'proxy_tools', 'pyinstaller-hooks-contrib', 'pefile', 'Jinja2', 'httptools', 'PyYAML', 'gitdb', 'tzdata', 'langcodes', 'rpds-py', 'pyarrow', 'certifi', 'MarkupSafe', 'altgraph', 'packaging', 'pywin32-ctypes', 'narwhals', 'et_xmlfile', 'protobuf', 'setuptools', 'starlette', 'clr_loader', 'jsonschema', 'idna', 'werkzeug', 'cffi', 'cryptography', 'regex', 'referencing', 'python-multipart', 'fonttools', 'wrapt', 'python-dateutil', 'toml', 'pdfminer.six', 'lxml', 'websockets', 'cachetools', 'pillow', 'pdfplumber', 'anyio', 'smmap', 'altair', 'pyinstaller', 'requests', 'attrs', 'blinker', 'language_data', 'typing_extensions', 'bottle', 'pythonnet', 'six', 'charset-normalizer', 'unicodedata2', 'flask', 'jsonschema-specifications', 'watchdog', 'tenacity', 'pydeck', 'pypdfium2', 'uvicorn', 'GitPython', 'plotly', 'h11', 'jaconv', 'pycparser', 'colorama', 'pywebview', 'openpyxl', 'pykakasi', 'urllib3', 'aksharamukha', 'jinja2', 'numpy', 'pandas', 'Deprecated']
+hiddenimports = ['et_xmlfile', 'typing_extensions', 'uvicorn', 'click', 'starlette', 'toml', 'rpds-py', 'pythonnet', 'MarkupSafe', 'clr_loader', 'Deprecated', 'openpyxl', 'pycparser', 'packaging', 'bottle', 'pywebview', 'regex', 'pdfplumber', 'language_data', 'certifi', 'setuptools', 'lxml', 'jsonschema', 'aksharamukha', 'marisa-trie', 'fonttools', 'watchdog', 'cachetools', 'numpy', 'httptools', 'pyinstaller', 'jinja2', 'cffi', 'werkzeug', 'pydeck', 'idna', 'python-dateutil', 'flask', 'anyio', 'cryptography', 'six', 'langcodes', 'h11', 'urllib3', 'pyinstaller-hooks-contrib', 'GitPython', 'Jinja2', 'altgraph', 'referencing', 'pandas', 'wrapt', 'smmap', 'requests', 'plotly', 'blinker', 'pypdfium2', 'pywin32-ctypes', 'colorama', 'gitdb', 'PyYAML', 'python-multipart', 'pykakasi', 'websockets', 'pdfminer.six', 'pefile', 'pillow', 'altair', 'tenacity', 'jsonschema-specifications', 'protobuf', 'tzdata', 'charset-normalizer', 'itsdangerous', 'narwhals', 'pyarrow', 'attrs', 'unicodedata2', 'proxy_tools', 'jaconv']
 tmp_ret = collect_all('pdfplumber')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('pypdfium2')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('flask')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('aksharamukha')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 

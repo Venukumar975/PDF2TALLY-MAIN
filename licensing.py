@@ -12,25 +12,56 @@ LICENSE_FILE_PATH = os.path.expanduser("~/.pdf2tally.lic")
 def get_machine_raw_identifiers():
     """Gathers raw hardware identifiers to form a unique hardware fingerprint."""
     identifiers = []
-    try:
-        if platform.system() == "Windows":
-            # Motherboard UUID
-            uuid_out = subprocess.check_output("wmic csproduct get uuid", shell=True).decode().strip().split("\n")
+    
+    if platform.system() == "Windows":
+        # 1. Motherboard UUID
+        uuid = None
+        try:
+            uuid_out = subprocess.check_output("wmic csproduct get uuid", shell=True, stderr=subprocess.DEVNULL).decode().strip().split("\n")
             if len(uuid_out) > 1:
-                identifiers.append(uuid_out[1].strip())
+                uuid = uuid_out[1].strip()
+        except Exception:
+            pass
+        if not uuid:
+            try:
+                uuid = subprocess.check_output('powershell -NoProfile -Command "(Get-CimInstance Win32_ComputerSystemProduct).UUID"', shell=True, stderr=subprocess.DEVNULL).decode().strip()
+            except Exception:
+                pass
+        if uuid:
+            identifiers.append(uuid)
             
-            # CPU ID
-            cpuid_out = subprocess.check_output("wmic cpu get processorid", shell=True).decode().strip().split("\n")
+        # 2. CPU ID
+        cpuid = None
+        try:
+            cpuid_out = subprocess.check_output("wmic cpu get processorid", shell=True, stderr=subprocess.DEVNULL).decode().strip().split("\n")
             if len(cpuid_out) > 1:
-                identifiers.append(cpuid_out[1].strip())
-                
-            # BIOS Serial
-            bios_out = subprocess.check_output("wmic bios get serialnumber", shell=True).decode().strip().split("\n")
+                cpuid = cpuid_out[1].strip()
+        except Exception:
+            pass
+        if not cpuid:
+            try:
+                cpuid = subprocess.check_output('powershell -NoProfile -Command "(Get-CimInstance Win32_Processor).ProcessorId"', shell=True, stderr=subprocess.DEVNULL).decode().strip()
+            except Exception:
+                pass
+        if cpuid:
+            identifiers.append(cpuid)
+            
+        # 3. BIOS Serial
+        bios = None
+        try:
+            bios_out = subprocess.check_output("wmic bios get serialnumber", shell=True, stderr=subprocess.DEVNULL).decode().strip().split("\n")
             if len(bios_out) > 1:
-                identifiers.append(bios_out[1].strip())
-    except Exception:
-        pass
-        
+                bios = bios_out[1].strip()
+        except Exception:
+            pass
+        if not bios:
+            try:
+                bios = subprocess.check_output('powershell -NoProfile -Command "(Get-CimInstance Win32_Bios).SerialNumber"', shell=True, stderr=subprocess.DEVNULL).decode().strip()
+            except Exception:
+                pass
+        if bios:
+            identifiers.append(bios)
+            
     raw_str = "|".join(filter(None, identifiers))
     if not raw_str:
         raw_str = "DEFAULT_WINDOWS_OFFLINE_SIGNATURE_FALLBACK"

@@ -47,7 +47,7 @@ def verify_bank_profile(selected_bank_profile, extracted_text):
     return any(keyword in text_lower for keyword in config["required_keywords"])
 
 
-def route_to_parser(selected_bank_profile, extracted_text):
+def route_to_parser(selected_bank_profile, extracted_text, opening_balance=None):
     """
     Dynamically executes the correct parser based on the selected bank profile.
     """
@@ -57,7 +57,7 @@ def route_to_parser(selected_bank_profile, extracted_text):
         raise NotImplementedError(f"The parsing module for '{selected_bank_profile}' is not implemented yet.")
         
     # Run and return the output of the selected bank parser
-    return config["parser_function"](extracted_text)
+    return config["parser_function"](extracted_text, opening_balance=opening_balance)
 
 
 def get_opening_balance_parser(selected_bank_profile):

@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import tempfile
 from flask import Blueprint, request, jsonify, render_template, send_file, redirect, url_for
 from datetime import datetime, date, timedelta
@@ -157,12 +158,20 @@ def api_convert_bank():
             
         uploaded_file = request.files["file"]
         bank_type = request.form.get("bank_type", "").strip()
-        strategy_type = request.form.get("strategy_type", "Whole Document").strip()
+        strategy_type = request.form.get("strategy_type", "Full bank statement").strip()
         cutoff_date_str = request.form.get("cutoff_date", "").strip()
+        prev_balance_str = request.form.get("prev_balance", "").strip()
         
         debit_ledger = request.form.get("debit_ledger", "").strip()
         credit_ledger = request.form.get("credit_ledger", "").strip()
         
+        prev_balance = None
+        if prev_balance_str:
+            try:
+                prev_balance = float(prev_balance_str.replace(",", ""))
+            except ValueError:
+                pass
+                
         if not bank_type:
             return jsonify({"success": False, "message": "Bank type is required."}), 400
             
@@ -191,8 +200,8 @@ def api_convert_bank():
                     "message": f"Bank Profile Mismatch! The PDF content does not match the selected bank profile ({bank_type})."
                 }), 400
                 
-            # Process strategies (Whole Document, First Chunk, Continuation Chunk)
-            from strategies import WholeChunk, FirstChunk, ContinuationChunk
+            # Process strategies (Full bank statement, Incomplete statement (Continuation))
+            from strategies import WholeChunk, ContinuationChunk
             
             # Resolve parser for opening balance dynamically!
             try:
@@ -201,31 +210,34 @@ def api_convert_bank():
                 logger.error(f"Failed to resolve opening balance parser: {str(parser_err)}")
                 return jsonify({"success": False, "message": str(parser_err)}), 400
             
-            if strategy_type == "Whole Document":
+            if strategy_type == "Full bank statement":
                 sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
-                transactions = route_to_parser(bank_type, sanitized_text)
-            elif strategy_type == "First Chunk":
-                sanitized_text, opening_bal = FirstChunk.process_strategy(text, parse_opening_func)
-                transactions = route_to_parser(bank_type, sanitized_text)
-            elif strategy_type == "Continuation Chunk":
+                transactions = route_to_parser(bank_type, sanitized_text, opening_balance=opening_bal)
+                if opening_bal is None:
+                    opening_bal = 0.00
+            elif strategy_type == "Incomplete statement (Continuation)":
                 if not boundary_date:
                     boundary_date = date(2025, 4, 1)
                 sanitized_text, _ = ContinuationChunk.process_strategy(text, parse_opening_func, bank_type, boundary_date)
-                # Parse full transactions list first to ensure correct Dr/Cr classification and prevent skips
-                full_transactions = route_to_parser(bank_type, text)
+                
+                # In incomplete mode, we parse all transactions and pass prev_balance
+                transactions = route_to_parser(bank_type, text, opening_balance=prev_balance)
                 # Filter parsed transactions by boundary date
-                transactions = []
-                for txn in full_transactions:
+                filtered_txns = []
+                for txn in transactions:
                     try:
                         txn_date = datetime.strptime(txn["gl_date"], "%d-%m-%Y").date()
                         if txn_date >= boundary_date:
-                            transactions.append(txn)
+                            filtered_txns.append(txn)
                     except Exception:
                         pass
-                opening_bal = None
+                transactions = filtered_txns
+                opening_bal = prev_balance if prev_balance is not None else 0.00
             else:
                 sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
-                transactions = route_to_parser(bank_type, sanitized_text)
+                transactions = route_to_parser(bank_type, sanitized_text, opening_balance=opening_bal)
+                if opening_bal is None:
+                    opening_bal = 0.00
             
             if not transactions:
                 return jsonify({"success": False, "message": "No valid transaction rows found in PDF statement."}), 400
@@ -478,12 +490,6 @@ def api_update_lexicon():
         lexicon = load_lexicon()
         updated_count = 0
         
-        # Process deletes
-        for k in deletes:
-            if k in lexicon:
-                del lexicon[k]
-                updated_count += 1
-                
         # Helper function to save both macro and micro split tokens (matches Streamlit dual-layer logic)
         def save_dual_layer_tokens(telugu_phrase, english_phrase, lexicon_dict):
             has_updates = False
@@ -503,9 +509,24 @@ def api_update_lexicon():
                         has_updates = True
             return has_updates
 
-        # Process updates
+        # Process deletes (cleaning keys to match lookup format)
+        for k in deletes:
+            k_cleaned = k.strip().replace("గారూ", "").replace("గారు", "").replace("-", " ").replace("—", " ")
+            k_cleaned = re.sub(r'\s+', ' ', k_cleaned).strip()
+            
+            # Delete both original and cleaned versions if they exist
+            for del_key in (k, k_cleaned):
+                if del_key in lexicon:
+                    del lexicon[del_key]
+                    updated_count += 1
+                
+        # Process updates (cleaning keys to match lookup format)
         for telugu_key, english_val in updates.items():
             telugu_key = telugu_key.strip()
+            telugu_key = telugu_key.replace("గారూ", "").replace("గారు", "")
+            telugu_key = telugu_key.replace("-", " ").replace("—", " ")
+            telugu_key = re.sub(r'\s+', ' ', telugu_key).strip()
+            
             english_val = english_val.strip()
             if telugu_key and english_val:
                 if save_dual_layer_tokens(telugu_key, english_val, lexicon):
@@ -516,6 +537,59 @@ def api_update_lexicon():
             
         return jsonify({"success": True, "message": f"Successfully updated {updated_count} mapping(s)."})
     except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@routes_bp.route("/api/lexicon/clean", methods=["POST"])
+def api_clean_lexicon():
+    try:
+        lexicon = load_lexicon()
+        initial_count = len(lexicon)
+        
+        # Keep only Telugu keys and discard keys that have multiple words (spaces) after cleaning
+        cleaned_lexicon = {}
+        removed_english_count = 0
+        removed_fullname_count = 0
+        
+        for k, v in lexicon.items():
+            k = str(k)
+            # Check for Telugu characters
+            if not any('\u0c00' <= char <= '\u0c7f' for char in k):
+                removed_english_count += 1
+                continue
+                
+            # Clean key exactly like clean_telugu_name does
+            k_clean = k.strip().replace("గారూ", "").replace("గారు", "")
+            k_clean = k_clean.replace("-", " ").replace("—", " ")
+            k_clean = re.sub(r'\s+', ' ', k_clean).strip()
+            
+            # If key contains multiple words (spaces), it is a full-name mapping
+            if len(k_clean.split()) > 1:
+                removed_fullname_count += 1
+                continue
+                
+            # Clean value (case-insensitive strip of all garu spelling variants)
+            v_clean = v.strip()
+            v_clean = re.sub(r'(?i)\bgaru\b|\bgarū\b|\bgaaru\b|\bgaarū\b', '', v_clean).strip()
+            v_clean = re.sub(r'\s+', ' ', v_clean).strip()
+            
+            if k_clean and v_clean:
+                cleaned_lexicon[k_clean] = v_clean
+                
+        total_removed = initial_count - len(cleaned_lexicon)
+        
+        if total_removed > 0:
+            save_lexicon(cleaned_lexicon)
+            logger.info(
+                f"api_clean_lexicon: Cleaned lexicon. Removed {removed_english_count} English-to-English mappings "
+                f"and {removed_fullname_count} full-name mappings."
+            )
+            
+        return jsonify({
+            "success": True,
+            "message": f"Successfully cleaned dictionary. Removed {removed_english_count} English-to-English mapping(s) and {removed_fullname_count} full-name mapping(s)."
+        })
+    except Exception as e:
+        logger.error(f"Failed to clean lexicon: {str(e)}", exc_info=True)
         return jsonify({"success": False, "message": str(e)}), 500
 
 # -------------------------------------------------------------

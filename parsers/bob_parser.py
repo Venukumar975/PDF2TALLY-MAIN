@@ -4,12 +4,18 @@ from typing import List
 BALANCE_TOLERANCE = 0.01
 
 
-def parse_transactions(text):
+def parse_transactions(text, opening_balance=None):
 
     transactions = [] # This list holds the processed transactions so they can be directly converted to Tally-XML.
 
     lines = text.split("\n")
-    opening_balance = parse_opening_balance(text)   # Searches for 'Opening Balance` and picks that text following it.
+    
+    is_fallback = False
+    if opening_balance is None:
+        opening_balance = parse_opening_balance(text)
+        if opening_balance is None:
+            opening_balance = 0.00
+            is_fallback = True
     
     """ 
     Now Our Opening_balance will hold a pure floating pt no like -12800.0 or 12800.0 depending on Cr/Dr.
@@ -105,7 +111,7 @@ def parse_transactions(text):
         except Exception:
             continue
 
-    determine_dr_cr(transactions, opening_balance) # params are list , float -> transactions
+    determine_dr_cr(transactions, opening_balance, is_fallback=is_fallback) # params are list , float -> transactions
 
     return transactions 
 
@@ -162,14 +168,16 @@ def extract_bank_ledger_name(text):
     return name or None
 
 
-def determine_dr_cr(transactions: list, opening_balance: float) -> list:
+def determine_dr_cr(transactions: list, opening_balance: float, is_fallback=False) -> list:
     if not transactions:
         return transactions
 
     # If opening_balance is None, default to 0.00 so math doesn't break
     previous_balance = opening_balance if opening_balance is not None else 0.00
     
-    for txn in transactions: # Iteration over nested list of transactions
+    for idx, txn in enumerate(transactions): # Iteration over nested list of transactions
+        if idx == 0 and is_fallback:
+            txn["is_fallback_type"] = True
         """  
         [
             {

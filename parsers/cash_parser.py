@@ -625,6 +625,7 @@ import re
 import json
 import os
 from aksharamukha import transliterate
+from services.logger import logger
 
 USER_HOME = os.path.expanduser("~")
 PERSISTENT_DIR = os.path.join(USER_HOME, ".pdf2tally")
@@ -639,7 +640,12 @@ def load_lexicon():
     
     # Bundle fallback: if persistent doesn't exist, try copying from bundled mappings
     if not os.path.exists(MAPPING_FILE):
-        bundled_file = "telugu_mappings.json"
+        import sys
+        if hasattr(sys, '_MEIPASS'):
+            bundled_file = os.path.join(sys._MEIPASS, "telugu_mappings.json")
+        else:
+            bundled_file = "telugu_mappings.json"
+            
         if os.path.exists(bundled_file):
             import shutil
             try:
@@ -739,8 +745,21 @@ def clean_telugu_name(text):
                 telugu_segment = "".join([c for c in sub_word if ord(c) > 127])
                 english_initials = "".join([c for c in sub_word if ord(c) <= 127])
                 
-                transliterated_segment = transliterate.process('Telugu', 'ISO', telugu_segment)
+                try:
+                    transliterated_segment = transliterate.process('Telugu', 'ISO', telugu_segment)
+                except Exception as trans_err:
+                    logger.error(
+                        f"Aksharamukha transliteration failed for segment '{telugu_segment}': {str(trans_err)}. "
+                        "Using fallback original text."
+                    )
+                    transliterated_segment = telugu_segment
                 sub_word = (english_initials + " " + transliterated_segment).strip()
+                
+                # Save the individual word translation immediately to the lexicon
+                word_clean = strip_diacritics_inline(sub_word).title()
+                if word not in lexicon:
+                    lexicon[word] = word_clean
+                    save_lexicon(lexicon)
                 
             translated_words.append(sub_word)
             
@@ -755,9 +774,7 @@ def clean_telugu_name(text):
     
     final_name = re.sub(r'\s+', ' ', final_name).title()
     
-    if triggered_fallback and raw_input not in lexicon:
-        lexicon[raw_input] = final_name
-        save_lexicon(lexicon)
+    if triggered_fallback:
         return final_name, True
         
     return final_name, should_flag_user
@@ -767,19 +784,32 @@ def parse_cash_workbook(file_stream, start_date_cutoff=None):
     Parses workbook rows sequentially.
     If start_date_cutoff (datetime.date) is provided, skips any transaction dated before it.
     """
+    logger.info(f"parse_cash_workbook: Starting Excel cash ledger conversion (Date Cutoff: {start_date_cutoff}).")
     all_transactions = []
-    xl = pd.ExcelFile(file_stream)
+    
+    try:
+        xl = pd.ExcelFile(file_stream)
+        logger.info(f"parse_cash_workbook: Excel file loaded successfully. Sheet names: {xl.sheet_names}")
+    except Exception as xl_err:
+        logger.error(f"parse_cash_workbook: Failed to open Excel file. Error: {str(xl_err)}", exc_info=True)
+        raise
+
     flagged_audit_records = {}
     all_names_map = {}
-    
-    
     cutoff_dt = None
     if start_date_cutoff:
         cutoff_dt = datetime.combine(start_date_cutoff, datetime.min.time())
     
     for sheet_name in xl.sheet_names:
-        df = xl.parse(sheet_name, header=None).dropna(how='all').reset_index(drop=True)
+        logger.info(f"parse_cash_workbook: Reading sheet '{sheet_name}'...")
+        try:
+            df = xl.parse(sheet_name, header=None).dropna(how='all').reset_index(drop=True)
+        except Exception as sheet_err:
+            logger.error(f"parse_cash_workbook: Failed to parse sheet '{sheet_name}'. Error: {str(sheet_err)}", exc_info=True)
+            continue
+            
         if df.shape[1] < 5:
+            logger.warning(f"parse_cash_workbook: Sheet '{sheet_name}' skipped - column count ({df.shape[1]}) is less than 5.")
             continue
             
         df = df.iloc[:, :5]
@@ -796,6 +826,7 @@ def parse_cash_workbook(file_stream, start_date_cutoff=None):
                 break
                 
         if first_valid_row is None:
+            logger.warning(f"parse_cash_workbook: Sheet '{sheet_name}' has no valid initial row to infer reference date.")
             continue
             
         raw_ref_date = first_valid_row[0]
@@ -813,12 +844,15 @@ def parse_cash_workbook(file_stream, start_date_cutoff=None):
                     continue
                     
         if not parsed_ref_dt:
+            logger.warning(f"parse_cash_workbook: Sheet '{sheet_name}' reference date '{raw_ref_date}' could not be parsed. Skipping sheet.")
             continue
             
         locked_month_label = parsed_ref_dt.strftime("%b %Y")
+        logger.info(f"parse_cash_workbook: Sheet '{sheet_name}' inferred reference month: {locked_month_label}")
         
         # Track the running day across rows to carry forward blank date cells
         running_row_day = parsed_ref_dt.day
+        sheet_tx_count = 0
         
         for idx, row in df.iterrows():
             vals = list(row.values)
@@ -831,59 +865,92 @@ def parse_cash_workbook(file_stream, start_date_cutoff=None):
             if "date" in row_str or "rc.no" in row_str or "amount" in row_str:
                 continue
 
-            # --- PROCESS DYNAMIC ROW DAY ---
-            raw_cell_0 = vals[0]
-            
-            if isinstance(raw_cell_0, datetime):
-                running_row_day = raw_cell_0.day
-            elif pd.notna(raw_cell_0) and str(raw_cell_0).strip():
-                clean_date_digits = re.sub(r'[-./\s]+', '-', str(raw_cell_0).strip())
-                is_date_fragment = bool(re.match(r'^\d+$|^\d+-\d+$|^\d+-\d+-$', clean_date_digits))
-                
-                if not is_date_fragment:
-                    for fmt in ("%d-%m-%y", "%d-%m-%Y", "%Y-%m-%d"):
-                        try:
-                            dt = datetime.strptime(clean_date_digits, fmt)
-                            running_row_day = dt.day
-                            break
-                        except ValueError:
-                            continue
-                else:
-                    try:
-                        day_match = re.search(r'\d+', clean_date_digits)
-                        if day_match:
-                            running_row_day = int(day_match.group())
-                    except ValueError:
-                        pass
-
             try:
-                current_txn_dt = parsed_ref_dt.replace(day=running_row_day)
-            except Exception:
-                current_txn_dt = parsed_ref_dt
-
-            # --- FILTRATION BOUNDARY CHECK ---
-            if cutoff_dt and current_txn_dt < cutoff_dt:
-                continue 
-
-            raw_name_cell = str(vals[2]).strip() if pd.notna(vals[2]) else ""
-            english_name, is_name_flagged = clean_telugu_name(raw_name_cell)
-            
-            # Save to master mapping list for the complete inspection window
-            if raw_name_cell:
-                all_names_map[raw_name_cell] = english_name
+                # --- PROCESS DYNAMIC ROW DAY ---
+                raw_cell_0 = vals[0]
                 
-            if is_name_flagged or check_is_flagged(english_name):
-                flagged_audit_records[raw_name_cell] = english_name
+                if isinstance(raw_cell_0, datetime):
+                    running_row_day = raw_cell_0.day
+                elif pd.notna(raw_cell_0) and str(raw_cell_0).strip():
+                    clean_date_digits = re.sub(r'[-./\s]+', '-', str(raw_cell_0).strip())
+                    is_date_fragment = bool(re.match(r'^\d+$|^\d+-\d+$|^\d+-\d+-$', clean_date_digits))
+                    
+                    if not is_date_fragment:
+                        for fmt in ("%d-%m-%y", "%d-%m-%Y", "%Y-%m-%d"):
+                            try:
+                                dt = datetime.strptime(clean_date_digits, fmt)
+                                running_row_day = dt.day
+                                break
+                            except ValueError:
+                                continue
+                    else:
+                        try:
+                            day_match = re.search(r'\d+', clean_date_digits)
+                            if day_match:
+                                running_row_day = int(day_match.group())
+                        except ValueError:
+                            pass
 
-            all_transactions.append({
-                "gl_date": current_txn_dt.strftime("%d-%m-%Y"),
-                "month_label": locked_month_label,
-                "rc_no": str(int(float(vals[1]))),
-                "raw_telugu_name": raw_name_cell,
-                "donor_name": english_name,
-                "amount": int(float(str(vals[4]).replace(",", ""))),
-                "narration": f"being donation received rt no : {int(float(vals[1]))} from {english_name}",
-                "type": "DEBIT"
-            })
+                try:
+                    current_txn_dt = parsed_ref_dt.replace(day=running_row_day)
+                except Exception:
+                    current_txn_dt = parsed_ref_dt
+
+                # --- FILTRATION BOUNDARY CHECK ---
+                if cutoff_dt and current_txn_dt < cutoff_dt:
+                    continue 
+
+                raw_name_cell = str(vals[2]).strip() if pd.notna(vals[2]) else ""
                 
+                # Clean the Telugu name suffix before processing and displaying in the UI
+                clean_telugu = raw_name_cell.replace("గారూ", "").replace("గారు", "")
+                clean_telugu = clean_telugu.replace("-", " ").replace("—", " ")
+                clean_telugu = re.sub(r'\s+', ' ', clean_telugu).strip()
+                
+                english_name, is_name_flagged = clean_telugu_name(clean_telugu)
+                
+                # Save to master mapping list for the complete inspection window
+                if clean_telugu:
+                    all_names_map[clean_telugu] = english_name
+                    
+                if is_name_flagged or check_is_flagged(english_name):
+                    flagged_audit_records[clean_telugu] = english_name
+
+                # Parse receipt number and amount safely
+                try:
+                    rc_no = str(int(float(vals[1])))
+                except Exception:
+                    rc_no = str(vals[1]).strip()
+
+                try:
+                    amount = int(float(str(vals[4]).replace(",", "")))
+                except Exception:
+                    amount = 0
+
+                all_transactions.append({
+                    "gl_date": current_txn_dt.strftime("%d-%m-%Y"),
+                    "month_label": locked_month_label,
+                    "rc_no": rc_no,
+                    "raw_telugu_name": clean_telugu,
+                    "donor_name": english_name,
+                    "amount": amount,
+                    "narration": f"being donation received rt no : {rc_no} from {english_name}",
+                    "type": "DEBIT"
+                })
+                sheet_tx_count += 1
+
+            except Exception as row_err:
+                logger.error(
+                    f"parse_cash_workbook: Error processing sheet '{sheet_name}' at row index {idx}. "
+                    f"Values: {vals}. Error: {str(row_err)}", exc_info=True
+                )
+                # Re-raise to fail conversion but now the log tells us exactly where we failed
+                raise
+
+        logger.info(f"parse_cash_workbook: Finished sheet '{sheet_name}'. Successfully parsed {sheet_tx_count} transactions.")
+                
+    logger.info(
+        f"parse_cash_workbook: Completed cash workbook conversion. "
+        f"Total transactions parsed: {len(all_transactions)}, flagged names: {len(flagged_audit_records)}"
+    )
     return all_transactions, flagged_audit_records , all_names_map

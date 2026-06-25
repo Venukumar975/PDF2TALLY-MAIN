@@ -64,8 +64,21 @@ strategy_type = "Whole Document"
 if bank_type != "Ashramam Cash Receipts Ledger":
     strategy_type = st.sidebar.selectbox(
         "3. Select Ingestion Strategy", 
-        ["Whole Document", "First Chunk", "Continuation Chunk"]
+        ["Full bank statement", "Incomplete statement (Continuation)"]
     )
+    
+    prev_balance = None
+    if strategy_type == "Incomplete statement (Continuation)":
+        prev_balance_str = st.sidebar.text_input(
+            "Enter Previous/Starting Balance (defaults to 0.00):",
+            value="",
+            help="Providing the ending balance of the previous statement ensures correct inference of the first transaction type."
+        )
+        if prev_balance_str.strip():
+            try:
+                prev_balance = float(prev_balance_str.strip().replace(",", ""))
+            except ValueError:
+                st.sidebar.error("Invalid balance format. Please enter a valid number.")
 
 convert_btn = st.sidebar.button("Convert File Now", use_container_width=True, disabled=not uploaded_file)
 
@@ -133,15 +146,16 @@ if uploaded_file and convert_btn:
                     from strategies import WholeChunk, FirstChunk, ContinuationChunk
                     
                     parse_opening_func = parse_bob_opening if "BOB" in bank_type else parse_sbi_opening
-                    if strategy_type == "Whole Document":
+                    if strategy_type == "Full bank statement":
                         sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
-                    elif strategy_type == "First Chunk":
-                        sanitized_text, opening_bal = FirstChunk.process_strategy(text, parse_opening_func)
-                    elif strategy_type == "Continuation Chunk":
-                        sanitized_text, opening_bal = ContinuationChunk.process_strategy(text, parse_opening_func, bank_type, boundary_date_input)
+                    elif strategy_type == "Incomplete statement (Continuation)":
+                        sanitized_text, _ = ContinuationChunk.process_strategy(text, parse_opening_func, bank_type, boundary_date_input)
+                        opening_bal = prev_balance
+                    else:
+                        sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
 
                     st.write("⏳ Step 3: Extracting transaction records row-by-row...")
-                    transactions = route_to_parser(bank_type, sanitized_text)
+                    transactions = route_to_parser(bank_type, sanitized_text, opening_balance=opening_bal)
                     
                     st.session_state["raw_transactions"] = transactions
                     st.session_state["sanitized_text"] = sanitized_text
@@ -473,6 +487,9 @@ if "files_ready" in st.session_state and "xml" in st.session_state:
         stmt = report["statement"]
         xml_val = report["xml"]
         
+        if stmt.get("audit_message"):
+            st.warning(stmt["audit_message"])
+            
         st.subheader("📈 Summary Validation Checks")
         m1, m2, m3, m4 = st.columns(4)
         with m1:

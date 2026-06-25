@@ -130,15 +130,19 @@
                             <div class="form-group">
                                 <label for="strategy-select">Conversion Mode</label>
                                 <select id="strategy-select" onchange="toggleDateFilter('bank')">
-                                    <option value="Whole Document">Convert Entire File</option>
-                                    <option value="First Chunk">Convert First Part Only</option>
-                                    <option value="Continuation Chunk">Convert from Date Onwards</option>
+                                    <option value="Full bank statement">Full bank statement</option>
+                                    <option value="Incomplete statement (Continuation)">Incomplete statement (Continuation)</option>
                                 </select>
                             </div>
                             
                             <div id="bank-date-filter-group" class="form-group hidden">
                                 <label for="bank-cutoff-date">Start Date (Convert transactions on or after this date)</label>
                                 <input type="date" id="bank-cutoff-date" value="2025-04-01">
+                            </div>
+
+                            <div id="bank-prev-balance-group" class="form-group hidden">
+                                <label for="bank-prev-balance">Previous Balance (defaults to 0.00 if empty)</label>
+                                <input type="text" id="bank-prev-balance" placeholder="0.00">
                             </div>
                         </div>
 
@@ -551,7 +555,10 @@
                         <div class="search-box">
                             <input type="text" id="lexicon-search" placeholder="Search dictionary names..." onkeyup="searchLexiconTable()">
                         </div>
-                        <button class="btn btn-primary" onclick="openAddLexiconModal()">➕ Add New Mapping</button>
+                        <div class="toolbar-buttons" style="display: flex; gap: 10px;">
+                            <button class="btn btn-secondary" onclick="cleanLexiconMismatches()" title="Remove English-to-English mappings from dictionary">🧹 Clean Mappings</button>
+                            <button class="btn btn-primary" onclick="openAddLexiconModal()">➕ Add New Mapping</button>
+                        </div>
                     </div>
 
                     <div class="table-wrapper max-h-500">

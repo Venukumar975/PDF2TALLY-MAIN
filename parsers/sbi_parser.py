@@ -39,7 +39,7 @@ def parse_opening_balance(text):
     if match3:
         return clean_amount(match3.group(1))
         
-    return 0.00
+    return None
 
 
 # ==============================================================================
@@ -384,23 +384,27 @@ def clean_amount(value):
     return float(cleaned) if cleaned else 0.00
 
 
-def apply_tally_rules(transactions):
+def apply_tally_rules(transactions, opening_balance=None, is_fallback=False):
     if not transactions:
         return transactions
 
+    previous_balance = opening_balance if opening_balance is not None else 0.00
+
     for idx in range(len(transactions)):
-        if idx == 0:
-            transactions[idx]["type"] = "DEBIT" if transactions[idx]["amount"] > 0 else "CREDIT"
-            continue
-            
-        prev_bal = transactions[idx - 1]["balance"]
         curr_bal = transactions[idx]["balance"]
-        delta = round(curr_bal - prev_bal, 2)
+        delta = round(curr_bal - previous_balance, 2)
         
+        if idx == 0 and is_fallback:
+            transactions[idx]["is_fallback_type"] = True
+            
         if delta > 0:
             transactions[idx]["type"] = "DEBIT"
-        else:
+        elif delta < 0:
             transactions[idx]["type"] = "CREDIT"
+        else:
+            transactions[idx]["type"] = "DEBIT" if transactions[idx]["amount"] > 0 else "CREDIT"
+            
+        previous_balance = curr_bal
             
     return transactions
 
@@ -426,8 +430,15 @@ def validate_reconciliation(transactions):
 # ==============================================================================
 # CENTRAL ENTRANCE ORCHESTRATOR
 # ==============================================================================
-def parse_any_sbi_statement_to_tally(raw_extracted_text):
+def parse_any_sbi_statement_to_tally(raw_extracted_text, opening_balance=None):
     """Orchestrates parsing sequentially across the fallback matrix list."""
+    is_fallback = False
+    if opening_balance is None:
+        opening_balance = parse_opening_balance(raw_extracted_text)
+        if opening_balance is None:
+            opening_balance = 0.00
+            is_fallback = True
+            
     parser_strategies = [
         {"name": "Corporate Branch Code Tabular Parser", "func": parse_sbi_corporate_tabular_format},
         {"name": "Numeric Slash Tabular Parser", "func": parse_sbi_numeric_slashes_format},
@@ -441,7 +452,7 @@ def parse_any_sbi_statement_to_tally(raw_extracted_text):
             if not extracted_txns:
                 continue
                 
-            processed_txns = apply_tally_rules(extracted_txns)
+            processed_txns = apply_tally_rules(extracted_txns, opening_balance=opening_balance, is_fallback=is_fallback)
             
             if validate_reconciliation(processed_txns):
                 return processed_txns
@@ -451,8 +462,8 @@ def parse_any_sbi_statement_to_tally(raw_extracted_text):
             
     return []
 
-def parse_transactions(text):
-    return parse_any_sbi_statement_to_tally(text)
+def parse_transactions(text, opening_balance=None):
+    return parse_any_sbi_statement_to_tally(text, opening_balance=opening_balance)
 
 # import re
 # from datetime import datetime
