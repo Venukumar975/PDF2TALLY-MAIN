@@ -74,211 +74,188 @@ def get_machine_signature():
     # Format signature as XXXX-XXXX-XXXX-XXXX
     return f"{h[0:4]}-{h[4:8]}-{h[8:12]}-{h[12:16]}".upper()
 
-def generate_activation_key_legacy(signature: str, expiry_date_str: str) -> str:
-    """Generates a legacy activation key (ACT-YYYYMMDD-CHECKSUM)."""
-    signature = signature.strip().upper()
-    expiry_date_str = expiry_date_str.strip()
-    payload = f"{signature}:{expiry_date_str}"
-    raw_key = f"{payload}:{SECRET_SALT}"
-    checksum = hashlib.sha256(raw_key.encode()).hexdigest()[:8].upper()
-    return f"ACT-{expiry_date_str}-{checksum}"
+import base64
+import requests
+from threading import Lock
 
-def generate_activation_key_new(signature: str, role: str, expiry_str: str) -> str:
-    """Generates a new activation key (ACT-ROLE-EXPIRY-CHECKSUM)."""
-    signature = signature.strip().upper()
-    role = role.strip().upper()
-    expiry_str = expiry_str.strip().upper()
-    payload = f"{signature}:{role}:{expiry_str}"
-    raw_key = f"{payload}:{SECRET_SALT}"
-    checksum = hashlib.sha256(raw_key.encode()).hexdigest()[:10].upper()
-    return f"ACT-{role}-{expiry_str}-{checksum}"
+# Memory cache for license verification
+_cache_lock = Lock()
+_license_cache = {
+    "activated": False,
+    "role": "USER",
+    "message": "Not initialized",
+    "expiry_date": "-",
+    "seconds_remaining": 0,
+    "days_remaining": 0.0,
+    "signature": None,
+    "last_sync_monotonic": 0.0,
+    "last_sync_real": 0.0,
+    "admin_token": None,
+    "admin_email": None,
+    "error_type": None
+}
 
-def generate_activation_key(signature: str, expiry_or_role: str, expiry_str: str = None) -> str:
-    """
-    Overloaded activation key generator to maintain backward compatibility.
-    Usage:
-      generate_activation_key(signature, expiry_date_str) -> legacy format
-      generate_activation_key(signature, role, expiry_str) -> new format
-    """
-    if expiry_str is None:
-        return generate_activation_key_legacy(signature, expiry_or_role)
-    else:
-        return generate_activation_key_new(signature, expiry_or_role, expiry_str)
+OBFUSCATED_BACKEND_URL = "aHR0cDovLzEyNy4wLjAuMTo4MDAw"
 
-def verify_license_key(key: str) -> tuple:
+def get_cloud_backend_url():
+    url = os.environ.get("PDF2TALLY_CLOUD_URL")
+    if url:
+        return url.strip().rstrip("/")
+    try:
+        decoded = base64.b64decode(OBFUSCATED_BACKEND_URL.encode()).decode("utf-8")
+        return decoded.strip().rstrip("/")
+    except Exception:
+        return "http://127.0.0.1:8000"
+
+def sync_with_cloud(retry_duration=60) -> dict:
     """
-    Verifies if the activation key is valid for the current machine signature.
-    Returns (is_valid, role, expiry_datetime, error_message)
+    Tries to connect to the cloud licensing server for up to retry_duration seconds.
+    Updates the global _license_cache on success or failure.
     """
-    key = key.strip().upper()
-    parts = key.split("-")
+    sig = get_machine_signature()
+    url = f"{get_cloud_backend_url()}/api/cloud/verify"
     
-    current_sig = get_machine_signature()
+    start_time = time.time()
+    last_error_type = None
+    last_error_msg = "Could not reach licensing server."
     
-    if len(parts) == 3 and parts[0] == "ACT":
-        # Legacy format: ACT-YYYYMMDD-CHECKSUM
-        expiry_date_str = parts[1]
-        checksum = parts[2]
-        
+    while True:
         try:
-            if expiry_date_str == "99991231":
-                expiry_dt = None  # Lifetime
+            response = requests.post(url, json={"machine_signature": sig}, timeout=5)
+            
+            if response.status_code == 200:
+                res_data = response.json()
+                with _cache_lock:
+                    _license_cache.update({
+                        "activated": res_data.get("activated", False),
+                        "role": res_data.get("role", "USER"),
+                        "message": res_data.get("message", ""),
+                        "expiry_date": res_data.get("expiry_date", "Lifetime"),
+                        "seconds_remaining": res_data.get("seconds_remaining", -1),
+                        "signature": sig,
+                        "last_sync_monotonic": time.monotonic(),
+                        "last_sync_real": time.time(),
+                        "error_type": None
+                    })
+                    # If we have an active admin session, retain admin privileges
+                    if _license_cache["admin_token"] is not None:
+                        _license_cache["activated"] = True
+                        _license_cache["role"] = "ADMIN"
+                        _license_cache["message"] = "Administrator Session Active"
+                        _license_cache["seconds_remaining"] = -1
+                return _license_cache
+            
+            elif response.status_code >= 500:
+                last_error_type = "server"
+                last_error_msg = f"Server-side issue (HTTP {response.status_code})"
             else:
-                expiry_dt = datetime.strptime(expiry_date_str, "%Y%m%d")
-        except ValueError:
-            return False, "USER", None, "Invalid expiry date in key."
-            
-        expected_key = generate_activation_key_legacy(current_sig, expiry_date_str)
-        if key != expected_key:
-            return False, "USER", None, "Key is not valid for this computer signature."
-            
-        return True, "USER", expiry_dt, None
-        
-    elif len(parts) == 4 and parts[0] == "ACT":
-        # New format: ACT-ROLE-EXPIRY-CHECKSUM
-        role = parts[1]
-        expiry_str = parts[2]
-        checksum = parts[3]
-        
-        if role not in ["USER", "ADMIN"]:
-            return False, "USER", None, "Invalid role in key."
-            
-        expiry_dt = None
-        if expiry_str not in ["LIFETIME", "99991231"]:
-            try:
-                expiry_ts = int(expiry_str)
-                expiry_dt = datetime.fromtimestamp(expiry_ts)
-            except ValueError:
-                return False, "USER", None, "Invalid expiry timestamp in key."
+                try:
+                    res_data = response.json()
+                except Exception:
+                    res_data = {}
+                last_error_type = "server"
+                last_error_msg = res_data.get("message", "Licensing server returned an error.")
                 
-        expected_key = generate_activation_key_new(current_sig, role, expiry_str)
-        if key != expected_key:
-            return False, "USER", None, "Key is not valid for this computer signature."
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            last_error_type = "internet"
+            last_error_msg = "Internet connectivity issue."
             
-        return True, role, expiry_dt, None
+        elapsed = time.time() - start_time
+        if elapsed >= retry_duration:
+            break
+            
+        time.sleep(2)
         
-    return False, "USER", None, "Invalid key structure."
+    with _cache_lock:
+        _license_cache.update({
+            "activated": False,
+            "message": last_error_msg,
+            "error_type": last_error_type,
+            "signature": sig
+        })
+        if _license_cache["admin_token"] is not None:
+            _license_cache["activated"] = True
+            _license_cache["role"] = "ADMIN"
+            _license_cache["error_type"] = None
+            
+    return _license_cache
 
-def load_license_data() -> dict:
-    """Loads the license file from disk."""
-    if not os.path.exists(LICENSE_FILE_PATH):
-        return {}
-    try:
-        with open(LICENSE_FILE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-def save_license_data(data: dict):
-    """Saves license data securely to disk."""
-    try:
-        with open(LICENSE_FILE_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-    except Exception:
-        pass
-
-MASTER_ADMIN_SIGNATURE = "6232-5DFF-EA95-C2F3"
-
-def check_activation() -> dict:
+def check_activation(force_refresh=False) -> dict:
     """
-    Validates the local license activation state, checking for expiry and system clock tampering.
-    Returns a status dictionary.
+    Checks the cached activation status.
+    If the cache is empty or in error state, triggers a sync.
+    Otherwise, computes remaining time using python monotonic clock.
     """
-    current_sig = get_machine_signature()
-    
-    # Auto-grant for master admin
-    if current_sig == MASTER_ADMIN_SIGNATURE:
-        return {
-            "activated": True,
-            "role": "ADMIN",
-            "message": "Master Administrator (Auto-Authorized)",
-            "expiry_date": "Lifetime",
-            "days_remaining": 99999,
-            "signature": current_sig
-        }
+    import time
+    with _cache_lock:
+        is_synced = (_license_cache["last_sync_monotonic"] > 0)
+        has_error = (_license_cache["error_type"] is not None)
         
-    data = load_license_data()
-    key = data.get("activation_key")
-    last_run_str = data.get("last_run_date")
-    
-    if not key:
-        return {"activated": False, "role": "USER", "message": "No license key found. Please activate.", "signature": current_sig}
+    if not is_synced or has_error or force_refresh:
+        timeout = 60 if not is_synced else 5
+        return sync_with_cloud(retry_duration=timeout)
         
-    is_valid, role, expiry_dt, err = verify_license_key(key)
-    if not is_valid:
-        return {"activated": False, "role": "USER", "message": f"License verification failed: {err}", "signature": current_sig}
-        
-    now = datetime.now()
-    
-    # ─── CLOCK TAMPER DETECTION ───
-    if last_run_str:
-        try:
-            if " " in last_run_str:
-                last_run = datetime.strptime(last_run_str, "%Y-%m-%d %H:%M:%S")
-            else:
-                last_run = datetime.strptime(last_run_str, "%Y-%m-%d")
+    with _cache_lock:
+        if _license_cache["admin_token"] is not None:
+            return _license_cache.copy()
             
-            if now < last_run:
-                return {
-                    "activated": False,
-                    "role": "USER",
-                    "message": "Clock tampering detected! System clock has been rolled back.",
-                    "signature": current_sig
-                }
-        except ValueError:
-            pass
-            
-    # Check expiry
-    if expiry_dt:
-        if now > expiry_dt:
-            return {"activated": False, "role": "USER", "message": f"License expired on {expiry_dt.strftime('%d-%b-%Y %H:%M:%S')}.", "signature": current_sig}
-        
-        seconds_remaining = (expiry_dt - now).total_seconds()
-        days_remaining = seconds_remaining / 86400.0
-        
-        if seconds_remaining < 60:
-            status_msg = f"License active (Expires in {int(seconds_remaining)} seconds)"
-        elif seconds_remaining < 3600:
-            status_msg = f"License active (Expires in {int(seconds_remaining / 60)} minutes)"
+        seconds_remaining = _license_cache["seconds_remaining"]
+        if seconds_remaining == -1:
+            days_remaining = 99999
+            status_msg = "License active (Lifetime)"
+            activated = True
         else:
-            status_msg = f"License active (Expires in {int(days_remaining)} days on {expiry_dt.strftime('%d-%b-%Y')})"
-    else:
-        days_remaining = 99999
-        status_msg = "License active (Lifetime)"
+            elapsed = time.monotonic() - _license_cache["last_sync_monotonic"]
+            remaining = seconds_remaining - elapsed
+            
+            if remaining <= 0:
+                activated = False
+                days_remaining = 0.0
+                status_msg = "License expired."
+            else:
+                activated = True
+                days_remaining = remaining / 86400.0
+                
+                if remaining < 60:
+                    status_msg = f"License active (Expires in {int(remaining)} seconds)"
+                elif remaining < 3600:
+                    status_msg = f"License active (Expires in {int(remaining / 60)} minutes)"
+                else:
+                    days_int = int(remaining / 86400)
+                    status_msg = f"License active (Expires in {days_int} days)"
+                    
+        res = _license_cache.copy()
+        res["activated"] = activated
+        res["message"] = status_msg
+        res["days_remaining"] = round(days_remaining, 4)
         
-    # Update last_run_date to now
-    data["last_run_date"] = now.strftime("%Y-%m-%d %H:%M:%S")
-    save_license_data(data)
-    
-    return {
-        "activated": True,
-        "role": role,
-        "message": status_msg,
-        "expiry_date": expiry_dt.strftime("%Y-%m-%d %H:%M:%S") if expiry_dt else "Lifetime",
-        "days_remaining": round(days_remaining, 4),
-        "signature": current_sig
-    }
+        if not activated and _license_cache["activated"]:
+            _license_cache["activated"] = False
+            _license_cache["message"] = "License expired."
+            
+        return res
 
 def activate(key: str) -> tuple:
-    """
-    Attempts to activate the application with a license key.
-    Returns (success, message)
-    """
-    is_valid, role, expiry_dt, err = verify_license_key(key)
-    if not is_valid:
-        return False, err
-        
-    data = {
-        "activation_key": key,
-        "last_run_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    save_license_data(data)
-    return True, "Activation successful!"
+    """Trigger a verification sync with the cloud backend."""
+    res = sync_with_cloud(retry_duration=5)
+    if res["activated"]:
+        return True, "License activated successfully!"
+    return False, res.get("message", "Activation failed.")
 
 def deactivate():
-    """Removes the license file."""
-    if os.path.exists(LICENSE_FILE_PATH):
-        try:
-            os.remove(LICENSE_FILE_PATH)
-        except Exception:
-            pass
+    """Clear cached token and lock the workspace."""
+    with _cache_lock:
+        _license_cache.update({
+            "activated": False,
+            "role": "USER",
+            "message": "Deactivated",
+            "expiry_date": "-",
+            "seconds_remaining": 0,
+            "days_remaining": 0.0,
+            "last_sync_monotonic": 0.0,
+            "last_sync_real": 0.0,
+            "admin_token": None,
+            "admin_email": None,
+            "error_type": None
+        })
+

@@ -82,7 +82,7 @@ function switchTab(tabId) {
     }
     
     // Admin tab guard
-    if (tabId === "admin-tab" && state.role !== "ADMIN") {
+    if (tabId === "admin-tab" && state.role !== "ADMIN" && state.role !== "CO-ADMIN") {
         return; // Restrict access to admin tab
     }
     
@@ -113,18 +113,10 @@ function switchTab(tabId) {
     } else if (tabId === "license-tab") {
         updateLicenseTabDetails();
     } else if (tabId === "admin-tab") {
+        fetchRegistrations();
         const targetInput = document.getElementById("admin-target-sig");
-        if (targetInput) {
-            if (!targetInput.value) {
-                targetInput.value = state.signature;
-            }
-            checkTargetSignatureRoleLock(targetInput.value);
-            if (!targetInput.dataset.listenerAdded) {
-                targetInput.addEventListener("input", (e) => {
-                    checkTargetSignatureRoleLock(e.target.value);
-                });
-                targetInput.dataset.listenerAdded = "true";
-            }
+        if (targetInput && !targetInput.value) {
+            targetInput.value = state.signature || "";
         }
     }
 }
@@ -238,7 +230,68 @@ function clearFile(type) {
 // ==========================================
 // LICENSING UTILITIES
 // ==========================================
+// Global countdown timer intervals
+let localLicenseCountdownInterval = null;
+let adminTableCountdownInterval = null;
+let activeRegistrationsList = []; // Cache of fetched active registrations for ticking
+
+function padZero(num) {
+    return num.toString().padStart(2, "0");
+}
+
+function formatCountdown(seconds) {
+    if (seconds === -1) return "Lifetime";
+    if (seconds <= 0) return "00:00:00:00:00 (Expired)";
+    
+    let months = Math.floor(seconds / (30 * 86400));
+    let rem = seconds % (30 * 86400);
+    
+    let days = Math.floor(rem / 86400);
+    rem %= 86400;
+    
+    let hours = Math.floor(rem / 3600);
+    rem %= 3600;
+    
+    let minutes = Math.floor(rem / 60);
+    let secs = rem % 60;
+    
+    return `${padZero(months)}:${padZero(days)}:${padZero(hours)}:${padZero(minutes)}:${padZero(secs)}`;
+}
+
 async function checkLicenseStatus(initial = false) {
+    const overlay = document.getElementById("license-overlay");
+    const workspace = document.getElementById("app-workspace");
+    const sigDisplay = document.getElementById("machine-sig-display");
+    const expirySide = document.getElementById("license-expiry-side");
+    const adminNavItem = document.getElementById("admin-nav-item");
+    const adminCurrentRole = document.getElementById("admin-current-role");
+    
+    const stateLoading = document.getElementById("lic-state-loading");
+    const stateError = document.getElementById("lic-state-error");
+    const stateUnregistered = document.getElementById("lic-state-unregistered");
+    
+    // Default show loading state first if it's the initial call
+    if (initial) {
+        if (overlay) overlay.classList.remove("hidden");
+        if (workspace) workspace.classList.add("hidden");
+        if (stateLoading) stateLoading.classList.remove("hidden");
+        if (stateError) stateError.classList.add("hidden");
+        if (stateUnregistered) stateUnregistered.classList.add("hidden");
+        
+        // Start connection timer display
+        let start = Date.now();
+        let connTimer = setInterval(() => {
+            let elapsed = Math.round((Date.now() - start) / 1000);
+            let timerEl = document.getElementById("lic-loading-timer");
+            if (timerEl) {
+                timerEl.textContent = `Attempting connection: ${elapsed}s / 60s`;
+            }
+            if (elapsed >= 60 || !stateLoading || stateLoading.classList.contains("hidden")) {
+                clearInterval(connTimer);
+            }
+        }, 1000);
+    }
+    
     try {
         const res = await fetch("/api/status");
         const status = await res.json();
@@ -247,131 +300,430 @@ async function checkLicenseStatus(initial = false) {
         state.signature = status.signature;
         state.role = status.role || "USER";
         
-        const overlay = document.getElementById("license-overlay");
-        const workspace = document.getElementById("app-workspace");
-        const sigDisplay = document.getElementById("machine-sig-display");
-        const expirySide = document.getElementById("license-expiry-side");
-        const adminNavItem = document.getElementById("admin-nav-item");
-        
-        sigDisplay.textContent = status.signature;
-        
-        // Show/hide admin sidebar link
-        if (status.activated && status.role === "ADMIN") {
-            if (adminNavItem) adminNavItem.classList.remove("hidden");
-        } else {
-            if (adminNavItem) adminNavItem.classList.add("hidden");
-        }
+        if (sigDisplay) sigDisplay.textContent = status.signature || "UNKNOWN";
         
         if (status.activated) {
-            overlay.classList.add("hidden");
-            workspace.classList.remove("hidden");
-            expirySide.textContent = status.expiry_date === "Lifetime" ? "Lifetime Active" : `Expires: ${status.expiry_date}`;
+            // Success! Hide overlays, show workspace
+            if (overlay) overlay.classList.add("hidden");
+            if (workspace) workspace.classList.remove("hidden");
+            
+            // Show/hide admin console link
+            if (state.role === "ADMIN" || state.role === "CO-ADMIN") {
+                if (adminNavItem) adminNavItem.classList.remove("hidden");
+                if (adminCurrentRole) adminCurrentRole.textContent = state.role;
+                
+                // Show/hide Co-Admin register option
+                const coAdminOpt = document.getElementById("admin-role-coadmin-opt");
+                if (coAdminOpt) {
+                    if (state.role === "CO-ADMIN") {
+                        coAdminOpt.disabled = true;
+                        coAdminOpt.style.display = "none";
+                    } else {
+                        coAdminOpt.disabled = false;
+                        coAdminOpt.style.display = "block";
+                    }
+                }
+            } else {
+                if (adminNavItem) adminNavItem.classList.add("hidden");
+            }
+            
+            // Start local countdown for the sidebar and status tab
+            startLocalLicenseCountdown(status.seconds_remaining, status.expiry_date);
             
             if (initial) {
-                // If activated, go to main route
                 handleRouting();
             }
         } else {
-            overlay.classList.remove("hidden");
-            workspace.classList.add("hidden");
-            document.getElementById("activation-error").textContent = status.message;
-            document.getElementById("activation-error").classList.remove("hidden");
+            // Locked! Show appropriate state
+            if (overlay) overlay.classList.remove("hidden");
+            if (workspace) workspace.classList.add("hidden");
             
-            // If active tab was admin-tab, switch away
-            if (window.location.hash === "#admin-tab") {
+            if (status.error_type) {
+                // Connection or server-side issue
+                if (stateLoading) stateLoading.classList.add("hidden");
+                if (stateUnregistered) stateUnregistered.classList.add("hidden");
+                if (stateError) stateError.classList.remove("hidden");
+                
+                const errTitle = document.getElementById("lic-error-title");
+                const errSubtitle = document.getElementById("lic-error-subtitle");
+                const errMessage = document.getElementById("lic-error-message");
+                
+                if (status.error_type === "internet") {
+                    if (errTitle) errTitle.textContent = "Internet Connection Issue";
+                    if (errSubtitle) errSubtitle.textContent = "Unable to connect to the cloud licensing server.";
+                    if (errMessage) errMessage.textContent = "pdf2tally requires internet connectivity to verify licenses. Please check your network cables or Wi-Fi configuration and try again.";
+                } else {
+                    if (errTitle) errTitle.textContent = "Licensing Server Issue";
+                    if (errSubtitle) errSubtitle.textContent = "The server returned an error.";
+                    if (errMessage) errMessage.textContent = status.message || "A cloud database error occurred. Contact your support team.";
+                }
+            } else {
+                // Device signature not registered
+                if (stateLoading) stateLoading.classList.add("hidden");
+                if (stateError) stateError.classList.add("hidden");
+                if (stateUnregistered) stateUnregistered.classList.remove("hidden");
+                
+                const errBox = document.getElementById("activation-error");
+                if (errBox) {
+                    errBox.textContent = status.message || "This computer is unregistered. Ask your admin to add this signature.";
+                    errBox.classList.remove("hidden");
+                }
+            }
+            
+            if (window.location.hash === "#admin-tab" || window.location.hash === "#bank-tab") {
                 window.location.hash = "#license-tab";
             }
         }
     } catch (err) {
-        console.error("License check failed:", err);
+        console.error("Local client status fetch failed:", err);
+        if (stateLoading) stateLoading.classList.add("hidden");
+        if (stateUnregistered) stateUnregistered.classList.add("hidden");
+        if (stateError) stateError.classList.remove("hidden");
+        
+        const errTitle = document.getElementById("lic-error-title");
+        const errMessage = document.getElementById("lic-error-message");
+        if (errTitle) errTitle.textContent = "Local Server Issue";
+        if (errMessage) errMessage.textContent = "The client application failed to receive licensing status from local engine.";
     }
 }
 
-async function submitActivation() {
-    const keyInput = document.getElementById("activation-key-input");
-    const errorBox = document.getElementById("activation-error");
-    const key = keyInput.value.trim();
+function startLocalLicenseCountdown(secondsRemaining, expiryDateString) {
+    if (localLicenseCountdownInterval) clearInterval(localLicenseCountdownInterval);
     
-    if (!key) {
-        showActivationError("Please enter an activation key.");
+    const expirySide = document.getElementById("license-expiry-side");
+    const expiryTab = document.getElementById("lic-info-expiry");
+    const daysTab = document.getElementById("lic-info-days");
+    
+    if (expiryTab) expiryTab.textContent = expiryDateString || "Lifetime";
+    
+    if (state.role === "ADMIN" || secondsRemaining === -1) {
+        if (expirySide) expirySide.textContent = "Lifetime Active";
+        if (daysTab) daysTab.textContent = "∞";
         return;
     }
     
-    errorBox.classList.add("hidden");
+    let currentRemaining = secondsRemaining;
+    
+    function tick() {
+        if (currentRemaining <= 0) {
+            if (expirySide) expirySide.textContent = "License Expired";
+            if (daysTab) daysTab.textContent = "Expired";
+            checkLicenseStatus(); // Locks app instantly
+            clearInterval(localLicenseCountdownInterval);
+            return;
+        }
+        
+        const countdownStr = formatCountdown(currentRemaining);
+        if (expirySide) expirySide.textContent = `Time left: ${countdownStr}`;
+        if (daysTab) daysTab.textContent = countdownStr;
+        
+        currentRemaining--;
+    }
+    
+    tick();
+    localLicenseCountdownInterval = setInterval(tick, 1000);
+}
+
+async function retryLicenseConnection() {
+    checkLicenseStatus(true);
+}
+
+function toggleAdminLoginForm() {
+    const form = document.getElementById("admin-login-form");
+    const btn = document.getElementById("btn-toggle-admin-login");
+    if (form) {
+        if (form.classList.contains("hidden")) {
+            form.classList.remove("hidden");
+            if (btn) btn.textContent = "Cancel Admin Login ❌";
+        } else {
+            form.classList.add("hidden");
+            if (btn) btn.textContent = "Sign in as Administrator 🔑";
+        }
+    }
+}
+
+async function submitAdminLogin() {
+    const emailEl = document.getElementById("lic-admin-email");
+    const keyEl = document.getElementById("lic-admin-key");
+    const passEl = document.getElementById("lic-admin-password");
+    const errorBox = document.getElementById("activation-error");
+    
+    const email = emailEl ? emailEl.value.trim() : "";
+    const adminKey = keyEl ? keyEl.value.trim() : "";
+    const password = passEl ? passEl.value.trim() : "";
+    
+    if (!email || !adminKey || !password) {
+        if (errorBox) {
+            errorBox.textContent = "Please fill in all administrator credentials.";
+            errorBox.classList.remove("hidden");
+        }
+        return;
+    }
+    
+    if (errorBox) errorBox.classList.add("hidden");
     
     try {
-        const res = await fetch("/api/activate", {
+        const res = await fetch("/api/admin/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key })
+            body: JSON.stringify({ email, admin_key: adminKey, password })
         });
         const data = await res.json();
         
         if (data.success) {
-            keyInput.value = "";
-            checkLicenseStatus();
+            if (emailEl) emailEl.value = "";
+            if (keyEl) keyEl.value = "";
+            if (passEl) passEl.value = "";
+            
+            const form = document.getElementById("admin-login-form");
+            if (form) form.classList.add("hidden");
+            
+            const btn = document.getElementById("btn-toggle-admin-login");
+            if (btn) btn.textContent = "Sign in as Administrator 🔑";
+            
+            await checkLicenseStatus();
         } else {
-            showActivationError(data.message);
+            if (errorBox) {
+                errorBox.textContent = data.message || "Invalid administrator credentials.";
+                errorBox.classList.remove("hidden");
+            }
         }
     } catch (err) {
-        showActivationError("Failed to communicate with activation server.");
+        if (errorBox) {
+            errorBox.textContent = "Failed to reach server. Please check your network.";
+            errorBox.classList.remove("hidden");
+        }
     }
-}
-
-function showActivationError(msg) {
-    const errorBox = document.getElementById("activation-error");
-    errorBox.textContent = msg;
-    errorBox.classList.remove("hidden");
 }
 
 async function deactivateLicense() {
-    if (!confirm("Are you sure you want to deactivate and lock this computer installation?")) {
+    const confirmMsg = state.role === "ADMIN" 
+        ? "Are you sure you want to log out of the administrator session?" 
+        : "Are you sure you want to deactivate this computer activation?";
+        
+    if (!confirm(confirmMsg)) {
         return;
     }
+    
     try {
         const res = await fetch("/api/deactivate", { method: "POST" });
         const data = await res.json();
         if (data.success) {
-            checkLicenseStatus();
+            if (localLicenseCountdownInterval) clearInterval(localLicenseCountdownInterval);
+            if (adminTableCountdownInterval) clearInterval(adminTableCountdownInterval);
+            checkLicenseStatus(true);
         }
     } catch (err) {
-        alert("Deactivation failed.");
+        alert("Operation failed.");
     }
 }
 
 function updateLicenseTabDetails() {
-    document.getElementById("lic-info-signature").textContent = state.signature;
+    const signatureVal = document.getElementById("lic-info-signature");
+    if (signatureVal) signatureVal.textContent = state.signature;
+    
     fetch("/api/status")
         .then(res => res.json())
         .then(status => {
             const statusVal = document.getElementById("lic-info-status");
-            statusVal.textContent = status.activated ? "ACTIVE (Registered)" : "UNLICENSED";
-            statusVal.className = status.activated ? "info-value text-success" : "info-value text-danger";
+            if (statusVal) {
+                statusVal.textContent = status.activated ? "ACTIVE (Registered)" : "UNLICENSED";
+                statusVal.className = status.activated ? "info-value text-success" : "info-value text-danger";
+            }
             
             const roleVal = document.getElementById("lic-info-role");
             if (roleVal) {
                 roleVal.textContent = status.role || "USER";
             }
             
-            document.getElementById("lic-info-expiry").textContent = status.expiry_date || "-";
-            let daysText = "-";
-            if (status.days_remaining !== undefined) {
-                if (status.role === "ADMIN" || status.days_remaining === 99999) {
-                    daysText = "∞";
-                } else {
-                    daysText = status.days_remaining;
-                }
+            const expiryVal = document.getElementById("lic-info-expiry");
+            if (expiryVal) {
+                expiryVal.textContent = status.expiry_date || "-";
             }
-            document.getElementById("lic-info-days").textContent = daysText;
+            
+            startLocalLicenseCountdown(status.seconds_remaining, status.expiry_date);
         })
         .catch(err => console.error("Error updating license tab details:", err));
 }
 
 function copySignature() {
-    navigator.clipboard.writeText(state.signature)
+    const textToCopy = state.signature || document.getElementById("machine-sig-display").textContent;
+    navigator.clipboard.writeText(textToCopy)
         .then(() => alert("Machine Signature ID copied to clipboard!"))
         .catch(err => console.error("Copy failed", err));
 }
+
+// -------------------------------------------------------------
+// ADMIN CONSOLE ACTIONS (CLOUD)
+// -------------------------------------------------------------
+async function registerDevice() {
+    const sigInput = document.getElementById("admin-target-sig");
+    const roleSelect = document.getElementById("admin-role-select");
+    const durationSelect = document.getElementById("admin-duration-select");
+    const resultContainer = document.getElementById("admin-key-result-container");
+    const generatedDisplay = document.getElementById("admin-generated-key-display");
+    
+    const signature = sigInput ? sigInput.value.trim().toUpperCase() : "";
+    const role = roleSelect ? roleSelect.value : "USER";
+    const duration = durationSelect ? durationSelect.value : "1month";
+    
+    if (!signature) {
+        alert("Please enter the target machine signature.");
+        return;
+    }
+    
+    try {
+        const res = await fetch("/api/admin/generate_key", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ signature, role, duration })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            if (sigInput) sigInput.value = "";
+            if (generatedDisplay) generatedDisplay.textContent = data.license.activation_key;
+            if (resultContainer) resultContainer.classList.remove("hidden");
+            
+            fetchRegistrations();
+        } else {
+            alert(data.message || "Failed to register signature.");
+        }
+    } catch (err) {
+        alert("Failed to register device.");
+    }
+}
+
+async function fetchRegistrations() {
+    try {
+        const res = await fetch("/api/admin/list_licenses");
+        const data = await res.json();
+        
+        if (!data.success) {
+            console.error("Failed to load registrations:", data.message);
+            return;
+        }
+        
+        const activeCountEl = document.getElementById("admin-active-count");
+        if (activeCountEl) activeCountEl.textContent = data.active_count;
+        
+        const activeBody = document.getElementById("active-licenses-body");
+        if (activeBody) {
+            activeBody.innerHTML = "";
+            activeRegistrationsList = data.active_licenses || [];
+            
+            if (activeRegistrationsList.length === 0) {
+                activeBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No active licenses.</td></tr>`;
+            } else {
+                activeRegistrationsList.forEach((lic, idx) => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td style="font-family: monospace; font-weight: bold; color: white;">${lic.machine_signature}</td>
+                        <td style="font-size: 0.85rem;">${lic.activation_key || "-"}</td>
+                        <td><span class="badge ${lic.role === 'CO-ADMIN' ? 'badge-primary' : 'badge-secondary'}" style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; background: ${lic.role === 'CO-ADMIN' ? '#8b5cf6' : 'rgba(255,255,255,0.1)'}">${lic.role}</span></td>
+                        <td style="font-size: 0.85rem;">${lic.expiry_time}</td>
+                        <td style="font-family: monospace; color: var(--text-highlight);" class="admin-license-timer" data-index="${idx}">
+                            ${formatCountdown(lic.seconds_remaining)}
+                        </td>
+                        <td style="text-align: right;">
+                            <button class="btn btn-danger" onclick="deactivateDevice('${lic.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem;">Deactivate 🔓</button>
+                        </td>
+                    `;
+                    activeBody.appendChild(tr);
+                });
+            }
+        }
+        
+        startAdminTableTicking();
+        
+        const deactivatedBody = document.getElementById("deactivated-licenses-body");
+        if (deactivatedBody) {
+            deactivatedBody.innerHTML = "";
+            const deactivatedList = data.deactivated_licenses || [];
+            
+            if (deactivatedList.length === 0) {
+                deactivatedBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No deactivated licenses.</td></tr>`;
+            } else {
+                deactivatedList.forEach(lic => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td style="font-family: monospace; color: var(--text-muted); text-decoration: line-through;">${lic.machine_signature}</td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.activation_key || "-"}</td>
+                        <td><span class="badge" style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-muted);">${lic.role}</span></td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.expiry_time}</td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.created_by || "-"}</td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.created_at || "-"}</td>
+                    `;
+                    deactivatedBody.appendChild(tr);
+                });
+            }
+        }
+        
+    } catch (err) {
+        console.error("Failed to fetch registrations:", err);
+    }
+}
+
+function startAdminTableTicking() {
+    if (adminTableCountdownInterval) clearInterval(adminTableCountdownInterval);
+    
+    function tick() {
+        const timerCells = document.querySelectorAll(".admin-license-timer");
+        timerCells.forEach(cell => {
+            const idx = parseInt(cell.getAttribute("data-index"));
+            if (isNaN(idx) || !activeRegistrationsList[idx]) return;
+            
+            let seconds = activeRegistrationsList[idx].seconds_remaining;
+            if (seconds === -1) {
+                cell.textContent = "Lifetime";
+                return;
+            }
+            
+            if (seconds <= 0) {
+                cell.textContent = "Expired";
+                return;
+            }
+            
+            activeRegistrationsList[idx].seconds_remaining--;
+            cell.textContent = formatCountdown(activeRegistrationsList[idx].seconds_remaining);
+        });
+    }
+    
+    tick();
+    adminTableCountdownInterval = setInterval(tick, 1000);
+}
+
+async function deactivateDevice(signature) {
+    if (!confirm(`Are you sure you want to deactivate license for device signature: ${signature}?`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch("/api/admin/deactivate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ signature })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            fetchRegistrations();
+        } else {
+            alert(data.message || "Failed to deactivate device.");
+        }
+    } catch (err) {
+        alert("Failed to deactivate device.");
+    }
+}
+
+function copyGeneratedAdminKey() {
+    const el = document.getElementById("admin-generated-key-display");
+    const key = el ? el.textContent : "";
+    navigator.clipboard.writeText(key)
+        .then(() => alert("Activation reference key copied!"))
+        .catch(err => console.error("Copy failed", err));
+}
+
 
 // ==========================================
 // BANK CONVERSION OPERATIONS
