@@ -5,7 +5,7 @@ def process_strategy(extracted_text, parse_opening_func, bank_type, boundary_dat
     Continuation Strategy: Suppresses opening balance and routes raw text 
     directly to the bank-specific slicer modules.
     """
-    print(f"➡️ Strategy Executing: Routing text layer to specialized {bank_type} slicing filters.")
+    print(f"[INFO] Strategy Executing: Routing text layer to specialized {bank_type} slicing filters.")
     opening_bal = None  # Suppress opening balance for continuations
     
     slicer_func = get_slicer_function(bank_type)
