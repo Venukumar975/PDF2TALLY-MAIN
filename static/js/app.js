@@ -887,17 +887,19 @@ function renderBankResults(data) {
         });
     }
     
+    // Store response globally for dynamic monthly analysis computations
+    state.lastResponseData = data;
+    
     // Build Tally Prime Voucher Preview rows
     const tallyTbody = document.querySelector("#bank-tally-preview-table tbody");
     if (tallyTbody) {
         tallyTbody.innerHTML = "";
         const txns = data.transactions || [];
-        const previewTxns = txns.slice(0, 15);
         
-        if (previewTxns.length === 0) {
+        if (txns.length === 0) {
             tallyTbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No vouchers available for preview.</td></tr>`;
         } else {
-            previewTxns.forEach((txn, idx) => {
+            txns.forEach((txn, idx) => {
                 const tr = document.createElement("tr");
                 const vchType = txn.type === "DEBIT" ? "Receipt" : "Payment";
                 const particulars = data.credit_ledger || "Suspense";
@@ -907,9 +909,9 @@ function renderBankResults(data) {
                 
                 tr.innerHTML = `
                     <td>${txn.gl_date}</td>
+                    <td>${particulars}</td>
                     <td><span class="badge ${txn.type === 'DEBIT' ? 'success' : 'danger'}">${vchType}</span></td>
                     <td>${idx + 1}</td>
-                    <td>${particulars}</td>
                     <td class="${txn.type === 'DEBIT' ? 'text-success' : ''}">${debitVal}</td>
                     <td class="${txn.type === 'CREDIT' ? 'text-danger' : ''}">${creditVal}</td>
                 `;
@@ -917,6 +919,9 @@ function renderBankResults(data) {
             });
         }
     }
+    
+    // Default to the vouchers tab view
+    switchTallyPreviewTab('vouchers');
     
     // Render dynamic SVG chart
     renderMonthlyChart("bank-chart-canvas", stmt.monthly_summaries, ["debit_total", "credit_total"], ["#10b981", "#ef4444"]);
@@ -1998,4 +2003,102 @@ async function triggerOpeningBalanceDetection() {
     } finally {
         balanceInput.disabled = false;
     }
+}
+
+function switchTallyPreviewTab(tabType) {
+    const btnVouchers = document.getElementById("btn-tally-view-vouchers");
+    const btnMonthly = document.getElementById("btn-tally-view-monthly");
+    const containerVouchers = document.getElementById("tally-tab-vouchers-container");
+    const containerMonthly = document.getElementById("tally-tab-monthly-container");
+    
+    if (tabType === 'vouchers') {
+        if (btnVouchers) btnVouchers.classList.add("active");
+        if (btnMonthly) btnMonthly.classList.remove("active");
+        if (containerVouchers) containerVouchers.classList.remove("hidden");
+        if (containerMonthly) containerMonthly.classList.add("hidden");
+    } else {
+        if (btnVouchers) btnVouchers.classList.remove("active");
+        if (btnMonthly) btnMonthly.classList.add("active");
+        if (containerVouchers) containerVouchers.classList.add("hidden");
+        if (containerMonthly) containerMonthly.classList.remove("hidden");
+        
+        buildDynamicMonthlySummary();
+    }
+}
+
+function buildDynamicMonthlySummary() {
+    const data = state.lastResponseData;
+    const tbody = document.querySelector("#bank-dynamic-monthly-table tbody");
+    if (!tbody || !data) return;
+    
+    tbody.innerHTML = "";
+    
+    const txns = data.transactions || [];
+    const openingBal = parseFloat(data.report.statement.opening_balance) || 0.0;
+    
+    const monthGroups = {};
+    const monthOrder = [];
+    
+    txns.forEach(txn => {
+        const parts = txn.gl_date.split("-");
+        if (parts.length === 3) {
+            const day = parseInt(parts[0]);
+            const monthNum = parts[1];
+            const year = parts[2];
+            
+            const monthKey = `${year}-${monthNum}`;
+            const dateObj = new Date(year, parseInt(monthNum) - 1, 1);
+            const monthLabel = dateObj.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+            
+            if (!monthGroups[monthKey]) {
+                monthGroups[monthKey] = {
+                    key: monthKey,
+                    label: monthLabel,
+                    debit: 0.0,
+                    credit: 0.0,
+                    txns: []
+                };
+                monthOrder.push(monthKey);
+            }
+            
+            monthGroups[monthKey].txns.push({
+                day: day,
+                amount: txn.amount,
+                type: txn.type
+            });
+        }
+    });
+    
+    monthOrder.sort();
+    
+    let runningBalance = openingBal;
+    
+    if (monthOrder.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No monthly data computed.</td></tr>`;
+        return;
+    }
+    
+    monthOrder.forEach(key => {
+        const group = monthGroups[key];
+        group.txns.sort((a, b) => a.day - b.day);
+        
+        group.txns.forEach(t => {
+            if (t.type === "DEBIT") {
+                group.debit += t.amount;
+                runningBalance += t.amount;
+            } else if (t.type === "CREDIT") {
+                group.credit += t.amount;
+                runningBalance -= t.amount;
+            }
+        });
+        
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><strong>${group.label}</strong></td>
+            <td class="text-success">${formatCurrency(group.debit)}</td>
+            <td class="text-danger">${formatCurrency(group.credit)}</td>
+            <td><strong>${formatCurrency(runningBalance)}</strong></td>
+        `;
+        tbody.appendChild(tr);
+    });
 }

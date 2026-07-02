@@ -344,18 +344,43 @@
 
                         <!-- TALLY PRIME VOUCHER PREVIEW -->
                         <div class="table-section">
-                            <h4> Tally Prime Voucher Preview (First 15 Transactions)</h4>
-                            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">This simulates how the generated XML vouchers will appear inside Tally Prime after importing.</p>
-                            <div class="table-wrapper">
+                            <h4>Tally Prime Voucher View & Analysis</h4>
+                            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">Simulates how transaction journals will render and calculate inside Tally Prime.</p>
+                            
+                            <!-- View Selector Tabs -->
+                            <div class="view-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
+                                <button class="btn btn-secondary btn-sm active" id="btn-tally-view-vouchers" onclick="switchTallyPreviewTab('vouchers')" style="font-size: 0.75rem; padding: 4px 10px;">All Vouchers</button>
+                                <button class="btn btn-secondary btn-sm" id="btn-tally-view-monthly" onclick="switchTallyPreviewTab('monthly')" style="font-size: 0.75rem; padding: 4px 10px;">Monthly Summary Analysis</button>
+                            </div>
+
+                            <!-- TAB 1: ALL VOUCHERS -->
+                            <div id="tally-tab-vouchers-container" class="table-wrapper">
                                 <table id="bank-tally-preview-table">
                                     <thead>
                                         <tr>
-                                            <th>Voucher Date</th>
-                                            <th>Voucher Type</th>
-                                            <th>Voucher No.</th>
-                                            <th>Particulars (Suspense)</th>
-                                            <th>Debit (Receipt Amount)</th>
-                                            <th>Credit (Payment Amount)</th>
+                                            <th>Date</th>
+                                            <th>Particulars</th>
+                                            <th>Vch Type</th>
+                                            <th>Vch No.</th>
+                                            <th>Debit</th>
+                                            <th>Credit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Injected dynamically by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- TAB 2: DYNAMIC MONTHLY SUMMARY -->
+                            <div id="tally-tab-monthly-container" class="table-wrapper hidden">
+                                <table id="bank-dynamic-monthly-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Month</th>
+                                            <th>Received (Debit)</th>
+                                            <th>Spent (Credit)</th>
+                                            <th>Closing Balance</th>
                                         </tr>
                                     </thead>
                                     <tbody>
