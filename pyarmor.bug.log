@@ -1,0 +1,28 @@
+[BUG]: Command '['C:\\Users\\pichi\\Desktop\\pdf2tally-2\\pdf2tally\\venv\\Scripts\\python.exe', '-m', 'PyInstaller', '--clean', '--distpath', 'dist', '--workpath', '.pyarmor\\pack\\build', 'pdf2tallyXML.patched.spec']' returned non-zero exit status 1.
+
+## Command Line
+C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Scripts\pyarmor gen --pack pdf2tallyXML.spec -r desktop_run.py app_flask.py routes.py licensing.py services parsers strategies slicers
+
+## Environments
+Python 3.12.4
+Pyarmor 9.2.5 (trial), 000000, non-profits
+Platform windows.x86_64
+Native windows.amd64
+Home C:\Users\pichi\.pyarmor
+
+## Traceback
+Traceback (most recent call last):
+  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 804, in main
+    main_entry(sys.argv[1:])
+  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 789, in main_entry
+    return args.func(ctx, args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 246, in cmd_gen
+    packer.build()
+  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\repack.py", line 338, in build
+    check_call(cmdlist)
+  File "C:\Users\pichi\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+subprocess.CalledProcessError: Command '['C:\\Users\\pichi\\Desktop\\pdf2tally-2\\pdf2tally\\venv\\Scripts\\python.exe', '-m', 'PyInstaller', '--clean', '--distpath', 'dist', '--workpath', '.pyarmor\\pack\\build', 'pdf2tallyXML.patched.spec']' returned non-zero exit status 1.
+
+

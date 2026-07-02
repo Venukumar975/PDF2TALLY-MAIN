@@ -1,0 +1,123 @@
+\documentclass[letterpaper,10pt]{article}
+\usepackage[left=0.5in,right=0.5in,top=0.5in,bottom=0.5in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=black,      
+    urlcolor=blue,
+    pdftitle={Venu Kumar Pichika - Resume},
+    pdfpagemode=FullScreen,
+}
+
+\urlstyle{same}
+
+% Section formatting
+\titleformat{\section}{
+  \nopagebreak\vspace{-4pt}\bfseries\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-4pt}]
+
+\titleformat{\subsection}{
+  \vspace{-4pt}\bfseries
+}{}{0em}{}
+
+\renewcommand{\labelitemi}{$\bullet$}
+\renewcommand{\labelitemii}{$\circ$}
+
+% Adjust spacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+% --- HEADER ---
+\begin{center}
+    {\Huge \textbf{VENU KUMAR PICHIKA}} \\
+    \vspace{4pt}
+    \small +91-7671943264 \textbar{} \href{mailto:pichikavenu975@gmail.com}{pichikavenu975@gmail.com} \textbar{} \href{https://linkedin.com/in/venupichika}{linkedin.com/in/venupichika} \textbar{} \href{https://github.com/Venukumar975}{github.com/Venukumar975}
+\end{center}
+
+\vspace{-10pt}
+
+% --- PROFESSIONAL SUMMARY ---
+\section*{PROFESSIONAL SUMMARY}
+I am a passionate Software Engineer and AI enthusiast with expertise in Distributed Systems, Cloud Infrastructure, and Python. Experienced in building scalable file systems and secure cloud architectures. Dedicated to continuous learning and solving complex engineering challenges.
+
+% --- EDUCATION ---
+\section*{EDUCATION}
+\vspace{2pt}
+\begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}r}
+    \textbf{Indian Institute of Information Technology Pune} & Pune, India \\
+    \textit{B.Tech in Computer Science and Engineering (CGPA: 7.54/10)} & \textit{2023 -- Present} \\
+    \vspace{1pt} \\
+    \textbf{Shri Shirdi Sai Junior College} & Andhra Pradesh, India \\
+    \textit{Class XII, CBSE (89.8\%)} & \textit{2021 -- 2023}
+\end{tabular*}
+
+\vspace{-4pt}
+
+% --- TECHNICAL SKILLS ---
+\section*{TECHNICAL SKILLS}
+\vspace{2pt}
+\textbf{Languages:} Python, JavaScript, SQL, Java, C++ \\
+\textbf{Distributed Systems \& Cloud:} gRPC, Protocol Buffers, AWS (EC2, S3, ECR, ASG), Terraform, Docker \\
+\textbf{Frameworks \& Libraries:} Node.js, React, Flask, PyPDF2, cryptography (AES-GCM, HMAC), Pandas, Numpy, Matplotlib, Seaborn, Scikit-learn \\
+\textbf{Core Areas:} Distributed File Systems, AI, Web Dev , DSA, AWS Cloud
+
+% --- PROJECTS ---
+\section*{PROJECTS}
+\vspace{2pt}
+
+\textbf{STOREC: Distributed File System with Multi-pipeline Erasure Coding} \textbar{} \textit{Python, gRPC, Docker} \textbar{} \href{https://github.com/Venukumar975/STOREC}{\underline{GitHub}}
+\begin{itemize}[leftmargin=*,noitemsep,topsep=2pt,parsep=0pt,partopsep=0pt]
+    \item \textbf{Architected} a Hadoop-inspired Distributed File System (DFS) featuring a modular NameNode-DataNode design for scalable storage management.
+    \item \textbf{Implemented} gRPC Bidirectional Streaming for efficient, low-latency file transfers, outperforming traditional HTTP-based transmission.
+    \item \textbf{Engineered} a Multi-pipeline write architecture that enables concurrent processing of data stripes, significantly reducing idle time in the write path.
+    \item \textbf{Optimized} system performance achieved a 15-20\% improvement in write throughput and reduced latency through asynchronous acknowledgement handling.
+    \item \textbf{Utilized} Reed-Solomon Erasure Coding to maintain fault tolerance with minimal storage overhead compared to traditional triplication.
+\end{itemize}
+
+\vspace{4pt}
+
+\textbf{Secure Cloud Storage (SCS): Verifiable Searchable Encryption} \textbar{} \textit{Flask, AWS S3, HMAC, Cryptography} \textbar{} \href{https://github.com/Venukumar975/SCS}{\underline{GitHub}}
+\begin{itemize}[leftmargin=*,noitemsep,topsep=2pt,parsep=0pt,partopsep=0pt]
+    \item \textbf{Designed} a Symmetric Searchable Encryption (SSE) scheme based on the Hexie and Jianding algorithms to enable encrypted searches over cloud data.
+    \item \textbf{Implemented} Forward and Backward Privacy using XOR-chained secret shares (PI), ensuring that newly added data cannot be linked to previous search queries.
+    \item \textbf{Developed} the Jianding Verification Layer using Chained MACs and SHA-256 hashing to audit both Index and Storage integrity against malicious cloud providers.
+    \item \textbf{Built} a full-stack client using Flask and AWS S3 for local file encryption (AES-GCM) and tokenized keyword extraction from PDFs/text files.
+    \item \textbf{Achieved} a ``Light Client'' architecture where the user only needs to store a single 16-byte secret share per keyword to perform verifiable searches.
+\end{itemize}
+
+\vspace{4pt}
+
+\textbf{pdf2tally: Automated Accounting ETL \& Bilingual Receipt Parser} \textbar{} \textit{Python, Streamlit, Pandas, Openpyxl} \textbar{} \href{https://github.com/Venukumar975/pdf2tally}{\underline{GitHub}}
+\begin{itemize}[leftmargin=*,noitemsep,topsep=2pt,parsep=0pt,partopsep=0pt]
+    \item \textbf{Developed} an automated ETL and billing integration system that parses unstructured bank statements and transliterates bilingual cash receipts into Tally-compliant XML vouchers.
+    \item \textbf{Engineered} a double-entry validation engine to cross-verify statement balances, audit debit/credit totals, and generate Excel audit spreadsheets (openpyxl) to guarantee 100\% accounting accuracy.
+    \item \textbf{Implemented} a bilingual parsing pipeline using NLP transliteration libraries (Aksharamukha) to process native Telugu names, removing cultural honorifics (e.g., ``Garu'') and normalizing spelling variations.
+    \item \textbf{Built} a Streamlit review desk allowing accountants to interactively inspect flagged transliterations, update a persistent custom lexicon JSON mapping, and trigger real-time ledger reprocessing.
+    \item \textbf{Integrated} a secure offline licensing system utilizing client-side hardware signatures, role-based access control, and cryptographic integrity checks to enforce software subscription limits.
+\end{itemize}
+
+\vspace{-4pt}
+
+% --- CERTIFICATIONS ---
+\section*{CERTIFICATIONS}
+\vspace{2pt}
+\textbf{Deep Learning Specialization} -- Coursera \\
+\textbf{Machine Learning A-Z: AI, Python \& R} -- Udemy
+
+% --- INTERESTS ---
+\section*{INTERESTS}
+\begin{itemize}[leftmargin=*,noitemsep,topsep=2pt,parsep=0pt,partopsep=0pt]
+    \item Distributed Systems Research and Scalable Architectures
+    \item Competitive Programming (300+ LeetCode Problems)
+    \item Reading Tech Blogs and Advancements in Cloud Infrastructure
+\end{itemize}
+
+\end{document}

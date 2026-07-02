@@ -169,6 +169,8 @@ def monitor_and_load_app(window, port):
 
 if __name__ == "__main__":
     logger.info("Initializing Tally Automation Suite desktop container window...")
+    import licensing
+    logger.info(f"Final Compiled Machine Signature: {licensing.get_machine_signature()}")
     
     # Check WebView2 Runtime dependency on Windows
     if sys.platform == "win32":

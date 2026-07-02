@@ -49,25 +49,43 @@ def save_db(data):
             print(f"Error saving database: {e}")
             return False
 
-# Initialize and seed default Master Admin if empty
+# Initialize and seed default Master Admin
 def seed_db():
     db = load_db()
-    if not db.get("admins"):
-        default_email = os.environ.get("ADMIN_EMAIL", "admin@pdf2tally.com")
-        default_key = os.environ.get("ADMIN_KEY", "ADM-SUPER-SECURE-2026")
-        default_password = os.environ.get("ADMIN_PASSWORD", "AdminPassword2026!")
-        
-        master_admin = {
-            "email": default_email,
-            "admin_key": default_key,
-            "password_hash": generate_password_hash(default_password),
-            "role": "ADMIN",
-            "is_active": True,
-            "created_at": get_now_ist().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        db["admins"].append(master_admin)
-        save_db(db)
-        print("Master Admin successfully seeded in JSON store.")
+    
+    # Force clean all licenses and requests from the database
+    db["licenses"] = []
+    db["requests"] = []
+    
+    # Load secrets from secrets.json if available
+    secrets_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "secrets.json")
+    email = os.environ.get("ADMIN_EMAIL", "admin@pdf2tally.com")
+    admin_key = os.environ.get("ADMIN_KEY", "ADM-SUPER-SECURE-2026")
+    password = os.environ.get("ADMIN_PASSWORD", "AdminPassword2026!")
+    
+    if os.path.exists(secrets_file):
+        try:
+            with open(secrets_file, "r", encoding="utf-8") as f:
+                secrets_data = json.load(f)
+                email = secrets_data.get("ADMIN_EMAIL", email)
+                admin_key = secrets_data.get("ADMIN_KEY", admin_key)
+                password = secrets_data.get("ADMIN_PASSWORD", password)
+        except Exception as e:
+            print(f"Error reading secrets.json: {e}")
+            
+    master_admin = {
+        "email": email,
+        "admin_key": admin_key,
+        "password_hash": generate_password_hash(password),
+        "role": "ADMIN",
+        "is_active": True,
+        "created_at": get_now_ist().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    # Overwrite the admins list with ONLY the seeded admin
+    db["admins"] = [master_admin]
+    save_db(db)
+    print("Database successfully seeded and cleaned. Contains ONLY the master admin.")
 
 seed_db()
 
@@ -151,18 +169,49 @@ def verify_license():
             break
             
     if not license_record:
+        # Check if there is a pending request
+        is_pending = False
+        for req in db.get("requests", []):
+            if req.get("machine_signature") == sig:
+                is_pending = True
+                break
+        if is_pending:
+            return jsonify({
+                "activated": False,
+                "pending_approval": True,
+                "role": "USER",
+                "message": "Waiting for Administrator's Authorization.",
+                "signature": sig
+            })
+            
         return jsonify({
             "activated": False,
+            "pending_approval": False,
             "role": "USER",
             "message": "Device not registered. Please contact your administrator.",
             "signature": sig
         })
         
     if not license_record.get("is_active", True):
+        is_expired = False
+        expiry_str = license_record.get("expiry_time")
+        if expiry_str:
+            try:
+                expiry_dt = datetime.strptime(expiry_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
+                if get_now_ist() > expiry_dt:
+                    is_expired = True
+            except ValueError:
+                pass
+        if is_expired:
+            msg = "Subscription expired and Device deactivated."
+        else:
+            msg = "Device is Deactivated."
+            
         return jsonify({
             "activated": False,
+            "pending_approval": False,
             "role": license_record.get("role", "USER"),
-            "message": "This license has been deactivated by the administrator.",
+            "message": msg,
             "signature": sig
         })
         
@@ -176,11 +225,9 @@ def verify_license():
             return jsonify({"activated": False, "message": "Corrupted license expiry details on cloud server."}), 500
             
         if now > expiry_dt:
-            # Automatically flag as inactive in data store
-            license_record["is_active"] = False
-            save_db(db)
             return jsonify({
                 "activated": False,
+                "pending_approval": False,
                 "role": license_record.get("role", "USER"),
                 "message": f"License expired on {expiry_dt.strftime('%d-%b-%Y %H:%M:%S')}.",
                 "signature": sig
@@ -193,12 +240,85 @@ def verify_license():
         
     return jsonify({
         "activated": True,
+        "pending_approval": False,
         "role": license_record.get("role", "USER"),
         "message": "License verified active.",
         "expiry_date": expiry_str if expiry_str else "Lifetime",
         "seconds_remaining": seconds_remaining,
         "signature": sig
     })
+
+# -------------------------------------------------------------
+# REGISTRATION REQUESTS API
+# -------------------------------------------------------------
+@app.route("/api/cloud/register_request", methods=["POST"])
+def register_request():
+    data = request.get_json() or {}
+    sig = data.get("machine_signature", "").strip().upper()
+    if not sig:
+        return jsonify({"success": False, "message": "Machine signature is required."}), 400
+        
+    db = load_db()
+    # Check if already registered
+    for lic in db.get("licenses", []):
+        if lic.get("machine_signature") == sig:
+            if lic.get("is_active", True):
+                return jsonify({"success": True, "message": "Signature is already registered and active."})
+            else:
+                return jsonify({"success": False, "message": "Signature is registered but deactivated."}), 403
+                
+    # Check if already in requests
+    for req in db.get("requests", []):
+        if req.get("machine_signature") == sig:
+            return jsonify({"success": True, "message": "Waiting for Administrator's Authorization."})
+            
+    new_req = {
+        "machine_signature": sig,
+        "requested_at": get_now_ist().strftime("%Y-%m-%d %H:%M:%S"),
+        "status": "PENDING"
+    }
+    if "requests" not in db:
+        db["requests"] = []
+    db["requests"].append(new_req)
+    save_db(db)
+    return jsonify({"success": True, "message": "Waiting for Administrator's Authorization."})
+
+@app.route("/api/cloud/admin/requests", methods=["GET"])
+def list_requests():
+    role, identifier = authenticate_request(request)
+    if not role:
+        return jsonify({"success": False, "message": "Unauthorized access."}), 403
+        
+    db = load_db()
+    return jsonify({
+        "success": True,
+        "requests": db.get("requests", [])
+    })
+
+@app.route("/api/cloud/admin/reject_request", methods=["POST"])
+def reject_request():
+    role, identifier = authenticate_request(request)
+    if not role:
+        return jsonify({"success": False, "message": "Unauthorized access."}), 403
+        
+    data = request.get_json() or {}
+    target_sig = data.get("machine_signature", "").strip().upper()
+    if not target_sig:
+        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
+        
+    db = load_db()
+    req_to_remove = None
+    for req in db.get("requests", []):
+        if req.get("machine_signature") == target_sig:
+            req_to_remove = req
+            break
+            
+    if not req_to_remove:
+        return jsonify({"success": False, "message": "Pending request not found."}), 404
+        
+    db["requests"].remove(req_to_remove)
+    save_db(db)
+    return jsonify({"success": True, "message": f"Successfully rejected request for {target_sig}."})
 
 # -------------------------------------------------------------
 # ADMIN AUTHENTICATION
@@ -224,7 +344,7 @@ def admin_login():
         return jsonify({"success": False, "message": "Invalid credentials or inactive admin account."}), 401
         
     if not check_password_hash(matched_admin.get("password_hash"), password):
-        return jsonify({"success": False, "message": "Invalid password."}), 401
+        return jsonify({"success": False, "message": "Invalid credentials or inactive admin account."}), 401
         
     token = generate_admin_token(email)
     return jsonify({
@@ -247,6 +367,7 @@ def list_licenses():
     now = get_now_ist()
     
     active_licenses = []
+    expired_licenses = []
     deactivated_licenses = []
     
     for lic in db.get("licenses", []):
@@ -255,12 +376,12 @@ def list_licenses():
         
         # Calculate dynamic remaining time in seconds
         seconds_remaining = -1
-        if is_active and expiry_str:
+        is_expired = False
+        if expiry_str:
             try:
                 expiry_dt = datetime.strptime(expiry_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
                 if now > expiry_dt:
-                    is_active = False
-                    lic["is_active"] = False
+                    is_expired = True
                     seconds_remaining = 0
                 else:
                     seconds_remaining = int((expiry_dt - now).total_seconds())
@@ -277,18 +398,18 @@ def list_licenses():
             "created_by": lic.get("created_by")
         }
         
-        if is_active:
-            active_licenses.append(lic_data)
-        else:
+        if not is_active:
             deactivated_licenses.append(lic_data)
+        elif is_expired:
+            expired_licenses.append(lic_data)
+        else:
+            active_licenses.append(lic_data)
             
-    # Save db back in case automatic expiry occurred
-    save_db(db)
-    
     return jsonify({
         "success": True,
         "active_count": len(active_licenses),
         "active_licenses": active_licenses,
+        "expired_licenses": expired_licenses,
         "deactivated_licenses": deactivated_licenses
     })
 
@@ -315,10 +436,21 @@ def register_license():
         
     db = load_db()
     
-    # Strictly check if signature is already registered (either active or deactivated)
+    # Automatically remove from requests queue on successful approval/registration
+    requests_list = db.get("requests", [])
+    db["requests"] = [r for r in requests_list if r.get("machine_signature") != target_sig]
+    
+    # Check if signature is already registered (either active or deactivated)
+    existing_record = None
     for lic in db.get("licenses", []):
         if lic.get("machine_signature") == target_sig:
-            return jsonify({"success": False, "message": "This machine signature is already registered."}), 409
+            existing_record = lic
+            break
+            
+    if existing_record:
+        # Enforce Co-Admin restrictions: Co-Admins can only reactivate USER licenses
+        if role == "CO-ADMIN" and existing_record.get("role") != "USER":
+            return jsonify({"success": False, "message": "Co-Admins are only authorized to reactivate standard USER licenses."}), 403
             
     # Calculate Expiry
     now = get_now_ist()
@@ -347,6 +479,27 @@ def register_license():
     checksum = hashlib.sha256(f"{target_sig}:{target_role}:{expiry_str or 'LIFETIME'}:{SECRET_KEY}".encode()).hexdigest()[:8].upper()
     activation_key = f"ACT-{target_role}-{checksum}"
     
+    if existing_record:
+        # Reactivate/overwrite existing license record
+        existing_record["activation_key"] = activation_key
+        existing_record["role"] = target_role
+        existing_record["expiry_time"] = expiry_str
+        existing_record["is_active"] = True
+        existing_record["created_at"] = now.strftime("%Y-%m-%d %H:%M:%S")
+        existing_record["created_by"] = identifier
+        save_db(db)
+        
+        return jsonify({
+            "success": True,
+            "message": f"License for {target_sig} reactivated and updated successfully.",
+            "license": {
+                "machine_signature": target_sig,
+                "activation_key": activation_key,
+                "role": target_role,
+                "expiry_time": expiry_str or "Lifetime"
+            }
+        })
+        
     new_license = {
         "machine_signature": target_sig,
         "activation_key": activation_key,
@@ -369,6 +522,40 @@ def register_license():
             "role": target_role,
             "expiry_time": expiry_str or "Lifetime"
         }
+    })
+
+@app.route("/api/cloud/admin/reactivate", methods=["POST"])
+def reactivate_license():
+    role, identifier = authenticate_request(request)
+    if not role:
+        return jsonify({"success": False, "message": "Unauthorized access."}), 403
+        
+    data = request.get_json(silent=True) or {}
+    target_sig = data.get("machine_signature", "").strip().upper()
+    
+    if not target_sig:
+        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
+        
+    db = load_db()
+    license_record = None
+    for lic in db.get("licenses", []):
+        if lic.get("machine_signature") == target_sig:
+            license_record = lic
+            break
+            
+    if not license_record:
+        return jsonify({"success": False, "message": "License not found."}), 404
+        
+    # Enforce Co-Admin restrictions: Co-Admins can only reactivate USER licenses
+    if role == "CO-ADMIN" and license_record.get("role") != "USER":
+        return jsonify({"success": False, "message": "Co-Admins are only authorized to reactivate USER licenses."}), 403
+        
+    license_record["is_active"] = True
+    save_db(db)
+    
+    return jsonify({
+        "success": True,
+        "message": f"Successfully reactivated license for signature {target_sig}."
     })
 
 @app.route("/api/cloud/admin/deactivate", methods=["POST"])
@@ -403,6 +590,66 @@ def deactivate_license():
     return jsonify({
         "success": True,
         "message": f"Successfully deactivated license for signature {target_sig}."
+    })
+
+@app.route("/api/cloud/admin/delete", methods=["POST"])
+def delete_license():
+    role, identifier = authenticate_request(request)
+    if not role:
+        return jsonify({"success": False, "message": "Unauthorized access."}), 403
+        
+    data = request.get_json() or {}
+    target_sig = data.get("machine_signature", "").strip().upper()
+    
+    if not target_sig:
+        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
+        
+    db = load_db()
+    license_record = None
+    for lic in db.get("licenses", []):
+        if lic.get("machine_signature") == target_sig:
+            license_record = lic
+            break
+            
+    if not license_record:
+        return jsonify({"success": False, "message": "License registration not found."}), 404
+        
+    # Enforce Co-Admin restrictions: Co-Admins can only delete USER licenses
+    if role == "CO-ADMIN" and license_record.get("role") != "USER":
+        return jsonify({"success": False, "message": "Co-Admins are only authorized to delete USER licenses."}), 403
+        
+    db["licenses"].remove(license_record)
+    save_db(db)
+    
+    return jsonify({
+        "success": True,
+        "message": f"Successfully deleted registration for signature {target_sig}."
+    })
+
+@app.route("/api/cloud/deactivate_self", methods=["POST"])
+def deactivate_self():
+    data = request.get_json() or {}
+    target_sig = data.get("machine_signature", "").strip().upper()
+    
+    if not target_sig:
+        return jsonify({"success": False, "message": "Machine signature is required."}), 400
+        
+    db = load_db()
+    license_record = None
+    for lic in db.get("licenses", []):
+        if lic.get("machine_signature") == target_sig:
+            license_record = lic
+            break
+            
+    if not license_record:
+        return jsonify({"success": False, "message": "License not found."}), 404
+        
+    license_record["is_active"] = False
+    save_db(db)
+    
+    return jsonify({
+        "success": True,
+        "message": f"Successfully deactivated copy for signature {target_sig}."
     })
 
 # -------------------------------------------------------------
@@ -501,6 +748,14 @@ def list_admins():
     return jsonify({
         "success": True,
         "admins": admin_list
+    })
+
+@app.route("/api/cloud/version", methods=["GET"])
+def cloud_version():
+    return jsonify({
+        "version": "2.2.0",
+        "status": "ready",
+        "seeding": "enabled"
     })
 
 if __name__ == "__main__":

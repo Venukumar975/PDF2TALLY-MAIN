@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, request, redirect, url_for
+from flask import Flask, request, redirect, url_for, session
 
 # Import core licensing modules
 import licensing
@@ -27,11 +27,16 @@ def check_license():
         "/activate",
         "/api/status",
         "/api/activate",
+        "/api/admin/",
+        "/api/register_request",
         "/static/",
         "/favicon.ico"
     ]
     if any(request.path.startswith(p) for p in allowed_paths):
         return None
+        
+    if session.get("logged_out"):
+        return redirect("/activate")
         
     status = licensing.check_activation()
     if not status["activated"]:

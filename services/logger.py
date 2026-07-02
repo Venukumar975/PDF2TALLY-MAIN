@@ -77,9 +77,6 @@ def log_compatibility_info(logger):
             logger.info(f"Motherboard UUID Status: {uuid_retrieved}")
             logger.info(f"CPU Processor ID Status: {cpuid_retrieved}")
             logger.info(f"BIOS Serial Number Status: {bios_retrieved}")
-            
-            from licensing import get_machine_signature
-            logger.info(f"Final Compiled Machine Signature: {get_machine_signature()}")
         except Exception as e:
             logger.error(f"Failed to compile hardware signature diagnostics: {e}")
             

@@ -3,6 +3,7 @@
 // Global application state
 const state = {
     activated: false,
+    userLoggedIn: false,
     signature: "",
     role: "USER",
     activeTab: "bank-tab",
@@ -45,6 +46,16 @@ document.addEventListener("DOMContentLoaded", () => {
         updateLedgerDefault(); // Sync on initial load
     }
     
+    // Update admin registration button text dynamically as the admin types a signature
+    const adminSigInput = document.getElementById("admin-target-sig");
+    if (adminSigInput) {
+        adminSigInput.addEventListener("input", () => {
+            const val = adminSigInput.value.trim().toUpperCase();
+            const isRenewal = registeredSignatures.has(val);
+            updateAdminRegisterButtonLabel(isRenewal);
+        });
+    }
+
     // Hash routing for SPA tabs
     window.addEventListener("hashchange", handleRouting);
     if (!window.location.hash) {
@@ -234,6 +245,7 @@ function clearFile(type) {
 let localLicenseCountdownInterval = null;
 let adminTableCountdownInterval = null;
 let activeRegistrationsList = []; // Cache of fetched active registrations for ticking
+let registeredSignatures = new Set();
 
 function padZero(num) {
     return num.toString().padStart(2, "0");
@@ -268,7 +280,7 @@ async function checkLicenseStatus(initial = false) {
     
     const stateLoading = document.getElementById("lic-state-loading");
     const stateError = document.getElementById("lic-state-error");
-    const stateUnregistered = document.getElementById("lic-state-unregistered");
+    const statePortal = document.getElementById("lic-state-portal");
     
     // Default show loading state first if it's the initial call
     if (initial) {
@@ -276,7 +288,7 @@ async function checkLicenseStatus(initial = false) {
         if (workspace) workspace.classList.add("hidden");
         if (stateLoading) stateLoading.classList.remove("hidden");
         if (stateError) stateError.classList.add("hidden");
-        if (stateUnregistered) stateUnregistered.classList.add("hidden");
+        if (statePortal) statePortal.classList.add("hidden");
         
         // Start connection timer display
         let start = Date.now();
@@ -302,7 +314,7 @@ async function checkLicenseStatus(initial = false) {
         
         if (sigDisplay) sigDisplay.textContent = status.signature || "UNKNOWN";
         
-        if (status.activated) {
+        if (status.activated && state.userLoggedIn) {
             // Success! Hide overlays, show workspace
             if (overlay) overlay.classList.add("hidden");
             if (workspace) workspace.classList.remove("hidden");
@@ -341,7 +353,7 @@ async function checkLicenseStatus(initial = false) {
             if (status.error_type) {
                 // Connection or server-side issue
                 if (stateLoading) stateLoading.classList.add("hidden");
-                if (stateUnregistered) stateUnregistered.classList.add("hidden");
+                if (statePortal) statePortal.classList.add("hidden");
                 if (stateError) stateError.classList.remove("hidden");
                 
                 const errTitle = document.getElementById("lic-error-title");
@@ -358,15 +370,45 @@ async function checkLicenseStatus(initial = false) {
                     if (errMessage) errMessage.textContent = status.message || "A cloud database error occurred. Contact your support team.";
                 }
             } else {
-                // Device signature not registered
+                // Device signature not registered or pending, OR just not logged in yet
                 if (stateLoading) stateLoading.classList.add("hidden");
                 if (stateError) stateError.classList.add("hidden");
-                if (stateUnregistered) stateUnregistered.classList.remove("hidden");
+                if (statePortal) statePortal.classList.remove("hidden");
                 
-                const errBox = document.getElementById("activation-error");
-                if (errBox) {
-                    errBox.textContent = status.message || "This computer is unregistered. Ask your admin to add this signature.";
-                    errBox.classList.remove("hidden");
+                const statusBox = document.getElementById("register-console-status");
+                const reqBtn = document.getElementById("btn-request-register");
+                
+                if (status.pending_approval) {
+                    if (statusBox) {
+                        statusBox.textContent = "Waiting for Administrator's Authorization.";
+                        statusBox.className = "alert alert-warning";
+                        statusBox.classList.remove("hidden");
+                    }
+                    if (reqBtn) {
+                        reqBtn.disabled = true;
+                        reqBtn.textContent = "Pending Approval... ⏳";
+                    }
+                    if (initial) {
+                        switchLandingTab("landing-register");
+                    }
+                } else if (!status.activated) {
+                    if (statusBox) {
+                        statusBox.textContent = status.message || "Device signature is not registered. Please contact your administrator.";
+                        statusBox.className = "alert alert-danger";
+                        statusBox.classList.remove("hidden");
+                    }
+                    if (reqBtn) {
+                        reqBtn.disabled = false;
+                        reqBtn.textContent = "Request Registration ⚡";
+                    }
+                    if (initial) {
+                        switchLandingTab("landing-login");
+                    }
+                } else {
+                    // Activated but not logged in (userLoggedIn is false)
+                    if (initial) {
+                        switchLandingTab("landing-login");
+                    }
                 }
             }
             
@@ -377,7 +419,7 @@ async function checkLicenseStatus(initial = false) {
     } catch (err) {
         console.error("Local client status fetch failed:", err);
         if (stateLoading) stateLoading.classList.add("hidden");
-        if (stateUnregistered) stateUnregistered.classList.add("hidden");
+        if (statePortal) statePortal.classList.add("hidden");
         if (stateError) stateError.classList.remove("hidden");
         
         const errTitle = document.getElementById("lic-error-title");
@@ -428,16 +470,133 @@ async function retryLicenseConnection() {
     checkLicenseStatus(true);
 }
 
-function toggleAdminLoginForm() {
-    const form = document.getElementById("admin-login-form");
-    const btn = document.getElementById("btn-toggle-admin-login");
-    if (form) {
-        if (form.classList.contains("hidden")) {
-            form.classList.remove("hidden");
-            if (btn) btn.textContent = "Cancel Admin Login ❌";
+function switchLandingTab(tabId) {
+    // Hide all tab contents
+    document.querySelectorAll(".landing-tab-content").forEach(el => {
+        el.classList.add("hidden");
+    });
+    // Show selected content
+    const activeContent = document.getElementById(tabId);
+    if (activeContent) activeContent.classList.remove("hidden");
+    
+    // Update tab buttons active classes & styling
+    document.querySelectorAll(".portal-tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+        btn.style.color = "var(--text-muted)";
+        btn.style.background = "none";
+    });
+    
+    let activeBtnId = "";
+    if (tabId === "landing-login") activeBtnId = "btn-tab-login";
+    else if (tabId === "landing-register") activeBtnId = "btn-tab-register";
+    else if (tabId === "landing-admin") activeBtnId = "btn-tab-admin";
+    
+    const activeBtn = document.getElementById(activeBtnId);
+    if (activeBtn) {
+        activeBtn.classList.add("active");
+        activeBtn.style.color = "#ffffff";
+        activeBtn.style.background = "rgba(255, 255, 255, 0.08)";
+    }
+}
+
+async function verifyDeviceLogin() {
+    const statusBox = document.getElementById("login-console-status");
+    if (statusBox) {
+        statusBox.textContent = "Verifying machine signature with cloud backend...";
+        statusBox.className = "alert alert-info";
+        statusBox.classList.remove("hidden");
+    }
+    
+    try {
+        const res = await fetch("/api/status?refresh=true");
+        const status = await res.json();
+        
+        if (status.activated) {
+            state.userLoggedIn = true;
+            if (statusBox) {
+                statusBox.textContent = "Verification succeeded! Opening Tally Automation Suite...";
+                statusBox.className = "alert alert-success";
+            }
+            setTimeout(async () => {
+                await checkLicenseStatus();
+            }, 1000);
         } else {
-            form.classList.add("hidden");
-            if (btn) btn.textContent = "Sign in as Administrator 🔑";
+            if (status.pending_approval) {
+                if (statusBox) {
+                    statusBox.textContent = "Approval is pending. Redirecting to Register Console...";
+                    statusBox.className = "alert alert-warning";
+                }
+                setTimeout(() => {
+                    switchLandingTab("landing-register");
+                    checkLicenseStatus();
+                }, 2000);
+            } else {
+                if (statusBox) {
+                    statusBox.textContent = status.message || "This device is unregistered. Redirecting to New Register Console...";
+                    statusBox.className = "alert alert-danger";
+                }
+                setTimeout(() => {
+                    switchLandingTab("landing-register");
+                    checkLicenseStatus();
+                }, 2000);
+            }
+        }
+    } catch (err) {
+        if (statusBox) {
+            statusBox.textContent = "Connection failed. Please verify your internet settings.";
+            statusBox.className = "alert alert-danger";
+        }
+    }
+}
+
+async function checkRegistrationStatus() {
+    const statusBox = document.getElementById("register-console-status");
+    if (statusBox) {
+        statusBox.textContent = "Checking cloud registration status...";
+        statusBox.className = "alert alert-info";
+        statusBox.classList.remove("hidden");
+    }
+    
+    try {
+        const res = await fetch("/api/status?refresh=true");
+        const status = await res.json();
+        
+        if (status.activated) {
+            if (statusBox) {
+                statusBox.textContent = "Registration confirmed! Redirecting to Login Console...";
+                statusBox.className = "alert alert-success";
+            }
+            setTimeout(() => {
+                switchLandingTab("landing-login");
+                checkLicenseStatus();
+            }, 2000);
+        } else {
+            if (status.pending_approval) {
+                if (statusBox) {
+                    statusBox.textContent = "Waiting for Administrator's Authorization.";
+                    statusBox.className = "alert alert-warning";
+                }
+                const reqBtn = document.getElementById("btn-request-register");
+                if (reqBtn) {
+                    reqBtn.disabled = true;
+                    reqBtn.textContent = "Pending Approval... ⏳";
+                }
+            } else {
+                if (statusBox) {
+                    statusBox.textContent = "Device signature is still unregistered. You can click 'Request Registration'.";
+                    statusBox.className = "alert alert-danger";
+                }
+                const reqBtn = document.getElementById("btn-request-register");
+                if (reqBtn) {
+                    reqBtn.disabled = false;
+                    reqBtn.textContent = "Request Registration ⚡";
+                }
+            }
+        }
+    } catch (err) {
+        if (statusBox) {
+            statusBox.textContent = "Connection failed. Verify network and try again.";
+            statusBox.className = "alert alert-danger";
         }
     }
 }
@@ -471,15 +630,10 @@ async function submitAdminLogin() {
         const data = await res.json();
         
         if (data.success) {
+            state.userLoggedIn = true;
             if (emailEl) emailEl.value = "";
             if (keyEl) keyEl.value = "";
             if (passEl) passEl.value = "";
-            
-            const form = document.getElementById("admin-login-form");
-            if (form) form.classList.add("hidden");
-            
-            const btn = document.getElementById("btn-toggle-admin-login");
-            if (btn) btn.textContent = "Sign in as Administrator 🔑";
             
             await checkLicenseStatus();
         } else {
@@ -496,25 +650,22 @@ async function submitAdminLogin() {
     }
 }
 
-async function deactivateLicense() {
-    const confirmMsg = state.role === "ADMIN" 
-        ? "Are you sure you want to log out of the administrator session?" 
-        : "Are you sure you want to deactivate this computer activation?";
-        
-    if (!confirm(confirmMsg)) {
+async function logoutAdminSession() {
+    if (!confirm("Are you sure you want to log out of the administrator session?")) {
         return;
     }
     
     try {
-        const res = await fetch("/api/deactivate", { method: "POST" });
+        const res = await fetch("/api/admin/logout", { method: "POST" });
         const data = await res.json();
         if (data.success) {
+            state.userLoggedIn = false;
             if (localLicenseCountdownInterval) clearInterval(localLicenseCountdownInterval);
             if (adminTableCountdownInterval) clearInterval(adminTableCountdownInterval);
             checkLicenseStatus(true);
         }
     } catch (err) {
-        alert("Operation failed.");
+        alert("Logout failed.");
     }
 }
 
@@ -541,6 +692,7 @@ function updateLicenseTabDetails() {
                 expiryVal.textContent = status.expiry_date || "-";
             }
             
+
             startLocalLicenseCountdown(status.seconds_remaining, status.expiry_date);
         })
         .catch(err => console.error("Error updating license tab details:", err));
@@ -596,12 +748,27 @@ async function registerDevice() {
 
 async function fetchRegistrations() {
     try {
+        // Also fetch pending registration requests
+        fetchPendingRequests();
+        
         const res = await fetch("/api/admin/list_licenses");
         const data = await res.json();
         
         if (!data.success) {
             console.error("Failed to load registrations:", data.message);
+            alert(data.message || "Failed to load registrations.");
             return;
+        }
+        
+        registeredSignatures.clear();
+        if (data.active_licenses) {
+            data.active_licenses.forEach(l => registeredSignatures.add(l.machine_signature.toUpperCase()));
+        }
+        if (data.expired_licenses) {
+            data.expired_licenses.forEach(l => registeredSignatures.add(l.machine_signature.toUpperCase()));
+        }
+        if (data.deactivated_licenses) {
+            data.deactivated_licenses.forEach(l => registeredSignatures.add(l.machine_signature.toUpperCase()));
         }
         
         const activeCountEl = document.getElementById("admin-active-count");
@@ -625,8 +792,9 @@ async function fetchRegistrations() {
                         <td style="font-family: monospace; color: var(--text-highlight);" class="admin-license-timer" data-index="${idx}">
                             ${formatCountdown(lic.seconds_remaining)}
                         </td>
-                        <td style="text-align: right;">
-                            <button class="btn btn-danger" onclick="deactivateDevice('${lic.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem;">Deactivate 🔓</button>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <button class="btn btn-danger" onclick="deactivateDevice('${lic.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem; margin-right: 5px;">Deactivate 🔓</button>
+                            <button class="btn btn-danger" onclick="deleteDevice('${lic.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem; background-color: #ef4444; border-color: #ef4444;">Delete 🗑️</button>
                         </td>
                     `;
                     activeBody.appendChild(tr);
@@ -636,13 +804,40 @@ async function fetchRegistrations() {
         
         startAdminTableTicking();
         
+        const expiredBody = document.getElementById("expired-licenses-body");
+        if (expiredBody) {
+            expiredBody.innerHTML = "";
+            const expiredList = data.expired_licenses || [];
+            
+            if (expiredList.length === 0) {
+                expiredBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No expired subscriptions.</td></tr>`;
+            } else {
+                expiredList.forEach(lic => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td style="font-family: monospace; color: var(--text-muted);">${lic.machine_signature}</td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.activation_key || "-"}</td>
+                        <td><span class="badge" style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--text-muted);">${lic.role}</span></td>
+                        <td style="font-size: 0.85rem; color: #f59e0b;">${lic.expiry_time}</td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.created_by || "-"}</td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.created_at || "-"}</td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <button class="btn btn-outline" onclick="loadSignatureForReactivation('${lic.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem; margin-right: 5px; color: #f59e0b; border-color: #f59e0b; background: transparent;">Renew 🔄</button>
+                            <button class="btn btn-danger" onclick="deleteDevice('${lic.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem; background-color: #ef4444; border-color: #ef4444;">Delete 🗑️</button>
+                        </td>
+                    `;
+                    expiredBody.appendChild(tr);
+                });
+            }
+        }
+
         const deactivatedBody = document.getElementById("deactivated-licenses-body");
         if (deactivatedBody) {
             deactivatedBody.innerHTML = "";
             const deactivatedList = data.deactivated_licenses || [];
             
             if (deactivatedList.length === 0) {
-                deactivatedBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No deactivated licenses.</td></tr>`;
+                deactivatedBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No deactivated licenses.</td></tr>`;
             } else {
                 deactivatedList.forEach(lic => {
                     const tr = document.createElement("tr");
@@ -653,6 +848,10 @@ async function fetchRegistrations() {
                         <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.expiry_time}</td>
                         <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.created_by || "-"}</td>
                         <td style="font-size: 0.85rem; color: var(--text-muted);">${lic.created_at || "-"}</td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <button class="btn btn-outline" onclick="reactivateDevice('${lic.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem; margin-right: 5px; color: var(--text-highlight); border-color: var(--text-highlight); background: transparent;">Reactivate 🔄</button>
+                            <button class="btn btn-danger" onclick="deleteDevice('${lic.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem; background-color: #ef4444; border-color: #ef4444;">Delete 🗑️</button>
+                        </td>
                     `;
                     deactivatedBody.appendChild(tr);
                 });
@@ -693,6 +892,29 @@ function startAdminTableTicking() {
     adminTableCountdownInterval = setInterval(tick, 1000);
 }
 
+async function reactivateDevice(signature) {
+    if (!confirm(`Are you sure you want to reactivate license for device signature: ${signature}?`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch("/api/admin/reactivate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ signature })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            fetchRegistrations();
+        } else {
+            alert(data.message || "Failed to reactivate device.");
+        }
+    } catch (err) {
+        alert("Failed to reactivate device.");
+    }
+}
+
 async function deactivateDevice(signature) {
     if (!confirm(`Are you sure you want to deactivate license for device signature: ${signature}?`)) {
         return;
@@ -713,6 +935,164 @@ async function deactivateDevice(signature) {
         }
     } catch (err) {
         alert("Failed to deactivate device.");
+    }
+}
+
+async function deleteDevice(signature) {
+    if (!confirm(`Are you sure you want to completely delete registration for device signature: ${signature}?\nThis cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch("/api/admin/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ signature })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            fetchRegistrations();
+        } else {
+            alert(data.message || "Failed to delete device.");
+        }
+    } catch (err) {
+        alert("Failed to delete device.");
+    }
+}
+
+function updateAdminRegisterButtonLabel(isRenewal) {
+    const btn = document.getElementById("btn-generate-key");
+    if (btn) {
+        const span = btn.querySelector("span");
+        if (span) {
+            span.textContent = isRenewal ? "Renew Subscription ⚡" : "Register Device in Cloud ⚡";
+        }
+    }
+}
+
+function loadSignatureForReactivation(signature) {
+    const sigInput = document.getElementById("admin-target-sig");
+    if (sigInput) {
+        sigInput.value = signature;
+        sigInput.focus();
+        
+        // Scroll to the registration card
+        const regCard = sigInput.closest(".glass-card");
+        if (regCard) {
+            regCard.scrollIntoView({ behavior: "smooth" });
+        }
+        
+        const isRenewal = registeredSignatures.has(signature.toUpperCase());
+        updateAdminRegisterButtonLabel(isRenewal);
+    }
+}
+
+async function requestRegistration() {
+    const statusBox = document.getElementById("register-console-status");
+    const reqBtn = document.getElementById("btn-request-register");
+    
+    if (statusBox) {
+        statusBox.textContent = "Sending registration request to cloud backend...";
+        statusBox.className = "alert alert-info";
+        statusBox.classList.remove("hidden");
+    }
+    if (reqBtn) reqBtn.disabled = true;
+    
+    try {
+        const res = await fetch("/api/register_request", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            if (statusBox) {
+                statusBox.textContent = data.message || "Waiting for Administrator's Authorization.";
+                statusBox.className = "alert alert-warning";
+            }
+            if (reqBtn) {
+                reqBtn.textContent = "Pending Approval... ⏳";
+            }
+            await checkLicenseStatus();
+        } else {
+            if (statusBox) {
+                statusBox.textContent = data.message || "Failed to request registration.";
+                statusBox.className = "alert alert-danger";
+            }
+            if (reqBtn) reqBtn.disabled = false;
+        }
+    } catch (err) {
+        if (statusBox) {
+            statusBox.textContent = "Connection failed. Verify internet settings.";
+            statusBox.className = "alert alert-danger";
+        }
+        if (reqBtn) reqBtn.disabled = false;
+    }
+}
+
+async function fetchPendingRequests() {
+    try {
+        const res = await fetch("/api/admin/requests");
+        const data = await res.json();
+        
+        if (!data.success) {
+            console.error("Failed to load pending requests:", data.message);
+            return;
+        }
+        
+        const pendingBody = document.getElementById("pending-requests-body");
+        if (pendingBody) {
+            pendingBody.innerHTML = "";
+            const pendingList = data.requests || [];
+            
+            if (pendingList.length === 0) {
+                pendingBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No pending registration requests.</td></tr>`;
+            } else {
+                pendingList.forEach(req => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td style="font-family: monospace; font-weight: bold; color: white;">${req.machine_signature}</td>
+                        <td style="font-size: 0.85rem;">${req.requested_at}</td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <button class="btn btn-outline" onclick="approveRequest('${req.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem; margin-right: 5px; color: var(--text-highlight); border-color: var(--text-highlight); background: transparent;">Approve & Register 🔑</button>
+                            <button class="btn btn-danger" onclick="rejectRequest('${req.machine_signature}')" style="padding: 6px 12px; font-size: 0.8rem; background-color: #ef4444; border-color: #ef4444;">Reject ❌</button>
+                        </td>
+                    `;
+                    pendingBody.appendChild(tr);
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Failed to fetch pending requests:", err);
+    }
+}
+
+function approveRequest(signature) {
+    loadSignatureForReactivation(signature);
+}
+
+async function rejectRequest(signature) {
+    if (!confirm(`Are you sure you want to reject the registration request from: ${signature}?`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch("/api/admin/reject_request", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ signature })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            fetchPendingRequests();
+        } else {
+            alert(data.message || "Failed to reject request.");
+        }
+    } catch (err) {
+        alert("Failed to reject request.");
     }
 }
 
