@@ -209,6 +209,10 @@ function handleFileSelect(type) {
         }
         
         updateStatusBox(type, `🟢 Selected file: ${file.name} (${formatBytes(file.size)})`, "success");
+        
+        if (type === "bank") {
+            triggerOpeningBalanceDetection();
+        }
     }
 }
 
@@ -883,6 +887,37 @@ function renderBankResults(data) {
         });
     }
     
+    // Build Tally Prime Voucher Preview rows
+    const tallyTbody = document.querySelector("#bank-tally-preview-table tbody");
+    if (tallyTbody) {
+        tallyTbody.innerHTML = "";
+        const txns = data.transactions || [];
+        const previewTxns = txns.slice(0, 15);
+        
+        if (previewTxns.length === 0) {
+            tallyTbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No vouchers available for preview.</td></tr>`;
+        } else {
+            previewTxns.forEach((txn, idx) => {
+                const tr = document.createElement("tr");
+                const vchType = txn.type === "DEBIT" ? "Receipt" : "Payment";
+                const particulars = data.credit_ledger || "Suspense";
+                
+                const debitVal = txn.type === "DEBIT" ? formatCurrency(txn.amount) : "-";
+                const creditVal = txn.type === "CREDIT" ? formatCurrency(txn.amount) : "-";
+                
+                tr.innerHTML = `
+                    <td>${txn.gl_date}</td>
+                    <td><span class="badge ${txn.type === 'DEBIT' ? 'success' : 'danger'}">${vchType}</span></td>
+                    <td>${idx + 1}</td>
+                    <td>${particulars}</td>
+                    <td class="${txn.type === 'DEBIT' ? 'text-success' : ''}">${debitVal}</td>
+                    <td class="${txn.type === 'CREDIT' ? 'text-danger' : ''}">${creditVal}</td>
+                `;
+                tallyTbody.appendChild(tr);
+            });
+        }
+    }
+    
     // Render dynamic SVG chart
     renderMonthlyChart("bank-chart-canvas", stmt.monthly_summaries, ["debit_total", "credit_total"], ["#10b981", "#ef4444"]);
     
@@ -1431,14 +1466,11 @@ function addReprocessButton(type, reprocessCallback) {
 function toggleDateFilter(type) {
     const strat = document.getElementById("strategy-select").value;
     const filter = document.getElementById("bank-date-filter-group");
-    const prevBalGroup = document.getElementById("bank-prev-balance-group");
     
     if (strat === "Incomplete statement (Continuation)") {
         if (filter) filter.classList.remove("hidden");
-        if (prevBalGroup) prevBalGroup.classList.remove("hidden");
     } else {
         if (filter) filter.classList.add("hidden");
-        if (prevBalGroup) prevBalGroup.classList.add("hidden");
     }
 }
 
@@ -1615,6 +1647,7 @@ function handleBankTypeChange() {
             }
         }
     }
+    triggerOpeningBalanceDetection();
 }
 
 function applySavedLayout() {
@@ -1931,5 +1964,38 @@ async function submitHybridParse() {
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
+    }
+}
+
+async function triggerOpeningBalanceDetection() {
+    if (!state.files.bank) return;
+    
+    const bankType = document.getElementById("bank-type-select").value;
+    const balanceInput = document.getElementById("bank-prev-balance");
+    if (!balanceInput) return;
+    
+    balanceInput.value = "Detecting...";
+    balanceInput.disabled = true;
+    
+    const formData = new FormData();
+    formData.append("file", state.files.bank);
+    formData.append("bank_type", bankType);
+    
+    try {
+        const res = await fetch("/api/detect-opening-balance", {
+            method: "POST",
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            balanceInput.value = parseFloat(data.opening_balance).toFixed(2);
+        } else {
+            balanceInput.value = "0.00";
+        }
+    } catch (err) {
+        console.error("Failed to detect opening balance:", err);
+        balanceInput.value = "0.00";
+    } finally {
+        balanceInput.disabled = false;
     }
 }

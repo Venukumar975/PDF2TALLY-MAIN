@@ -236,9 +236,9 @@
                                 <input type="date" id="bank-cutoff-date" value="2025-04-01">
                             </div>
 
-                            <div id="bank-prev-balance-group" class="form-group hidden">
-                                <label for="bank-prev-balance">Previous Balance (defaults to 0.00 if empty)</label>
-                                <input type="text" id="bank-prev-balance" placeholder="0.00">
+                            <div id="bank-prev-balance-group" class="form-group">
+                                <label for="bank-prev-balance">Opening / Previous Balance</label>
+                                <input type="text" id="bank-prev-balance" placeholder="0.00" value="0.00">
                             </div>
                         </div>
 
@@ -337,6 +337,31 @@
                                 <h4>Excel File for Checking</h4>
                                 <p>An Excel spreadsheet to preview transactions, ledger assignments, and running balances.</p>
                                 <button onclick="triggerDownload('xlsx_bank')" class="btn btn-secondary btn-block">Download Excel Preview (.xlsx)</button>
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- TALLY PRIME VOUCHER PREVIEW -->
+                        <div class="table-section">
+                            <h4>📋 Tally Prime Voucher Preview (First 15 Transactions)</h4>
+                            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">This simulates how the generated XML vouchers will appear inside Tally Prime after importing.</p>
+                            <div class="table-wrapper">
+                                <table id="bank-tally-preview-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Voucher Date</th>
+                                            <th>Voucher Type</th>
+                                            <th>Voucher No.</th>
+                                            <th>Particulars (Suspense)</th>
+                                            <th>Debit (Receipt Amount)</th>
+                                            <th>Credit (Payment Amount)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Injected dynamically by JS -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
@@ -825,12 +850,13 @@
                 .preview-table {
                     width: 100%;
                     border-collapse: collapse;
-                    font-size: 0.76rem;
+                    font-size: 0.65rem;
                     text-align: left;
                     margin-bottom: 15px;
                     background: rgba(0, 0, 0, 0.25);
                     border-radius: 8px;
                     overflow: hidden;
+                    white-space: nowrap;
                 }
                 .preview-table th {
                     background: rgba(255,255,255,0.05);

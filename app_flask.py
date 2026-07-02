@@ -31,6 +31,7 @@ def check_license():
         "/api/register_request",
         "/api/request-renewal",
         "/api/hybrid/",
+        "/api/detect-opening-balance",
         "/static/",
         "/favicon.ico"
     ]

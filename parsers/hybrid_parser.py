@@ -81,7 +81,7 @@ def extract_and_preview_tables(file_path) -> dict:
                 }
                 
             headers = cleaned_table[0]
-            preview_rows = cleaned_table[1:6] # first 5 transaction rows
+            preview_rows = cleaned_table[1:11] # first 10 transaction rows
             
             # Heuristic auto-mapping
             auto_mapping = {

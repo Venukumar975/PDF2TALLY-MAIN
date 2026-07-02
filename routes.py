@@ -250,6 +250,8 @@ def api_convert_bank():
             
             if strategy_type == "Full bank statement":
                 sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
+                if prev_balance is not None:
+                    opening_bal = prev_balance
                 transactions = route_to_parser(bank_type, sanitized_text, opening_balance=opening_bal)
                 if opening_bal is None:
                     opening_bal = 0.00
@@ -339,7 +341,8 @@ def api_convert_bank():
                 "success": True,
                 "report": validation_report,
                 "debit_ledger": debit_ledger,
-                "credit_ledger": credit_ledger
+                "credit_ledger": credit_ledger,
+                "transactions": transactions
             })
             
         finally:
@@ -412,7 +415,8 @@ def api_reprocess_bank():
             "success": True,
             "report": validation_report,
             "debit_ledger": debit_ledger,
-            "credit_ledger": credit_ledger
+            "credit_ledger": credit_ledger,
+            "transactions": transactions
         })
         
     except Exception as e:
@@ -934,7 +938,7 @@ def api_hybrid_parse():
             "success": True,
             "message": "Generic bank statement converted successfully!",
             "report": validation_report,
-            "preview_rows": transactions[:10]
+            "transactions": transactions
         })
         
     except Exception as e:
@@ -956,4 +960,84 @@ def api_hybrid_layouts():
                 layouts_data = {}
         return jsonify({"success": True, "layouts": list(layouts_data.values())})
     except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@routes_bp.route("/api/detect-opening-balance", methods=["POST"])
+def api_detect_opening_balance():
+    if "file" not in request.files:
+        return jsonify({"success": False, "message": "No file uploaded."}), 400
+        
+    uploaded_file = request.files["file"]
+    bank_type = request.form.get("bank_type", "").strip()
+    
+    if not bank_type:
+        return jsonify({"success": False, "message": "Bank type is required."}), 400
+        
+    # Save temp file
+    fd, temp_path = tempfile.mkstemp(suffix=".pdf")
+    os.close(fd)
+    uploaded_file.save(temp_path)
+    
+    try:
+        from services.pdf_reader import extract_text
+        from parsers.router import get_opening_balance_parser
+        
+        # If hybrid, extract table and calculate opening balance
+        if bank_type == "Hybrid Generic":
+            from parsers.hybrid_parser import extract_and_preview_tables, clean_amount
+            res = extract_and_preview_tables(temp_path)
+            inferred_op_balance = 0.0
+            if res.get("success"):
+                preview_rows = res.get("preview_rows", [])
+                auto_mapping = res.get("auto_mapping", {})
+                balance_idx = int(auto_mapping.get("balance", -1))
+                debit_idx = int(auto_mapping.get("debit", -1))
+                credit_idx = int(auto_mapping.get("credit", -1))
+                
+                if balance_idx != -1 and len(preview_rows) > 0:
+                    first_row = preview_rows[0]
+                    if len(first_row) > balance_idx:
+                        bal_val = clean_amount(first_row[balance_idx])
+                        
+                        deb_val = 0.0
+                        if debit_idx != -1 and len(first_row) > debit_idx:
+                            deb_val = clean_amount(first_row[debit_idx])
+                            
+                        cred_val = 0.0
+                        if credit_idx != -1 and len(first_row) > credit_idx:
+                            cred_val = clean_amount(first_row[credit_idx])
+                            
+                        # Handle single-column check
+                        if debit_idx == credit_idx and debit_idx != -1:
+                            val_str = first_row[debit_idx].lower()
+                            amt = clean_amount(val_str)
+                            if 'dr' in val_str or 'w' in val_str or '-' in val_str:
+                                deb_val = amt
+                                cred_val = 0.0
+                            elif 'cr' in val_str or 'd' in val_str or '+' in val_str:
+                                deb_val = 0.0
+                                cred_val = amt
+                            else:
+                                deb_val = amt
+                                cred_val = 0.0
+                                
+                        inferred_op_balance = bal_val + deb_val - cred_val
+            op_bal = inferred_op_balance
+        else:
+            text = extract_text(temp_path)
+            parse_opening_func = get_opening_balance_parser(bank_type)
+            op_bal = parse_opening_func(text)
+            
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+        return jsonify({
+            "success": True,
+            "opening_balance": op_bal if op_bal is not None else 0.00
+        })
+    except Exception as e:
+        logger.error(f"Error detecting opening balance: {e}")
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
         return jsonify({"success": False, "message": str(e)}), 500
