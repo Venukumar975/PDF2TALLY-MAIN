@@ -29,6 +29,7 @@ def check_license():
         "/api/activate",
         "/api/admin/",
         "/api/register_request",
+        "/api/request-renewal",
         "/static/",
         "/favicon.ico"
     ]

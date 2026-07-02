@@ -70,6 +70,7 @@ def activate_page():
 # LICENSE API (PROXIES TO CLOUD BACKEND)
 # -------------------------------------------------------------
 import requests
+import time
 
 @routes_bp.route("/api/status", methods=["GET"])
 def api_status():
@@ -85,334 +86,95 @@ def api_status():
         })
     return jsonify(licensing.check_activation(force_refresh=force))
 
-@routes_bp.route("/api/admin/login", methods=["POST"])
-def api_admin_login():
+@routes_bp.route("/api/activate", methods=["POST"])
+def api_activate():
     session.pop("logged_out", None)
     data = request.get_json(silent=True) or {}
-    email = data.get("email", "").strip()
-    admin_key = data.get("admin_key", "").strip()
-    password = data.get("password", "").strip()
-    
-    if not email or not admin_key or not password:
-        return jsonify({"success": False, "message": "Email, Admin Key, and Password are required."}), 400
-        
+    license_key = data.get("license_key", "").strip()
+    machine_hash = licensing.get_machine_signature()
+
+    if not license_key:
+        return jsonify({"success": False, "message": "License Key is required."}), 400
+
     try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/admin/login"
+        url = f"{licensing.get_cloud_backend_url()}/activate-license"
         resp = requests.post(url, json={
-            "email": email,
-            "admin_key": admin_key,
-            "password": password
+            "license_key": license_key,
+            "machine_hash": machine_hash
         }, timeout=10)
-        
+
         if resp.status_code == 200:
             res_data = resp.json()
-            # Cache admin credentials locally
-            with licensing._cache_lock:
-                licensing._license_cache["admin_token"] = res_data.get("token")
-                licensing._license_cache["admin_email"] = email
-                licensing._license_cache["role"] = "ADMIN"
-                licensing._license_cache["activated"] = True
-                licensing._license_cache["error_type"] = None
-            return jsonify({"success": True, "role": "ADMIN"})
+            if res_data.get("success"):
+                # Save locally
+                licensing.save_local_license({
+                    "signature": machine_hash,
+                    "activated": True,
+                    "role": "USER",
+                    "expiry_date": res_data.get("expires_at"),
+                    "seconds_remaining": res_data.get("seconds_remaining"),
+                    "last_sync_real": time.time(),
+                    "last_seen_time": time.time(),
+                    "license_id": res_data.get("license_id"),
+                    "license_key": license_key
+                })
+                # Sync cache in memory
+                licensing.check_activation(force_refresh=True)
+                return jsonify({
+                    "success": True,
+                    "activated": True,
+                    "message": res_data.get("message", "License activated successfully!")
+                })
+            return jsonify({"success": False, "message": res_data.get("message", "Activation failed.")}), 400
         else:
             try:
-                msg = resp.json().get("message", "Authentication failed.")
+                msg = resp.json().get("message", "Activation request failed.")
             except Exception:
-                msg = "Authentication failed."
+                msg = "Activation request failed."
             return jsonify({"success": False, "message": msg}), resp.status_code
-    except Exception:
-        logger.error("Admin login connection failed.")
-        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
 
-@routes_bp.route("/api/admin/generate_key", methods=["POST"])
-def api_admin_generate_key():
-    # 1. Authorize: Check if local client session is Admin or Co-Admin
-    status = licensing.check_activation()
-    local_role = status.get("role")
-    is_admin_logged_in = (licensing._license_cache.get("admin_token") is not None)
-    is_coadmin = (local_role == "CO-ADMIN")
-    
-    if not is_admin_logged_in and not is_coadmin:
-        return jsonify({"success": False, "message": "Unauthorized. Requires Admin or Co-Admin privileges."}), 403
-        
-    data = request.get_json(silent=True) or {}
-    target_sig = data.get("signature", "").strip().upper()
-    role = data.get("role", "USER").strip().upper()
-    duration = data.get("duration", "").strip().lower()
-    
-    if not target_sig:
-        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
-        
-    headers = {}
-    if is_admin_logged_in:
-        headers["Authorization"] = f"Bearer {licensing._license_cache.get('admin_token')}"
-    elif is_coadmin:
-        headers["X-Machine-Signature"] = status.get("signature")
-        
-    try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/admin/licenses"
-        resp = requests.post(url, json={
-            "machine_signature": target_sig,
-            "role": role,
-            "duration": duration
-        }, headers=headers, timeout=10)
-        
-        if resp.status_code == 200:
-            return jsonify(resp.json())
-        else:
-            try:
-                msg = resp.json().get("message", "Failed to register signature.")
-            except Exception:
-                msg = "Failed to register signature."
-            return jsonify({"success": False, "message": msg}), resp.status_code
-    except Exception:
-        logger.error("Admin key generation connection failed for signature %s.", target_sig)
-        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
-
-@routes_bp.route("/api/admin/list_licenses", methods=["GET"])
-def api_admin_list_licenses():
-    status = licensing.check_activation()
-    local_role = status.get("role")
-    is_admin_logged_in = (licensing._license_cache.get("admin_token") is not None)
-    is_coadmin = (local_role == "CO-ADMIN")
-    
-    if not is_admin_logged_in and not is_coadmin:
-        return jsonify({"success": False, "message": "Unauthorized. Requires Admin or Co-Admin privileges."}), 403
-        
-    headers = {}
-    if is_admin_logged_in:
-        headers["Authorization"] = f"Bearer {licensing._license_cache.get('admin_token')}"
-    elif is_coadmin:
-        headers["X-Machine-Signature"] = status.get("signature")
-        
-    try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/admin/licenses"
-        resp = requests.get(url, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            return jsonify(resp.json())
-        else:
-            return jsonify({"success": False, "message": "Failed to fetch registrations."}), resp.status_code
-    except Exception:
-        logger.error("Admin list licenses connection failed.")
-        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
-
-@routes_bp.route("/api/admin/deactivate", methods=["POST"])
-def api_admin_deactivate():
-    status = licensing.check_activation()
-    local_role = status.get("role")
-    is_admin_logged_in = (licensing._license_cache.get("admin_token") is not None)
-    is_coadmin = (local_role == "CO-ADMIN")
-    
-    if not is_admin_logged_in and not is_coadmin:
-        return jsonify({"success": False, "message": "Unauthorized. Requires Admin or Co-Admin privileges."}), 403
-        
-    data = request.get_json(silent=True) or {}
-    target_sig = data.get("signature", "").strip().upper()
-    
-    if not target_sig:
-        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
-        
-    headers = {}
-    if is_admin_logged_in:
-        headers["Authorization"] = f"Bearer {licensing._license_cache.get('admin_token')}"
-    elif is_coadmin:
-        headers["X-Machine-Signature"] = status.get("signature")
-        
-    try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/admin/deactivate"
-        resp = requests.post(url, json={"machine_signature": target_sig}, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            return jsonify(resp.json())
-        else:
-            try:
-                msg = resp.json().get("message", "Deactivation failed.")
-            except Exception:
-                msg = "Deactivation failed."
-            return jsonify({"success": False, "message": msg}), resp.status_code
-    except Exception:
-        logger.error("Admin deactivate connection failed for signature %s.", target_sig)
-        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
-
-@routes_bp.route("/api/admin/reactivate", methods=["POST"])
-def api_admin_reactivate():
-    status = licensing.check_activation()
-    local_role = status.get("role")
-    is_admin_logged_in = (licensing._license_cache.get("admin_token") is not None)
-    is_coadmin = (local_role == "CO-ADMIN")
-    
-    if not is_admin_logged_in and not is_coadmin:
-        return jsonify({"success": False, "message": "Unauthorized. Requires Admin or Co-Admin privileges."}), 403
-        
-    data = request.get_json(silent=True) or {}
-    target_sig = data.get("signature", "").strip().upper()
-    
-    if not target_sig:
-        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
-        
-    headers = {}
-    if is_admin_logged_in:
-        headers["Authorization"] = f"Bearer {licensing._license_cache.get('admin_token')}"
-    elif is_coadmin:
-        headers["X-Machine-Signature"] = status.get("signature")
-        
-    try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/admin/reactivate"
-        resp = requests.post(url, json={"machine_signature": target_sig}, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            return jsonify(resp.json())
-        else:
-            try:
-                msg = resp.json().get("message", "Reactivation failed.")
-            except Exception:
-                msg = "Reactivation failed."
-            return jsonify({"success": False, "message": msg}), resp.status_code
-    except Exception:
-        logger.error("Admin reactivate connection failed for signature %s.", target_sig)
-        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
-
-@routes_bp.route("/api/admin/delete", methods=["POST"])
-def api_admin_delete():
-    status = licensing.check_activation()
-    local_role = status.get("role")
-    is_admin_logged_in = (licensing._license_cache.get("admin_token") is not None)
-    is_coadmin = (local_role == "CO-ADMIN")
-    
-    if not is_admin_logged_in and not is_coadmin:
-        return jsonify({"success": False, "message": "Unauthorized. Requires Admin or Co-Admin privileges."}), 403
-        
-    data = request.get_json(silent=True) or {}
-    target_sig = data.get("signature", "").strip().upper()
-    
-    if not target_sig:
-        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
-        
-    headers = {}
-    if is_admin_logged_in:
-        headers["Authorization"] = f"Bearer {licensing._license_cache.get('admin_token')}"
-    elif is_coadmin:
-        headers["X-Machine-Signature"] = status.get("signature")
-        
-    try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/admin/delete"
-        resp = requests.post(url, json={"machine_signature": target_sig}, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            return jsonify(resp.json())
-        else:
-            try:
-                msg = resp.json().get("message", "Deletion failed.")
-            except Exception:
-                msg = "Deletion failed."
-            return jsonify({"success": False, "message": msg}), resp.status_code
-    except Exception:
-        logger.error("Admin delete connection failed for signature %s.", target_sig)
+    except Exception as e:
+        logger.error(f"Activation request failed: {e}")
         return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
 
 @routes_bp.route("/api/register_request", methods=["POST"])
 def api_register_request():
     data = request.get_json(silent=True) or {}
-    sig = data.get("signature", "").strip().upper()
-    if not sig:
-        sig = licensing.get_machine_signature()
-        
+    full_name = data.get("full_name", "").strip()
+    email = data.get("email", "").strip().lower()
+    phone_number = data.get("phone_number", "").strip()
+    machine_hash = licensing.get_machine_signature()
+
+    if not full_name or not email or not phone_number:
+        return jsonify({"success": False, "message": "Name, Email, and Phone Number are required."}), 400
+
     try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/register_request"
-        resp = requests.post(url, json={"machine_signature": sig}, timeout=10)
+        url = f"{licensing.get_cloud_backend_url()}/register-request"
+        resp = requests.post(url, json={
+            "full_name": full_name,
+            "email": email,
+            "phone_number": phone_number,
+            "machine_hash": machine_hash
+        }, timeout=10)
+        
         if resp.status_code == 200:
             return jsonify(resp.json())
         else:
             try:
-                msg = resp.json().get("message", "Request failed.")
+                msg = resp.json().get("message", "Registration request failed.")
             except Exception:
-                msg = "Request failed."
+                msg = "Registration request failed."
             return jsonify({"success": False, "message": msg}), resp.status_code
-    except Exception:
-        logger.error("Register request connection failed.")
-        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
 
-@routes_bp.route("/api/admin/requests", methods=["GET"])
-def api_admin_requests():
-    status = licensing.check_activation()
-    local_role = status.get("role")
-    is_admin_logged_in = (licensing._license_cache.get("admin_token") is not None)
-    is_coadmin = (local_role == "CO-ADMIN")
-    
-    if not is_admin_logged_in and not is_coadmin:
-        return jsonify({"success": False, "message": "Unauthorized. Requires Admin or Co-Admin privileges."}), 403
-        
-    headers = {}
-    if is_admin_logged_in:
-        headers["Authorization"] = f"Bearer {licensing._license_cache.get('admin_token')}"
-    elif is_coadmin:
-        headers["X-Machine-Signature"] = status.get("signature")
-        
-    try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/admin/requests"
-        resp = requests.get(url, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            return jsonify(resp.json())
-        else:
-            return jsonify({"success": False, "message": "Failed to fetch pending requests."}), resp.status_code
-    except Exception:
-        logger.error("Admin pending requests connection failed.")
+    except Exception as e:
+        logger.error(f"Register request connection failed: {e}")
         return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
-
-@routes_bp.route("/api/admin/reject_request", methods=["POST"])
-def api_admin_reject_request():
-    status = licensing.check_activation()
-    local_role = status.get("role")
-    is_admin_logged_in = (licensing._license_cache.get("admin_token") is not None)
-    is_coadmin = (local_role == "CO-ADMIN")
-    
-    if not is_admin_logged_in and not is_coadmin:
-        return jsonify({"success": False, "message": "Unauthorized. Requires Admin or Co-Admin privileges."}), 403
-        
-    data = request.get_json(silent=True) or {}
-    target_sig = data.get("signature", "").strip().upper()
-    if not target_sig:
-        return jsonify({"success": False, "message": "Target machine signature is required."}), 400
-        
-    headers = {}
-    if is_admin_logged_in:
-        headers["Authorization"] = f"Bearer {licensing._license_cache.get('admin_token')}"
-    elif is_coadmin:
-        headers["X-Machine-Signature"] = status.get("signature")
-        
-    try:
-        url = f"{licensing.get_cloud_backend_url()}/api/cloud/admin/reject_request"
-        resp = requests.post(url, json={"machine_signature": target_sig}, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            return jsonify(resp.json())
-        else:
-            try:
-                msg = resp.json().get("message", "Rejection failed.")
-            except Exception:
-                msg = "Rejection failed."
-            return jsonify({"success": False, "message": msg}), resp.status_code
-    except Exception:
-        logger.error("Admin reject request connection failed for signature %s.", target_sig)
-        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
-
-@routes_bp.route("/api/activate", methods=["POST"])
-def api_activate():
-    session.pop("logged_out", None)
-    # Force check license status from the cloud backend
-    status = licensing.check_activation(force_refresh=True)
-    return jsonify(status)
 
 @routes_bp.route("/api/deactivate", methods=["POST"])
 def api_deactivate():
     session["logged_out"] = True
     licensing.deactivate()
     return jsonify({"success": True, "message": "Logged out successfully."})
-
-@routes_bp.route("/api/admin/logout", methods=["POST"])
-def api_admin_logout():
-    with licensing._cache_lock:
-        licensing._license_cache["admin_token"] = None
-        licensing._license_cache["admin_email"] = None
-    # Force check license status from the cloud backend to restore the normal device state
-    status = licensing.check_activation(force_refresh=True)
-    return jsonify({"success": True, "message": "Admin session logged out successfully."})
 
 
 # -------------------------------------------------------------
@@ -526,7 +288,12 @@ def api_convert_bank():
             
             # Build initial preview with ledger names
             if not debit_ledger:
-                debit_ledger = "BANK OF BARODA" if "BOB" in bank_type else "STATE BANK OF INDIA"
+                if "BOB" in bank_type:
+                    debit_ledger = "BANK OF BARODA"
+                elif "Axis" in bank_type:
+                    debit_ledger = "AXIS BANK"
+                else:
+                    debit_ledger = "STATE BANK OF INDIA"
             if not credit_ledger:
                 credit_ledger = "Suspense"
                 
@@ -563,7 +330,7 @@ def api_convert_bank():
             FILE_CACHE["xlsx_bank"] = xlsx_data
             
             # Setup file names
-            prefix = "BOB" if "BOB" in bank_type else "SBI"
+            prefix = "BOB" if "BOB" in bank_type else ("AXIS" if "Axis" in bank_type else "SBI")
             FILE_CACHE["xml_bank_filename"] = f"{prefix}_tally_import.xml"
             FILE_CACHE["xlsx_bank_filename"] = f"{prefix}_statement_audit_viewer.xlsx"
             
@@ -600,7 +367,12 @@ def api_reprocess_bank():
             return jsonify({"success": False, "message": "No active bank session found. Please upload file first."}), 400
             
         if not debit_ledger:
-            debit_ledger = "BANK OF BARODA" if "BOB" in bank_type else "STATE BANK OF INDIA"
+            if "BOB" in bank_type:
+                debit_ledger = "BANK OF BARODA"
+            elif "Axis" in bank_type:
+                debit_ledger = "AXIS BANK"
+            else:
+                debit_ledger = "STATE BANK OF INDIA"
         if not credit_ledger:
             credit_ledger = "Suspense"
             
@@ -888,3 +660,37 @@ def api_download(file_type):
         download_name=filename,
         as_attachment=True
     )
+
+
+@routes_bp.route("/api/request-renewal", methods=["POST"])
+def api_request_renewal():
+    data = request.get_json(silent=True) or {}
+    license_key = data.get("license_key", "").strip()
+    if not license_key:
+        lic_cache = licensing.load_local_license()
+        if lic_cache:
+            license_key = lic_cache.get("license_key", "")
+            
+    machine_hash = licensing.get_machine_signature()
+
+    if not license_key:
+        return jsonify({"success": False, "message": "License Key could not be determined."}), 400
+
+    try:
+        url = f"{licensing.get_cloud_backend_url()}/request-renewal"
+        resp = requests.post(url, json={
+            "license_key": license_key,
+            "machine_hash": machine_hash
+        }, timeout=10)
+        
+        if resp.status_code == 200:
+            return jsonify(resp.json())
+        else:
+            try:
+                msg = resp.json().get("message", "Failed to submit renewal request.")
+            except Exception:
+                msg = "Failed to submit renewal request."
+            return jsonify({"success": False, "message": msg}), resp.status_code
+    except Exception as e:
+        logger.error(f"Renewal request failed: {e}")
+        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500

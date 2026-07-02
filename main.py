@@ -135,6 +135,7 @@ from parsers.router import route_to_parser, verify_bank_profile
 # Standalone Opening Balance Parsers
 from parsers.bob_parser import parse_opening_balance as parse_bob_opening
 from parsers.sbi_parser import parse_opening_balance as parse_sbi_opening
+from parsers.axis_parser import parse_opening_balance as parse_axis_opening
 
 # Dynamic Modular Strategies
 from strategies import WholeChunk, FirstChunk, ContinuationChunk
@@ -146,7 +147,9 @@ print("==================================================")
 print("Select the bank profile to process:")
 print("1. Bank of Baroda (BOB)")
 print("2. State Bank of India (SBI)")
-choice = input("Enter option number (1 or 2): ").strip()
+print("3. Axis Bank")
+
+choice = input("Enter option number (1, 2, or 3): ").strip()
 
 if choice == "1":
     selected_bank = "Bank of Baroda (BOB)"
@@ -158,6 +161,11 @@ elif choice == "2":
     BANK_LEDGER = "STATE BANK OF INDIA"
     parse_opening_func = parse_sbi_opening
     PDF_PATH = "uploads/sbi_statement.pdf"
+elif choice == "3":
+    selected_bank = "Axis Bank"
+    BANK_LEDGER = "AXIS BANK"
+    parse_opening_func = parse_axis_opening
+    PDF_PATH = "uploads/axis_statement.pdf"
 else:
     print("❌ Invalid option. Exiting execution loop.")
     sys.exit(1)

@@ -124,9 +124,9 @@ def setup_logger():
     
     # Check if handlers already exist to prevent duplicate logging inside Flask context
     if not logger.handlers:
-        # Formatter: timestamp (12-hour format with AM/PM) - level - [filename:line] - message
+        # Formatter: timestamp (12-hour format with AM/PM) - level - message
         formatter = logging.Formatter(
-            fmt="%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s",
+            fmt="%(asctime)s - %(levelname)s - %(message)s",
             datefmt="%d-%b-%Y %I:%M:%S %p"
         )
         

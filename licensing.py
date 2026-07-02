@@ -9,7 +9,10 @@ import time
 from services.logger import logger
 
 SECRET_SALT = "PDF2TALLY_SECURE_OFFLINE_LICENSE_SALT_2026_@#$!"
-LICENSE_FILE_PATH = os.path.expanduser("~/.pdf2tally.lic")
+LICENSE_DIR = os.path.expanduser("~/.pdf2tally")
+LICENSE_FILE_PATH = os.path.join(LICENSE_DIR, ".lic")
+LOGS_DIR = os.path.join(LICENSE_DIR, "logs")
+INTERNAL_DIR = os.path.join(LICENSE_DIR, "internal")
 
 def get_machine_raw_identifiers():
     """Gathers raw hardware identifiers to form a unique hardware fingerprint."""
@@ -78,10 +81,10 @@ def get_machine_signature():
 
 import base64
 import requests
-from threading import Lock
+from threading import RLock
 
 # Memory cache for license verification
-_cache_lock = Lock()
+_cache_lock = RLock()
 _license_cache = {
     "activated": False,
     "role": "USER",
@@ -94,56 +97,130 @@ _license_cache = {
     "last_sync_real": 0.0,
     "admin_token": None,
     "admin_email": None,
-    "error_type": None
+    "error_type": None,
+    "license_key": None
 }
+_last_disk_read_time = 0.0
+_boot_sync_done = False
 
-def save_local_license(cache_data):
-    """Saves the license cache to a local file, signed with SECRET_SALT to prevent tampering."""
+def _xor_crypt(data_str: str, key: str) -> bytes:
+    """XOR encrypts/decrypts a string with a key derived from hardware signature."""
+    key_hash = hashlib.sha256(key.encode()).digest()
+    data_bytes = data_str.encode('utf-8')
+    encrypted = bytearray()
+    for i, b in enumerate(data_bytes):
+        k_byte = key_hash[i % len(key_hash)]
+        encrypted.append(b ^ k_byte)
+    return bytes(encrypted)
+
+def _xor_decrypt(data_bytes: bytes, key: str) -> str:
+    """XOR decrypts bytes with a key derived from hardware signature."""
+    key_hash = hashlib.sha256(key.encode()).digest()
+    decrypted = bytearray()
+    for i, b in enumerate(data_bytes):
+        k_byte = key_hash[i % len(key_hash)]
+        decrypted.append(b ^ k_byte)
+    return decrypted.decode('utf-8')
+
+def save_local_license(cache_data, update_memory=True):
+    """Saves the license cache to a local file, signed with SECRET_SALT and encrypted to prevent tampering."""
     try:
         data_to_sign = {
             "signature": cache_data.get("signature"),
             "activated": cache_data.get("activated"),
-            "role": cache_data.get("role"),
+            "role": cache_data.get("role", "USER"),
             "expiry_date": cache_data.get("expiry_date"),
             "seconds_remaining": cache_data.get("seconds_remaining"),
             "last_sync_real": cache_data.get("last_sync_real"),
-            "last_seen_time": cache_data.get("last_seen_time", time.time())
+            "last_seen_time": cache_data.get("last_seen_time", time.time()),
+            "license_id": cache_data.get("license_id"),
+            "license_key": cache_data.get("license_key")
         }
-        # Compute signature
-        sign_str = f"{data_to_sign['signature']}|{data_to_sign['activated']}|{data_to_sign['role']}|{data_to_sign['expiry_date']}|{data_to_sign['seconds_remaining']}|{data_to_sign['last_sync_real']}|{data_to_sign['last_seen_time']}|{SECRET_SALT}"
+        # Compute signature including license_id and license_key
+        sign_str = f"{data_to_sign['signature']}|{data_to_sign['activated']}|{data_to_sign['role']}|{data_to_sign['expiry_date']}|{data_to_sign['seconds_remaining']}|{data_to_sign['last_sync_real']}|{data_to_sign['last_seen_time']}|{data_to_sign['license_id'] or ''}|{data_to_sign['license_key'] or ''}|{SECRET_SALT}"
         h = hashlib.sha256(sign_str.encode()).hexdigest()
         data_to_sign["sha256"] = h
         
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(LICENSE_FILE_PATH), exist_ok=True)
-        with open(LICENSE_FILE_PATH, "w") as f:
-            json.dump(data_to_sign, f)
-    except Exception as e:
-        logger.error("Failed to save local license cache: %s", str(e))
+        # Ensure directories exist
+        os.makedirs(LICENSE_DIR, exist_ok=True)
+        os.makedirs(LOGS_DIR, exist_ok=True)
+        os.makedirs(INTERNAL_DIR, exist_ok=True)
+        
+        # Ensure parent directory and license file are normal/visible on Windows before writing
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetFileAttributesW(LICENSE_DIR, 128)  # 128 = FILE_ATTRIBUTE_NORMAL (Unhide)
+                if os.path.exists(LICENSE_FILE_PATH):
+                    ctypes.windll.kernel32.SetFileAttributesW(LICENSE_FILE_PATH, 128)  # 128 = FILE_ATTRIBUTE_NORMAL (Unhide)
+            except Exception:
+                pass
+
+        # Encrypt plain text using hardware key signature
+        plain_text = json.dumps(data_to_sign)
+        encrypted_bytes = _xor_crypt(plain_text, data_to_sign["signature"])
+        
+        with open(LICENSE_FILE_PATH, "wb") as f:
+            f.write(encrypted_bytes)
+            
+        # Hide license file on Windows
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetFileAttributesW(LICENSE_FILE_PATH, 2)
+            except Exception:
+                pass
+
+        # Update memory cache immediately
+        if update_memory:
+            with _cache_lock:
+                _license_cache.update({
+                    "activated": data_to_sign["activated"],
+                    "role": data_to_sign["role"],
+                    "message": "License active" if data_to_sign["activated"] else "License inactive",
+                    "expiry_date": data_to_sign["expiry_date"],
+                    "seconds_remaining": data_to_sign["seconds_remaining"],
+                    "signature": data_to_sign["signature"],
+                    "last_sync_monotonic": time.monotonic(),
+                    "last_sync_real": data_to_sign["last_sync_real"],
+                    "license_key": data_to_sign["license_key"],
+                    "error_type": None
+                })
+    except Exception:
+        logger.error("System settings file write error.")
 
 def load_local_license() -> dict:
-    """Loads the license cache from the local file and verifies its signature."""
+    """Loads and decrypts the license cache from the local file and verifies its signature."""
     if not os.path.exists(LICENSE_FILE_PATH):
         return None
     try:
-        with open(LICENSE_FILE_PATH, "r") as f:
-            data = json.load(f)
+        sig = get_machine_signature()
+        with open(LICENSE_FILE_PATH, "rb") as f:
+            encrypted_bytes = f.read()
+            
+        try:
+            # Decrypt using machine fingerprint signature
+            plain_text = _xor_decrypt(encrypted_bytes, sig)
+            data = json.loads(plain_text)
+        except Exception:
+            logger.error("License integrity verification failed. Initializing login prompt.")
+            return None
             
         required_keys = ["signature", "activated", "role", "expiry_date", "seconds_remaining", "last_sync_real", "last_seen_time", "sha256"]
         if not all(k in data for k in required_keys):
-            logger.warning("Local license cache is missing required keys.")
+            logger.warning("License settings file is incomplete.")
             return None
             
         # Verify signature
-        sign_str = f"{data['signature']}|{data['activated']}|{data['role']}|{data['expiry_date']}|{data['seconds_remaining']}|{data['last_sync_real']}|{data['last_seen_time']}|{SECRET_SALT}"
+        sign_str = f"{data['signature']}|{data['activated']}|{data['role']}|{data['expiry_date']}|{data['seconds_remaining']}|{data['last_sync_real']}|{data['last_seen_time']}|{data.get('license_id') or ''}|{data.get('license_key') or ''}|{SECRET_SALT}"
         h = hashlib.sha256(sign_str.encode()).hexdigest()
         if h != data["sha256"]:
-            logger.warning("Local license cache signature mismatch. Tampering suspected.")
+            logger.warning("License integrity verification failed.")
             return None
             
         return data
-    except Exception as e:
-        logger.error("Failed to load local license cache: %s", str(e))
+    except Exception:
+        logger.error("License validation required.")
         return None
 
 OBFUSCATED_BACKEND_URL = "aHR0cHM6Ly9waWthY2h1OTc1LnB5dGhvbmFueXdoZXJlLmNvbQ=="
@@ -153,6 +230,16 @@ def get_cloud_backend_url():
     if url:
         return url.strip().rstrip("/")
     try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.2)
+        result = s.connect_ex(('127.0.0.1', 8000))
+        s.close()
+        if result == 0:
+            return "http://127.0.0.1:8000"
+    except Exception:
+        pass
+    try:
         decoded = base64.b64decode(OBFUSCATED_BACKEND_URL.encode()).decode("utf-8")
         return decoded.strip().rstrip("/")
     except Exception:
@@ -161,79 +248,103 @@ def get_cloud_backend_url():
 def sync_with_cloud(retry_duration=5) -> dict:
     """
     Tries to connect to the cloud licensing server for up to retry_duration seconds.
-    Updates the global _license_cache on success or failure.
-    If it fails due to network/internet connection issues, falls back to the local file cache.
+    Uses the local cache license_id and machine signature to verify status.
+    If it fails due to network/internet connection issues, falls back to local file cache.
     """
     sig = get_machine_signature()
-    url = f"{get_cloud_backend_url()}/api/cloud/verify"
+    cache_data = load_local_license()
     
+    # If we don't have a local license_id, we cannot auto-login
+    license_id = cache_data.get("license_id") if cache_data else None
+    
+    if not license_id:
+        with _cache_lock:
+            _license_cache.update({
+                "activated": False,
+                "role": "USER",
+                "message": "Unlicensed",
+                "signature": sig,
+                "error_type": None
+            })
+        return _license_cache
+
+    url = f"{get_cloud_backend_url()}/login"
     start_time = time.time()
     last_error_type = None
     last_error_msg = "Could not reach licensing server."
     
     while True:
         try:
-            response = requests.post(url, json={"machine_signature": sig}, timeout=5)
+            response = requests.post(url, json={
+                "license_id": license_id,
+                "machine_hash": sig
+            }, timeout=5)
             
             if response.status_code == 200:
-                res_data = response.json()
-                is_active_cloud = res_data.get("activated", False)
-                if not is_active_cloud:
-                    msg = res_data.get("message", "")
-                    if "not registered" in msg:
-                        logger.warning("License Verification Failed: Device signature %s is unregistered. Message: %s", sig, msg)
-                    elif "expired and Device deactivated" in msg:
-                        logger.warning("License Verification Failed: Device signature %s has expired subscription and deactivated device. Message: %s", sig, msg)
-                    elif "Deactivated" in msg:
-                        logger.warning("License Verification Failed: Device signature %s is deactivated. Message: %s", sig, msg)
-                    elif "expired" in msg:
-                        logger.warning("License Verification Failed: Device signature %s has expired subscription. Message: %s", sig, msg)
-                    else:
-                        logger.warning("License Verification Failed: Device signature %s verification failed. Message: %s", sig, msg)
-                
-                with _cache_lock:
-                    _license_cache.update({
-                        "activated": is_active_cloud,
-                        "role": res_data.get("role", "USER"),
-                        "message": res_data.get("message", ""),
-                        "expiry_date": res_data.get("expiry_date", "-" if not is_active_cloud else "Lifetime"),
-                        "seconds_remaining": res_data.get("seconds_remaining", 0 if not is_active_cloud else -1),
-                        "signature": sig,
-                        "last_sync_monotonic": time.monotonic(),
-                        "last_sync_real": time.time(),
-                        "error_type": None
-                    })
-                    # If we have an active admin session, retain admin privileges
-                    if _license_cache["admin_token"] is not None:
-                        _license_cache["activated"] = True
-                        _license_cache["role"] = "ADMIN"
-                        _license_cache["message"] = "Administrator Session Active"
-                        _license_cache["seconds_remaining"] = -1
-                    
-                    # Save to local persistent cache
-                    save_local_license({
-                        "signature": sig,
-                        "activated": _license_cache["activated"],
-                        "role": _license_cache["role"],
-                        "expiry_date": _license_cache["expiry_date"],
-                        "seconds_remaining": _license_cache["seconds_remaining"],
-                        "last_sync_real": _license_cache["last_sync_real"],
-                        "last_seen_time": _license_cache["last_sync_real"]
-                    })
-                return _license_cache
-            
-            elif response.status_code >= 500:
-                last_error_type = "server"
-                last_error_msg = f"Server-side issue (HTTP {response.status_code})"
-                logger.error("License Verification Failed: Server-side issue (HTTP %d) for signature %s", response.status_code, sig)
-            else:
                 try:
                     res_data = response.json()
                 except Exception:
                     res_data = {}
+                is_active_cloud = res_data.get("authorized", False)
+                
+                with _cache_lock:
+                    _license_cache.update({
+                        "activated": is_active_cloud,
+                        "role": "USER",
+                        "message": res_data.get("message", "License verified active."),
+                        "expiry_date": res_data.get("expires_at", "Lifetime"),
+                        "seconds_remaining": res_data.get("seconds_remaining", -1),
+                        "signature": sig,
+                        "last_sync_monotonic": time.monotonic(),
+                        "last_sync_real": time.time(),
+                        "error_type": None,
+                        "license_key": cache_data.get("license_key") if cache_data else None
+                    })
+                    
+                    # Save to local persistent cache
+                    save_local_license({
+                        "signature": sig,
+                        "activated": is_active_cloud,
+                        "role": "USER",
+                        "expiry_date": _license_cache["expiry_date"],
+                        "seconds_remaining": _license_cache["seconds_remaining"],
+                        "last_sync_real": _license_cache["last_sync_real"],
+                        "last_seen_time": _license_cache["last_sync_real"],
+                        "license_id": license_id,
+                        "license_key": cache_data.get("license_key") if cache_data else None
+                    })
+                return _license_cache
+            
+            elif response.status_code == 403 or response.status_code == 404:
+                # Expired or invalid or revoked
+                try:
+                    res_data = response.json() if response.content else {}
+                except Exception:
+                    res_data = {}
+                msg = res_data.get("message", "License invalid or expired.")
+                with _cache_lock:
+                    _license_cache.update({
+                        "activated": False,
+                        "role": "USER",
+                        "message": msg,
+                        "signature": sig,
+                        "last_sync_monotonic": time.monotonic(),
+                        "last_sync_real": time.time(),
+                        "error_type": "invalid",
+                        "license_key": cache_data.get("license_key") if cache_data else None
+                    })
+                    if cache_data:
+                        cache_data["activated"] = False
+                        save_local_license(cache_data)
+                return _license_cache
+                
+            elif response.status_code >= 500:
                 last_error_type = "server"
-                last_error_msg = res_data.get("message", "Licensing server returned an error.")
-                logger.error("License Verification Failed: Server returned HTTP %d with message: %s for signature %s", response.status_code, last_error_msg, sig)
+                last_error_msg = f"Server issue (HTTP {response.status_code})"
+                logger.error("License Verification Failed: Server-side issue (HTTP %d) for signature %s", response.status_code, sig)
+            else:
+                last_error_type = "server"
+                last_error_msg = "Licensing server returned an error."
                 
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
             last_error_type = "internet"
@@ -246,46 +357,7 @@ def sync_with_cloud(retry_duration=5) -> dict:
             
         time.sleep(2)
         
-    # Attempt offline file cache load on failure
-    cache_data = load_local_license()
-    if cache_data and cache_data.get("signature") == sig:
-        current_time = time.time()
-        last_seen = max(current_time, cache_data.get("last_seen_time", 0.0))
-        elapsed_offline = last_seen - cache_data["last_sync_real"]
-        seconds_remaining = cache_data["seconds_remaining"]
-        
-        if seconds_remaining == -1:
-            is_active = cache_data.get("activated", False)
-            remaining_offline = -1
-        else:
-            remaining_offline = seconds_remaining - elapsed_offline
-            if remaining_offline > 0:
-                is_active = cache_data.get("activated", False)
-            else:
-                is_active = False
-                
-        if is_active:
-            with _cache_lock:
-                _license_cache.update({
-                    "activated": True,
-                    "role": cache_data.get("role", "USER"),
-                    "message": "License active (Offline Mode)",
-                    "expiry_date": cache_data.get("expiry_date", "-"),
-                    "seconds_remaining": remaining_offline,
-                    "signature": sig,
-                    "last_sync_monotonic": time.monotonic(),
-                    "last_sync_real": cache_data["last_sync_real"],
-                    "error_type": None
-                })
-                if _license_cache["admin_token"] is not None:
-                    _license_cache["activated"] = True
-                    _license_cache["role"] = "ADMIN"
-                    _license_cache["message"] = "Administrator Session Active"
-                    _license_cache["seconds_remaining"] = -1
-            
-            cache_data["last_seen_time"] = last_seen
-            save_local_license(cache_data)
-            return _license_cache
+
             
     with _cache_lock:
         _license_cache.update({
@@ -294,10 +366,6 @@ def sync_with_cloud(retry_duration=5) -> dict:
             "error_type": last_error_type,
             "signature": sig
         })
-        if _license_cache["admin_token"] is not None:
-            _license_cache["activated"] = True
-            _license_cache["role"] = "ADMIN"
-            _license_cache["error_type"] = None
             
     return _license_cache
 
@@ -311,36 +379,60 @@ def check_activation(force_refresh=False) -> dict:
     import time
     sig = get_machine_signature()
     
+    global _last_disk_read_time, _boot_sync_done
+    now_monotonic = time.monotonic()
+    
     with _cache_lock:
         is_mem_synced = (_license_cache["last_sync_monotonic"] > 0)
         
-    if not is_mem_synced:
-        cache_data = load_local_license()
-        if cache_data and cache_data.get("signature") == sig:
-            current_time = time.time()
-            last_seen = max(current_time, cache_data.get("last_seen_time", 0.0))
-            elapsed = last_seen - cache_data["last_sync_real"]
-            seconds_remaining = cache_data["seconds_remaining"]
-            
-            if seconds_remaining == -1 or seconds_remaining - elapsed > 0:
-                is_active = cache_data.get("activated", False)
-            else:
-                is_active = False
-                
+    # Reload from disk if not synced, forced, or if 10 seconds elapsed since last read
+    if not is_mem_synced or force_refresh or (now_monotonic - _last_disk_read_time > 10):
+        _last_disk_read_time = now_monotonic
+        if not os.path.exists(LICENSE_FILE_PATH):
             with _cache_lock:
                 _license_cache.update({
-                    "activated": is_active,
-                    "role": cache_data.get("role", "USER"),
-                    "message": "License active (Offline Mode)" if is_active else "License expired.",
-                    "expiry_date": cache_data.get("expiry_date", "-"),
-                    "seconds_remaining": seconds_remaining - elapsed if seconds_remaining != -1 else -1,
-                    "signature": sig,
-                    "last_sync_monotonic": time.monotonic(),
-                    "last_sync_real": cache_data["last_sync_real"],
-                    "error_type": None
+                    "activated": False,
+                    "message": "Unlicensed",
+                    "error_type": None,
+                    "license_key": None
                 })
-            cache_data["last_seen_time"] = last_seen
-            save_local_license(cache_data)
+        else:
+            cache_data = load_local_license()
+            if not cache_data:
+                # File exists but is corrupted/tampered!
+                with _cache_lock:
+                    _license_cache.update({
+                        "activated": False,
+                        "message": "License integrity verification failed.",
+                        "error_type": None,
+                        "license_key": None
+                    })
+            elif cache_data.get("signature") == sig:
+                current_time = time.time()
+                last_seen = max(current_time, cache_data.get("last_seen_time", 0.0))
+                elapsed = last_seen - cache_data["last_sync_real"]
+                seconds_remaining = cache_data["seconds_remaining"]
+                
+                if seconds_remaining == -1 or seconds_remaining - elapsed > 0:
+                    is_active = cache_data.get("activated", False)
+                else:
+                    is_active = False
+                    
+                with _cache_lock:
+                    _license_cache.update({
+                        "activated": is_active,
+                        "role": cache_data.get("role", "USER"),
+                        "message": "License active" if is_active else "License expired.",
+                        "expiry_date": cache_data.get("expiry_date", "-"),
+                        "seconds_remaining": seconds_remaining - elapsed if seconds_remaining != -1 else -1,
+                        "signature": sig,
+                        "last_sync_monotonic": time.monotonic(),
+                        "last_sync_real": cache_data["last_sync_real"],
+                        "error_type": None,
+                        "license_key": cache_data.get("license_key")
+                    })
+                cache_data["last_seen_time"] = last_seen
+                save_local_license(cache_data, update_memory=False)
             
     with _cache_lock:
         is_synced = (_license_cache["last_sync_monotonic"] > 0)
@@ -401,7 +493,7 @@ def check_activation(force_refresh=False) -> dict:
         cache_data = load_local_license()
         if cache_data:
             cache_data["last_seen_time"] = max(current_time, cache_data.get("last_seen_time", 0.0))
-            save_local_license(cache_data)
+            save_local_license(cache_data, update_memory=False)
             
         return res
 

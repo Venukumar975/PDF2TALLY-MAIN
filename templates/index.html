@@ -50,35 +50,37 @@
             </div>
         </div>
 
-        <!-- 3. UNIFIED LICENSING PORTAL (ADMIN, LOGIN, REGISTER CONSOLES) -->
-        <div id="lic-state-portal" class="glass-card activation-box animate-fade-in hidden" style="max-width: 500px; width: 100%;">
-            <div class="activation-header" style="margin-bottom: 20px;">
-                <h2 style="font-weight: 600; font-size: 1.5rem; letter-spacing: -0.5px;">Tally Automation Suite</h2>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Licensing & Activation Control Portal</p>
+        <!-- 3. UNIFIED LICENSING PORTAL (LOGIN, REGISTER CONSOLES) -->
+        <div id="lic-state-portal" class="glass-card activation-box animate-fade-in hidden" style="max-width: 460px; width: 100%; padding: 24px 30px;">
+            <div class="activation-header" style="margin-bottom: 15px;">
+                <h2 style="font-weight: 600; font-size: 1.35rem; letter-spacing: -0.5px;">Tally Automation Suite</h2>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0;">Licensing & Activation Control Portal</p>
             </div>
             
             <!-- PORTAL NAVIGATION TABS -->
-            <div class="portal-tabs" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-                <button class="portal-tab-btn active" id="btn-tab-login" onclick="switchLandingTab('landing-login')" style="flex: 1; padding: 10px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 500; font-size: 0.9rem; border-radius: 6px; transition: all 0.2s;">
+            <div class="portal-tabs" style="display: flex; gap: 8px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+                <button class="portal-tab-btn active" id="btn-tab-login" onclick="switchLandingTab('landing-login')" style="flex: 1; padding: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 500; font-size: 0.85rem; border-radius: 6px; transition: all 0.2s;">
                     🔑 Login Console
                 </button>
-                <button class="portal-tab-btn" id="btn-tab-register" onclick="switchLandingTab('landing-register')" style="flex: 1; padding: 10px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 500; font-size: 0.9rem; border-radius: 6px; transition: all 0.2s;">
+                <button class="portal-tab-btn" id="btn-tab-register" onclick="switchLandingTab('landing-register')" style="flex: 1; padding: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 500; font-size: 0.85rem; border-radius: 6px; transition: all 0.2s;">
                     📝 Register Console
-                </button>
-                <button class="portal-tab-btn" id="btn-tab-admin" onclick="switchLandingTab('landing-admin')" style="flex: 1; padding: 10px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 500; font-size: 0.9rem; border-radius: 6px; transition: all 0.2s;">
-                    ⚙️ Admin Console
                 </button>
             </div>
             
-            <div class="activation-body" style="min-height: 280px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="activation-body" style="min-height: 250px; display: flex; flex-direction: column; justify-content: space-between;">
                 <!-- CONSOLE 1: LOGIN CONSOLE -->
                 <div id="landing-login" class="landing-tab-content">
-                    <div style="text-align: center; margin-bottom: 25px;">
-                        <span style="font-size: 3rem; display: block; margin-bottom: 15px;">🔒</span>
-                        <h3 style="font-size: 1.1rem; color: #ffffff; margin-bottom: 8px;">Device Verification</h3>
+                    <div style="text-align: center; margin-bottom: 15px;">
+                        <span style="font-size: 2.5rem; display: block; margin-bottom: 10px;">🔒</span>
+                        <h3 style="font-size: 1.1rem; color: #ffffff; margin-bottom: 8px;">Customer Log In</h3>
                         <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.4;">
-                            Ping the cloud licensing backend to verify if this computer signature is active and authenticated.
+                            Enter your License Key below to activate and log in.
                         </p>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="lic-user-key" style="font-size: 0.75rem; text-align: left; display: block; margin-bottom: 4px; color: var(--text-muted);">License Key / ID</label>
+                        <input type="text" id="lic-user-key" placeholder="Enter License Key (e.g. LIC-...)" style="width: 100%; box-sizing: border-box; text-align: left; padding: 10px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; font-size: 0.9rem;">
                     </div>
                     
                     <div style="margin-top: 15px;">
@@ -89,56 +91,51 @@
                 
                 <!-- CONSOLE 2: REGISTER CONSOLE -->
                 <div id="landing-register" class="landing-tab-content hidden">
-                    <div style="text-align: center; margin-bottom: 15px;">
-                        <span style="font-size: 2.5rem; display: block; margin-bottom: 10px;">📋</span>
-                        <h3 style="font-size: 1.1rem; color: #ffffff; margin-bottom: 6px;">New Registration</h3>
-                        <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin-bottom: 15px;">
-                            Copy your unique Machine Signature ID below and send it to the Administrator to request activation.
+                    <div style="text-align: center; margin-bottom: 12px;">
+                        <span style="font-size: 1.8rem; display: block; margin-bottom: 4px;">📋</span>
+                        <h3 style="font-size: 1.05rem; color: #ffffff; margin-bottom: 2px;">Request Activation</h3>
+                        <p style="color: var(--text-muted); font-size: 0.78rem; line-height: 1.3; margin-bottom: 8px;">
+                            Enter your details below to request a subscription license.
                         </p>
                     </div>
+
+                    <!-- Row 1: Two Columns (Full Name & Phone Number) -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="reg-user-name" style="font-size: 0.7rem; text-align: left; display: block; margin-bottom: 2px; color: var(--text-muted);">Full Name</label>
+                            <input type="text" id="reg-user-name" placeholder="Enter your name" style="width: 100%; box-sizing: border-box; text-align: left; padding: 7px 10px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; font-size: 0.82rem;">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="reg-user-phone" style="font-size: 0.7rem; text-align: left; display: block; margin-bottom: 2px; color: var(--text-muted);">Phone Number</label>
+                            <input type="text" id="reg-user-phone" placeholder="Enter 10-digit phone number" style="width: 100%; box-sizing: border-box; text-align: left; padding: 7px 10px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; font-size: 0.82rem;">
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Full Width (Email Address) -->
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label for="reg-user-email" style="font-size: 0.7rem; text-align: left; display: block; margin-bottom: 2px; color: var(--text-muted);">Email Address</label>
+                        <input type="email" id="reg-user-email" placeholder="Enter email address" style="width: 100%; box-sizing: border-box; text-align: left; padding: 7px 10px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; font-size: 0.82rem;">
+                    </div>
                     
-                    <div class="signature-container" style="margin-bottom: 15px;">
-                        <label style="font-size: 0.75rem; color: var(--text-muted);">Your Machine Signature ID:</label>
-                        <div class="signature-badge" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); margin-top: 4px;">
-                            <span id="machine-sig-display" style="font-family: monospace; font-size: 1.05rem; color: #ffffff; letter-spacing: 0.5px;">FETCHING-SIG...</span>
-                            <button onclick="copySignature()" title="Copy Signature" class="btn-copy" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;">
-                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <!-- Row 3: Full Width (Machine fingerprint) -->
+                    <div class="signature-container" style="margin-bottom: 10px;">
+                        <label style="font-size: 0.7rem; color: var(--text-muted);">Machine Fingerprint (Auto-Filled):</label>
+                        <div class="signature-badge" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); margin-top: 2px;">
+                            <span id="machine-sig-display" style="font-family: monospace; font-size: 0.85rem; color: #ffffff; letter-spacing: 0.5px;">FETCHING-SIG...</span>
+                            <button onclick="copySignature()" title="Copy Signature" class="btn-copy" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; display: flex; align-items: center;">
+                                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                             </button>
                         </div>
                     </div>
                     
-                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                        <button class="btn btn-primary" id="btn-request-register" onclick="requestRegistration()" style="flex: 1; padding: 10px; font-size: 0.85rem;">Request Registration ⚡</button>
-                        <button class="btn btn-outline" onclick="checkRegistrationStatus()" style="padding: 10px; font-size: 0.85rem; width: 60px;" title="Check status">🔄</button>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <button class="btn btn-primary" id="btn-request-register" onclick="requestRegistration()" style="flex: 1; padding: 9px; font-size: 0.82rem;">Request Registration ⚡</button>
                     </div>
-                    <div id="register-console-status" class="alert alert-info hidden animate-fade-in" style="margin-top: 15px; font-size: 0.85rem; text-align: center;"></div>
-                </div>
-                
-                <!-- CONSOLE 3: ADMIN CONSOLE -->
-                <div id="landing-admin" class="landing-tab-content hidden">
-                    <h3 style="font-size: 0.95rem; margin-bottom: 15px; text-align: center; color: #ffffff; font-weight: 500;">Unlock Administrator Licensing Panel</h3>
-                    
-                    <div class="form-group" style="margin-bottom: 10px;">
-                        <label for="lic-admin-email" style="font-size: 0.75rem; text-align: left; display: block; margin-bottom: 4px; color: var(--text-muted);">Admin Email</label>
-                        <input type="email" id="lic-admin-email" placeholder="admin@domain.com" style="width: 100%; box-sizing: border-box; text-align: left; padding: 10px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; font-size: 0.9rem;">
-                    </div>
-                    
-                    <div class="form-group" style="margin-bottom: 10px;">
-                        <label for="lic-admin-key" style="font-size: 0.75rem; text-align: left; display: block; margin-bottom: 4px; color: var(--text-muted);">Admin Secret Key</label>
-                        <input type="text" id="lic-admin-key" placeholder="Enter Secret Admin Key" style="width: 100%; box-sizing: border-box; text-align: left; padding: 10px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; font-size: 0.9rem;">
-                    </div>
-                    
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label for="lic-admin-password" style="font-size: 0.75rem; text-align: left; display: block; margin-bottom: 4px; color: var(--text-muted);">Password</label>
-                        <input type="password" id="lic-admin-password" placeholder="••••••••" style="width: 100%; box-sizing: border-box; text-align: left; padding: 10px; border-radius: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; font-size: 0.9rem;">
-                    </div>
-                    
-                    <button class="btn btn-primary btn-block" onclick="submitAdminLogin()" style="padding: 10px;">Login & Unlock Console ⚡</button>
-                    <div id="activation-error" class="alert alert-danger hidden" style="margin-top: 15px; font-size: 0.85rem; text-align: center;"></div>
+                    <div id="register-console-status" class="alert alert-info hidden animate-fade-in" style="margin-top: 8px; font-size: 0.78rem; text-align: center; padding: 8px;"></div>
                 </div>
             </div>
             
-            <div class="activation-footer" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+            <div class="activation-footer" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
                 <span>🔐 Secure Licensing Protocol</span>
                 <span>v2.1.0</span>
             </div>
@@ -181,10 +178,6 @@
                     <span class="nav-icon">🛡️</span>
                     <span>License & Status</span>
                 </a>
-                <a href="#admin-tab" id="admin-nav-item" class="nav-item hidden" onclick="switchTab('admin-tab')">
-                    <span class="nav-icon">⚙️</span>
-                    <span>Admin Console</span>
-                </a>
             </nav>
             
             <div class="sidebar-footer">
@@ -218,6 +211,7 @@
                                 <select id="bank-type-select">
                                     <option value="State Bank of India (SBI)">State Bank of India (SBI)</option>
                                     <option value="Bank of Baroda (BOB)">Bank of Baroda (BOB)</option>
+                                    <option value="Axis Bank">Axis Bank</option>
                                 </select>
                             </div>
                             
@@ -743,191 +737,7 @@
                 </div>
             </section>
 
-            <!-- SECTION 5: ADMIN CONSOLE -->
-            <section id="admin-tab" class="tab-pane hidden animate-fade-in">
-                <header class="section-header">
-                    <h2>Administrator Licensing Console</h2>
-                    <p>Register, monitor, and configure client device signatures with device locking and cloud timer deactivation.</p>
-                </header>
-
-                <div class="grid-2-1">
-                    <!-- LEFT COLUMN: REGISTER CONTROLS -->
-                    <div class="glass-card">
-                        <h3>🔑 Register Machine Signature</h3>
-                        
-                        <div class="form-grid">
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label for="admin-target-sig">Target Machine Signature ID</label>
-                                <input type="text" id="admin-target-sig" placeholder="e.g. 456A-755B-2CA7-28CE" autocomplete="off" style="text-align: left; font-family: monospace;">
-                                <small style="color: var(--text-muted); margin-top: 4px; display: block;">Enter the unique signature ID provided by the client device.</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="admin-role-select">Authorization Role</label>
-                                <select id="admin-role-select">
-                                    <option value="USER">Standard User (Conversions Only)</option>
-                                    <option value="CO-ADMIN" id="admin-role-coadmin-opt">Co-Admin (Can register users, can't create Co-Admins)</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="admin-duration-select">Validity Duration</label>
-                                <select id="admin-duration-select">
-                                    <option value="1min">1 Minute (Debug/Testing)</option>
-                                    <option value="5min">5 Minutes (Debug/Testing)</option>
-                                    <option value="1day">1 Day</option>
-                                    <option value="1week">1 Week</option>
-                                    <option value="1month">1 Month</option>
-                                    <option value="4month">4 Months</option>
-                                    <option value="1year">1 Year</option>
-                                    <option value="lifetime">Lifetime (Full Time)</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="divider"></div>
-                        
-                        <div class="actions-bar">
-                            <button id="btn-generate-key" class="btn btn-primary btn-block" onclick="registerDevice()">
-                                <span>Register Device in Cloud ⚡</span>
-                            </button>
-                        </div>
-                        
-                        <div id="admin-key-result-container" class="signature-container hidden" style="margin-top: 25px;">
-                            <div class="alert alert-success" style="margin-bottom: 0; text-align: center; font-weight: 500;">
-                                Device signature registered successfully on cloud! ⚡
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- RIGHT COLUMN: STATS / LOGOUT -->
-                    <div class="sidebar-info">
-                        <div class="glass-card gradient-border-card" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-                            <div>
-                                <h3>📊 Cloud Diagnostics</h3>
-                                <div class="license-info-strip" style="margin-top: 15px;">
-                                    <div class="info-row">
-                                        <span class="info-label">Active Connections:</span>
-                                        <span class="info-value text-success" id="admin-active-count">0</span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Cloud Timezone:</span>
-                                        <span class="info-value">IST (UTC+5:30)</span>
-                                    </div>
-                                    <div class="info-row">
-                                        <span class="info-label">Auth Level:</span>
-                                        <span class="info-value text-highlight" id="admin-current-role">Fetching...</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div style="margin-top: 25px;">
-                                <button class="btn btn-outline btn-block" onclick="logoutAdminSession()">Log Out Admin Session 🔓</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- MIDDLE ROW: PENDING APPROVAL REQUESTS -->
-                <div class="glass-card" id="pending-approvals-card" style="margin-bottom: 30px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="margin: 0; font-size: 1.1rem;">⏳ Pending Approval Requests</h3>
-                        <button class="btn btn-outline" onclick="fetchPendingRequests()" style="padding: 8px 16px; font-size: 0.85rem;">Refresh Requests 🔄</button>
-                    </div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Users waiting for access. Click approve to register their device signature.</p>
-                    <div class="table-wrapper max-h-300">
-                        <table id="pending-requests-table">
-                            <thead>
-                                <tr>
-                                    <th>Machine Signature</th>
-                                    <th>Requested At (IST)</th>
-                                    <th style="text-align: right; width: 220px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pending-requests-body">
-                                <tr>
-                                    <td colspan="3" style="text-align: center; color: var(--text-muted);">No pending registration requests.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="divider" style="margin: 30px 0;"></div>
-
-                <!-- BOTTOM ROW: LICENSE REGISTRY MANAGEMENT -->
-                <div class="glass-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3>📋 Registered Licenses Directory</h3>
-                        <button class="btn btn-outline" onclick="fetchRegistrations()" style="padding: 8px 16px; font-size: 0.85rem;">Refresh List 🔄</button>
-                    </div>
-                    
-                    <h4 style="color: var(--text-highlight); margin-bottom: 10px; font-size: 0.95rem;">🟢 Active Subscriptions</h4>
-                    <div class="table-wrapper max-h-500" style="margin-bottom: 30px;">
-                        <table id="active-licenses-table">
-                            <thead>
-                                <tr>
-                                    <th>Machine Signature</th>
-                                    <th>Reference Key</th>
-                                    <th>Role</th>
-                                    <th>Expiration (IST)</th>
-                                    <th>Time Remaining</th>
-                                    <th style="text-align: right;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="active-licenses-body">
-                                <tr>
-                                    <td colspan="6" style="text-align: center; color: var(--text-muted);">No active licenses fetched.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <h4 style="color: #f59e0b; margin-bottom: 10px; font-size: 0.95rem; margin-top: 25px;">🟡 Expired Subscriptions</h4>
-                    <div class="table-wrapper max-h-500" style="margin-bottom: 30px;">
-                        <table id="expired-licenses-table">
-                            <thead>
-                                <tr>
-                                    <th>Machine Signature</th>
-                                    <th>Reference Key</th>
-                                    <th>Role</th>
-                                    <th>Expiration (IST)</th>
-                                    <th>Created By</th>
-                                    <th>Registered At</th>
-                                    <th style="text-align: right;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="expired-licenses-body">
-                                <tr>
-                                    <td colspan="7" style="text-align: center; color: var(--text-muted);">No expired subscriptions history.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <h4 style="color: #ef4444; margin-bottom: 10px; font-size: 0.95rem; margin-top: 25px;">🔴 Deactivated Registry</h4>
-                    <div class="table-wrapper max-h-500">
-                        <table id="deactivated-licenses-table">
-                            <thead>
-                                <tr>
-                                    <th>Machine Signature</th>
-                                    <th>Reference Key</th>
-                                    <th>Role</th>
-                                    <th>Expiration (IST)</th>
-                                    <th>Created By</th>
-                                    <th>Registered At</th>
-                                    <th style="text-align: right;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="deactivated-licenses-body">
-                                <tr>
-                                    <td colspan="7" style="text-align: center; color: var(--text-muted);">No deactivated history found.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
+            <!-- SECTION 5: ADMIN CONSOLE REMOVED -->
 
 
         </main>

@@ -1,10 +1,12 @@
 # Import your existing BOB parser
 from parsers.bob_parser import parse_transactions as parse_bob, parse_opening_balance as parse_bob_opening
 from parsers.sbi_parser import parse_transactions as parse_sbi, parse_opening_balance as parse_sbi_opening
+from parsers.axis_parser import parse_transactions as parse_axis, parse_opening_balance as parse_axis_opening
 
 # Import slicers
 from slicers.BOB_slicing import slice_text_by_date as bob_slice
 from slicers.SBI_slicing import slice_text_by_date as sbi_slice
+from slicers.Axis_slicing import slice_text_by_date as axis_slice
 
 # Dictionary containing routing settings for every bank profile
 # This central registry maps each bank profile to its verification keywords, 
@@ -23,13 +25,12 @@ BANK_CONFIGS = {
         "opening_balance_function": parse_sbi_opening,
         "slicer_function": sbi_slice
     },
-    # 🚀 To add a new bank in the future, just add 5 clean lines here:
-    # "HDFC Bank": {
-    #     "required_keywords": ["hdfc"],
-    #     "parser_function": parse_hdfc,
-    #     "opening_balance_function": parse_hdfc_opening,
-    #     "slicer_function": hdfc_slice
-    # }
+    "Axis Bank": {
+        "required_keywords": ["axis bank"],
+        "parser_function": parse_axis,
+        "opening_balance_function": parse_axis_opening,
+        "slicer_function": axis_slice
+    }
 }
 
 def verify_bank_profile(selected_bank_profile, extracted_text):
