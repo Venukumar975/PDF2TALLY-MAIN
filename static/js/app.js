@@ -395,7 +395,7 @@ async function checkLicenseStatus(initial = false) {
                     }
                     if (reqBtn) {
                         reqBtn.disabled = true;
-                        reqBtn.textContent = "Pending Approval... ⏳";
+                        reqBtn.textContent = "Pending Approval...";
                     }
                     if (initial) {
                         switchLandingTab("landing-register");
@@ -408,7 +408,7 @@ async function checkLicenseStatus(initial = false) {
                     }
                     if (reqBtn) {
                         reqBtn.disabled = false;
-                        reqBtn.textContent = "Request Registration ⚡";
+                        reqBtn.textContent = "Request Registration ";
                     }
                     if (initial) {
                         switchLandingTab("landing-login");
@@ -713,7 +713,7 @@ async function requestRegistration() {
                 statusBox.className = "alert alert-warning";
             }
             if (reqBtn) {
-                reqBtn.textContent = "Pending Approval... ⏳";
+                reqBtn.textContent = "Pending Approval...";
             }
             // Clear inputs
             if (nameInput) nameInput.value = "";
@@ -741,7 +741,7 @@ async function requestRegistration() {
 // ==========================================
 async function runBankConversion() {
     if (!state.files.bank) {
-        updateStatusBox("bank", "⚠️ Error: Please upload a bank statement PDF first.", "danger");
+        updateStatusBox("bank", "Error: Please upload a bank statement PDF first.", "danger");
         return;
     }
     
@@ -785,7 +785,7 @@ async function runBankConversion() {
     formData.append("credit_ledger", creditLedger);
     formData.append("prev_balance", prevBalance);
     
-    updateStatusBox("bank", "⏳ Step 1: Running verification & row extraction...", "info");
+    updateStatusBox("bank", "Step 1: Running verification & row extraction...", "info");
     
     try {
         const res = await fetch("/api/convert_bank", {
@@ -797,19 +797,19 @@ async function runBankConversion() {
         if (data.success) {
             renderBankResults(data);
             if (data.report.statement.is_reconciled) {
-                updateStatusBox("bank", "✅ PDF Ingestion & Verification Chain Complete!", "success");
+                updateStatusBox("bank", "PDF Ingestion & Verification Chain Complete!", "success");
             } else {
-                updateStatusBox("bank", `⚠️ Warning: ${data.report.statement.audit_message || "Audit pipeline validation checks failed."}`, "danger");
+                updateStatusBox("bank", `Warning: ${data.report.statement.audit_message || "Audit pipeline validation checks failed."}`, "danger");
             }
         } else {
-            updateStatusBox("bank", `❌ Error: ${data.message}`, "danger");
+            updateStatusBox("bank", `Error: ${data.message}`, "danger");
         }
     } catch (err) {
-        updateStatusBox("bank", `❌ System Failure: ${err.message}`, "danger");
+        updateStatusBox("bank", `System Failure: ${err.message}`, "danger");
     } finally {
         btn.disabled = false;
         spinner.classList.add("hidden");
-        btnText.textContent = "Execute Conversion Chain ⚡";
+        btnText.textContent = "Execute Conversion Chain";
     }
 }
 
@@ -836,7 +836,7 @@ async function reprocessBankLedgers() {
             if (data.report.statement.is_reconciled) {
                 updateStatusBox("bank", "✅ Custom Ledger settings applied and files re-generated successfully!", "success");
             } else {
-                updateStatusBox("bank", `⚠️ Warning: ${data.report.statement.audit_message || "Audit pipeline validation checks failed."}`, "danger");
+                updateStatusBox("bank", `Warning: ${data.report.statement.audit_message || "Audit pipeline validation checks failed."}`, "danger");
             }
         } else {
             alert(`Error: ${data.message}`);
@@ -858,7 +858,7 @@ function renderBankResults(data) {
     
     // Set validation status badge
     const badge = document.getElementById("bank-audit-badge");
-    badge.textContent = stmt.is_reconciled ? "🟢 RECONCILED" : "🔴 AUDIT ERROR";
+    badge.textContent = stmt.is_reconciled ? "RECONCILED" : "AUDIT ERROR";
     badge.className = `badge ${stmt.is_reconciled ? 'success' : 'danger'}`;
     
     // Set metrics
@@ -881,7 +881,7 @@ function renderBankResults(data) {
                 <td class="text-success">${formatCurrency(row.debit_total)}</td>
                 <td class="text-danger">${formatCurrency(row.credit_total)}</td>
                 <td><strong>${formatCurrency(row.closing_balance)}</strong></td>
-                <td>${row.is_reconciled ? '🟢 PASSED' : '🔴 ERROR'}</td>
+                <td>${row.is_reconciled ? 'PASSED' : 'ERROR'}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -933,7 +933,7 @@ function renderBankResults(data) {
 // ==========================================
 async function runCashConversion() {
     if (!state.files.cash) {
-        updateStatusBox("cash", "⚠️ Error: Please upload a receipts ledger sheet first.", "danger");
+        updateStatusBox("cash", "Error: Please upload a receipts ledger sheet first.", "danger");
         return;
     }
     
@@ -955,7 +955,7 @@ async function runCashConversion() {
     formData.append("debit_ledger", debitLedger);
     formData.append("credit_ledger", creditLedger);
     
-    updateStatusBox("cash", "⏳ Ingesting workbook sheets...", "info");
+    updateStatusBox("cash", "Ingesting workbook sheets...", "info");
     
     try {
         const res = await fetch("/api/convert_cash", {
@@ -971,16 +971,16 @@ async function runCashConversion() {
             state.cashSession.creditLedger = data.credit_ledger;
             
             renderCashResults(data);
-            updateStatusBox("cash", "✅ Ingestion complete! Review spelling flags below.", "success");
+            updateStatusBox("cash", "Ingestion complete! Review spelling flags below.", "success");
         } else {
-            updateStatusBox("cash", `❌ Error: ${data.message}`, "danger");
+            updateStatusBox("cash", `Error: ${data.message}`, "danger");
         }
     } catch (err) {
-        updateStatusBox("cash", `❌ System error: ${err.message}`, "danger");
+        updateStatusBox("cash", `System error: ${err.message}`, "danger");
     } finally {
         btn.disabled = false;
         spinner.classList.add("hidden");
-        btnText.textContent = "Execute Receipts Ingestion 🔮";
+        btnText.textContent = "Execute Receipts Ingestion";
     }
 }
 
@@ -1046,7 +1046,7 @@ function renderCashResults(data) {
                 <td><strong>${row.month_label}</strong></td>
                 <td>${row.transaction_count}</td>
                 <td class="text-success">${formatCurrency(row.debit_total)}</td>
-                <td>🟢 VERIFIED</td>
+                <td>VERIFIED</td>
             `;
             tbody.appendChild(tr);
         });
@@ -1302,7 +1302,7 @@ async function cleanLexiconMismatches() {
         const btn = document.querySelector('button[onclick="cleanLexiconMismatches()"]');
         const origText = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = "🧹 Cleaning...";
+        btn.innerHTML = "Cleaning...";
         
         const res = await fetch("/api/lexicon/clean", {
             method: "POST",
@@ -1457,7 +1457,7 @@ function addReprocessButton(type, reprocessCallback) {
         reprocessBtn = document.createElement("button");
         reprocessBtn.id = `btn-reprocess-${type}`;
         reprocessBtn.className = "btn btn-secondary btn-block mt-2";
-        reprocessBtn.textContent = "Apply Custom Ledger Names & Re-Generate 🔄";
+        reprocessBtn.textContent = "Apply Custom Ledger Names & Re-Generate";
         reprocessBtn.onclick = reprocessCallback;
         container.appendChild(reprocessBtn);
     }
@@ -1670,7 +1670,7 @@ async function runHybridValidationAndExtract() {
     const formData = new FormData();
     formData.append("file", state.files.bank);
     
-    updateStatusBox("bank", "⏳ Validating PDF structure & extracting grid...", "info");
+    updateStatusBox("bank", "Validating PDF structure & extracting grid...", "info");
     
     try {
         const res = await fetch("/api/hybrid/validate-and-extract", {
@@ -1680,7 +1680,7 @@ async function runHybridValidationAndExtract() {
         const data = await res.json();
         
         if (data.success) {
-            updateStatusBox("bank", "✅ PDF structure validated. Opening mapping wizard...", "success");
+            updateStatusBox("bank", "PDF structure validated. Opening mapping wizard...", "success");
             
             // Populate wizard state
             hybridWizardState.tempFileId = data.temp_file_id;
@@ -1696,14 +1696,14 @@ async function runHybridValidationAndExtract() {
             
             showHybridWizard();
         } else {
-            updateStatusBox("bank", `❌ Validation Error: ${data.message}`, "danger");
+            updateStatusBox("bank", `Validation Error: ${data.message}`, "danger");
         }
     } catch (err) {
-        updateStatusBox("bank", `❌ System Failure: ${err.message}`, "danger");
+        updateStatusBox("bank", `System Failure: ${err.message}`, "danger");
     } finally {
         btn.disabled = false;
         spinner.classList.add("hidden");
-        btnText.textContent = "Convert PDF to Tally XML ⚡";
+        btnText.textContent = "Convert PDF to Tally XML";
     }
 }
 
@@ -1939,7 +1939,7 @@ async function submitHybridParse() {
         cutoff_date: cutoffDate
     };
     
-    updateStatusBox("bank", "⏳ Running full statement parsing & XML generation...", "info");
+    updateStatusBox("bank", "Running full statement parsing & XML generation...", "info");
     
     try {
         const res = await fetch("/api/hybrid/parse", {
@@ -1952,15 +1952,15 @@ async function submitHybridParse() {
         if (data.success) {
             closeHybridWizard();
             renderBankResults(data);
-            updateStatusBox("bank", "✅ PDF Ingestion & Verification Chain Complete!", "success");
+            updateStatusBox("bank", "PDF Ingestion & Verification Chain Complete!", "success");
             loadSavedLayouts(); // reload layouts dropdown
         } else {
             alert(`Error: ${data.message}`);
-            updateStatusBox("bank", `❌ Parsing Error: ${data.message}`, "danger");
+            updateStatusBox("bank", `Parsing Error: ${data.message}`, "danger");
         }
     } catch (err) {
         alert(`System error: ${err.message}`);
-        updateStatusBox("bank", `❌ System Failure: ${err.message}`, "danger");
+        updateStatusBox("bank", `System Failure: ${err.message}`, "danger");
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
