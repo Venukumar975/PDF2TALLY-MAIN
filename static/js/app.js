@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     checkLicenseStatus(true);
     setupDragAndDrop("bank");
     setupDragAndDrop("cash");
+    loadSavedLayouts();
     
     // Auto-update debit ledger name when bank selection changes
     const bankTypeSelect = document.getElementById("bank-type-select");
@@ -37,6 +38,12 @@ document.addEventListener("DOMContentLoaded", () => {
             if (val.includes("BOB")) {
                 debitLedgerInput.value = "BANK OF BARODA";
                 debitLedgerInput.placeholder = "e.g. BANK OF BARODA";
+            } else if (val.includes("Axis")) {
+                debitLedgerInput.value = "AXIS BANK";
+                debitLedgerInput.placeholder = "e.g. AXIS BANK";
+            } else if (val.includes("Hybrid")) {
+                debitLedgerInput.value = "Generic Bank";
+                debitLedgerInput.placeholder = "e.g. Generic Bank";
             } else {
                 debitLedgerInput.value = "STATE BANK OF INDIA";
                 debitLedgerInput.placeholder = "e.g. STATE BANK OF INDIA";
@@ -734,6 +741,22 @@ async function runBankConversion() {
         return;
     }
     
+    const bankType = document.getElementById("bank-type-select").value;
+    
+    // Route to Hybrid Generic wizard mapping chain
+    if (bankType === "Hybrid Generic") {
+        const btn = document.getElementById("btn-convert-bank");
+        const btnText = document.getElementById("bank-btn-text");
+        const spinner = document.getElementById("bank-spinner");
+        
+        btn.disabled = true;
+        spinner.classList.remove("hidden");
+        btnText.textContent = "Analyzing PDF Layout...";
+        
+        await runHybridValidationAndExtract();
+        return;
+    }
+    
     const btn = document.getElementById("btn-convert-bank");
     const btnText = document.getElementById("bank-btn-text");
     const spinner = document.getElementById("bank-spinner");
@@ -743,7 +766,6 @@ async function runBankConversion() {
     spinner.classList.remove("hidden");
     btnText.textContent = "Processing Conversion Chain...";
     
-    const bankType = document.getElementById("bank-type-select").value;
     const strategy = document.getElementById("strategy-select").value;
     const cutoffDate = document.getElementById("bank-cutoff-date").value;
     const debitLedger = document.getElementById("bank-debit-ledger").value.trim();
@@ -1531,5 +1553,383 @@ function checkTargetSignatureRoleLock(sig) {
         roleSelect.disabled = true;
     } else {
         roleSelect.disabled = false;
+    }
+}
+
+
+// =============================================================
+// HYBRID GENERIC PARSER WIZARD SYSTEM
+// =============================================================
+const hybridWizardState = {
+    tempFileId: "",
+    headers: [],
+    previewRows: [],
+    autoMapping: {},
+    currentMapping: {},
+    currentStep: 1,
+    inferredOpeningBalance: 0.0,
+    layouts: []
+};
+
+async function loadSavedLayouts() {
+    try {
+        const res = await fetch("/api/hybrid/layouts");
+        const data = await res.json();
+        if (data.success) {
+            hybridWizardState.layouts = data.layouts;
+            const select = document.getElementById("hybrid-layout-select");
+            if (select) {
+                select.innerHTML = '<option value="">-- No Layout (Auto-Detect) --</option>';
+                data.layouts.forEach(layout => {
+                    const opt = document.createElement("option");
+                    opt.value = layout.layout_name;
+                    opt.textContent = `${layout.layout_name} (${layout.col_count} columns)`;
+                    select.appendChild(opt);
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Failed to load layout templates:", err);
+    }
+}
+
+function handleBankTypeChange() {
+    const bankType = document.getElementById("bank-type-select").value;
+    const hybridGroup = document.getElementById("hybrid-layout-group");
+    const debitLedgerInput = document.getElementById("bank-debit-ledger");
+    
+    if (bankType === "Hybrid Generic") {
+        if (hybridGroup) hybridGroup.classList.remove("hidden");
+        if (debitLedgerInput && (debitLedgerInput.value === "STATE BANK OF INDIA" || debitLedgerInput.value === "BANK OF BARODA" || debitLedgerInput.value === "AXIS BANK")) {
+            debitLedgerInput.value = "Generic Bank";
+        }
+    } else {
+        if (hybridGroup) hybridGroup.classList.add("hidden");
+        if (debitLedgerInput) {
+            if (bankType.includes("SBI")) {
+                debitLedgerInput.value = "STATE BANK OF INDIA";
+            } else if (bankType.includes("BOB")) {
+                debitLedgerInput.value = "BANK OF BARODA";
+            } else if (bankType.includes("Axis")) {
+                debitLedgerInput.value = "AXIS BANK";
+            }
+        }
+    }
+}
+
+function applySavedLayout() {
+    const selectedName = document.getElementById("hybrid-layout-select").value;
+    if (!selectedName) {
+        hybridWizardState.currentMapping = {};
+        return;
+    }
+    const layout = hybridWizardState.layouts.find(l => l.layout_name === selectedName);
+    if (layout) {
+        hybridWizardState.currentMapping = { ...layout.mapping };
+    }
+}
+
+async function runHybridValidationAndExtract() {
+    const btn = document.getElementById("btn-convert-bank");
+    const btnText = document.getElementById("bank-btn-text");
+    const spinner = document.getElementById("bank-spinner");
+    
+    const formData = new FormData();
+    formData.append("file", state.files.bank);
+    
+    updateStatusBox("bank", "⏳ Validating PDF structure & extracting grid...", "info");
+    
+    try {
+        const res = await fetch("/api/hybrid/validate-and-extract", {
+            method: "POST",
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            updateStatusBox("bank", "✅ PDF structure validated. Opening mapping wizard...", "success");
+            
+            // Populate wizard state
+            hybridWizardState.tempFileId = data.temp_file_id;
+            hybridWizardState.headers = data.headers;
+            hybridWizardState.previewRows = data.preview_rows;
+            hybridWizardState.autoMapping = data.auto_mapping;
+            hybridWizardState.inferredOpeningBalance = data.inferred_opening_balance;
+            
+            // If user has a selected template, use that mapping, else use inferred
+            if (Object.keys(hybridWizardState.currentMapping).length === 0) {
+                hybridWizardState.currentMapping = { ...data.auto_mapping };
+            }
+            
+            showHybridWizard();
+        } else {
+            updateStatusBox("bank", `❌ Validation Error: ${data.message}`, "danger");
+        }
+    } catch (err) {
+        updateStatusBox("bank", `❌ System Failure: ${err.message}`, "danger");
+    } finally {
+        btn.disabled = false;
+        spinner.classList.add("hidden");
+        btnText.textContent = "Convert PDF to Tally XML ⚡";
+    }
+}
+
+function showHybridWizard() {
+    const modal = document.getElementById("hybrid-wizard-modal");
+    if (modal) modal.classList.remove("hidden");
+    
+    // Reset wizard view to step 1
+    navigateWizardDirect(1);
+}
+
+function closeHybridWizard() {
+    const modal = document.getElementById("hybrid-wizard-modal");
+    if (modal) modal.classList.add("hidden");
+}
+
+function toggleWizardLayoutName() {
+    const chk = document.getElementById("wizard-save-layout-chk");
+    const group = document.getElementById("wizard-layout-name-group");
+    if (chk && group) {
+        if (chk.checked) {
+            group.classList.remove("hidden");
+        } else {
+            group.classList.add("hidden");
+        }
+    }
+}
+
+function navigateWizard(offset) {
+    const nextStep = hybridWizardState.currentStep + offset;
+    navigateWizardDirect(nextStep);
+}
+
+function navigateWizardDirect(step) {
+    if (step === 3) {
+        // Collect mapping and validate Date & Narration are mapped before proceeding
+        const colCount = hybridWizardState.headers.length;
+        const tempMap = { date: -1, narration: -1, debit: -1, credit: -1, balance: -1 };
+        
+        for (let i = 0; i < colCount; i++) {
+            const selectEl = document.getElementById(`mapping-col-${i}`);
+            if (selectEl) {
+                const val = selectEl.value;
+                if (val !== "ignore") {
+                    tempMap[val] = i;
+                }
+            }
+        }
+        
+        if (tempMap.date === -1 || tempMap.narration === -1) {
+            alert("Please map at least Date and Narration columns before proceeding.");
+            return;
+        }
+        
+        hybridWizardState.currentMapping = tempMap;
+    }
+    
+    // Hide all step sections
+    document.getElementById("wizard-step-1").classList.add("hidden");
+    document.getElementById("wizard-step-2").classList.add("hidden");
+    document.getElementById("wizard-step-3").classList.add("hidden");
+    
+    // Show correct section
+    document.getElementById(`wizard-step-${step}`).classList.remove("hidden");
+    
+    // Update step indicator classes
+    document.getElementById("badge-step-1").className = `step-badge ${step === 1 ? 'active' : (step > 1 ? 'completed' : '')}`;
+    document.getElementById("badge-step-2").className = `step-badge ${step === 2 ? 'active' : (step > 2 ? 'completed' : '')}`;
+    document.getElementById("badge-step-3").className = `step-badge ${step === 3 ? 'active' : ''}`;
+    
+    // Update footer buttons visibility
+    if (step === 1) {
+        document.getElementById("btn-wizard-back").classList.add("hidden");
+        document.getElementById("btn-wizard-cancel").classList.remove("hidden");
+        document.getElementById("btn-wizard-next").classList.remove("hidden");
+        document.getElementById("btn-wizard-submit").classList.add("hidden");
+        document.getElementById("btn-wizard-next").textContent = "Proceed to Mapping ➔";
+        
+        buildWizardStep1Preview();
+    } else if (step === 2) {
+        document.getElementById("btn-wizard-back").classList.remove("hidden");
+        document.getElementById("btn-wizard-cancel").classList.add("hidden");
+        document.getElementById("btn-wizard-next").classList.remove("hidden");
+        document.getElementById("btn-wizard-submit").classList.add("hidden");
+        document.getElementById("btn-wizard-next").textContent = "Review & Save Layout ➔";
+        
+        buildWizardStep2Mapping();
+    } else if (step === 3) {
+        document.getElementById("btn-wizard-back").classList.remove("hidden");
+        document.getElementById("btn-wizard-cancel").classList.add("hidden");
+        document.getElementById("btn-wizard-next").classList.add("hidden");
+        document.getElementById("btn-wizard-submit").classList.remove("hidden");
+        
+        // Populate opening balance field
+        document.getElementById("wizard-opening-balance").value = hybridWizardState.inferredOpeningBalance.toFixed(2);
+        
+        // Build summary list
+        const summaryUl = document.getElementById("wizard-summary-list");
+        summaryUl.innerHTML = "";
+        
+        const map = hybridWizardState.currentMapping;
+        const labels = { date: "Date", narration: "Narration", debit: "Debit (Withdrawal)", credit: "Credit (Deposit)", balance: "Balance" };
+        
+        Object.keys(labels).forEach(key => {
+            const colIdx = map[key];
+            const li = document.createElement("li");
+            if (colIdx !== undefined && colIdx !== -1) {
+                li.innerHTML = `<strong>${labels[key]}:</strong> mapped to Column ${colIdx + 1} (<em>"${hybridWizardState.headers[colIdx]}"</em>)`;
+            } else {
+                li.innerHTML = `<strong>${labels[key]}:</strong> <span style="color:#ef4444;">Not Mapped (Optional)</span>`;
+            }
+            summaryUl.appendChild(li);
+        });
+    }
+    
+    hybridWizardState.currentStep = step;
+}
+
+function buildWizardStep1Preview() {
+    const table = document.getElementById("wizard-preview-table");
+    const thead = table.querySelector("thead");
+    const tbody = table.querySelector("tbody");
+    
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+    
+    // Headers
+    const trHead = document.createElement("tr");
+    hybridWizardState.headers.forEach((h, i) => {
+        const th = document.createElement("th");
+        th.textContent = h || `Column ${i + 1}`;
+        trHead.appendChild(th);
+    });
+    thead.appendChild(trHead);
+    
+    // Rows
+    hybridWizardState.previewRows.forEach(row => {
+        const tr = document.createElement("tr");
+        row.forEach(cell => {
+            const td = document.createElement("td");
+            td.textContent = cell;
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    
+    // Show/hide low confidence warning
+    const warning = document.getElementById("wizard-step-1-warning");
+    if (warning) {
+        if (hybridWizardState.autoMapping.date === -1 || hybridWizardState.autoMapping.narration === -1) {
+            warning.classList.remove("hidden");
+        } else {
+            warning.classList.add("hidden");
+        }
+    }
+}
+
+function buildWizardStep2Mapping() {
+    const container = document.getElementById("wizard-mapping-form-container");
+    container.innerHTML = "";
+    
+    hybridWizardState.headers.forEach((header, index) => {
+        const div = document.createElement("div");
+        div.className = "mapping-row";
+        
+        const label = document.createElement("div");
+        label.className = "mapping-label";
+        label.innerHTML = `Column ${index + 1}: <strong>"${header || '(Empty Header)'}"</strong>`;
+        
+        const select = document.createElement("select");
+        select.className = "mapping-select";
+        select.id = `mapping-col-${index}`;
+        
+        const options = [
+            { val: "ignore", label: "Ignore / Skip Column" },
+            { val: "date", label: "Date" },
+            { val: "narration", label: "Narration / Description" },
+            { val: "debit", label: "Debit (Withdrawals)" },
+            { val: "credit", label: "Credit (Deposits)" },
+            { val: "balance", label: "Running Balance" }
+        ];
+        
+        options.forEach(opt => {
+            const option = document.createElement("option");
+            option.value = opt.val;
+            option.textContent = opt.label;
+            
+            // Auto pre-select matching values from wizard state currentMapping
+            const map = hybridWizardState.currentMapping;
+            if (map[opt.val] === index) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        
+        div.appendChild(label);
+        div.appendChild(select);
+        container.appendChild(div);
+    });
+}
+
+async function submitHybridParse() {
+    const btn = document.getElementById("btn-wizard-submit");
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Processing PDF...";
+    
+    const bankLedger = document.getElementById("bank-debit-ledger").value.trim();
+    const suspenseLedger = document.getElementById("bank-credit-ledger").value.trim();
+    const strategy = document.getElementById("strategy-select").value;
+    const cutoffDate = document.getElementById("bank-cutoff-date").value;
+    
+    const openingBalanceVal = parseFloat(document.getElementById("wizard-opening-balance").value) || 0.0;
+    const saveLayout = document.getElementById("wizard-save-layout-chk").checked;
+    const layoutName = document.getElementById("wizard-layout-name-input").value.trim();
+    
+    if (saveLayout && !layoutName) {
+        alert("Please enter a name for the layout template.");
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
+    }
+    
+    const payload = {
+        temp_file_id: hybridWizardState.tempFileId,
+        mapping: hybridWizardState.currentMapping,
+        bank_ledger: bankLedger,
+        suspense_ledger: suspenseLedger,
+        opening_balance: openingBalanceVal,
+        save_layout: saveLayout,
+        layout_name: layoutName,
+        strategy_type: strategy,
+        cutoff_date: cutoffDate
+    };
+    
+    updateStatusBox("bank", "⏳ Running full statement parsing & XML generation...", "info");
+    
+    try {
+        const res = await fetch("/api/hybrid/parse", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            closeHybridWizard();
+            renderBankResults(data);
+            updateStatusBox("bank", "✅ PDF Ingestion & Verification Chain Complete!", "success");
+            loadSavedLayouts(); // reload layouts dropdown
+        } else {
+            alert(`Error: ${data.message}`);
+            updateStatusBox("bank", `❌ Parsing Error: ${data.message}`, "danger");
+        }
+    } catch (err) {
+        alert(`System error: ${err.message}`);
+        updateStatusBox("bank", `❌ System Failure: ${err.message}`, "danger");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
     }
 }

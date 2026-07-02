@@ -208,10 +208,18 @@
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="bank-type-select">Select Bank</label>
-                                <select id="bank-type-select">
+                                <select id="bank-type-select" onchange="handleBankTypeChange()">
                                     <option value="State Bank of India (SBI)">State Bank of India (SBI)</option>
                                     <option value="Bank of Baroda (BOB)">Bank of Baroda (BOB)</option>
                                     <option value="Axis Bank">Axis Bank</option>
+                                    <option value="Hybrid Generic">Hybrid Generic (NEW)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group hidden" id="hybrid-layout-group">
+                                <label for="hybrid-layout-select">Saved Layout Template</label>
+                                <select id="hybrid-layout-select" onchange="applySavedLayout()">
+                                    <option value="">-- No Layout (Auto-Detect) --</option>
                                 </select>
                             </div>
                             
@@ -741,6 +749,220 @@
 
 
         </main>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- HYBRID PARSER CONFIGURATION WIZARD OVERLAY -->
+    <!-- ========================================== -->
+    <div id="hybrid-wizard-modal" class="modal-overlay hidden">
+        <div class="glass-card modal-content wizard-card animate-fade-in" style="max-width: 800px; width: 90%; background: rgba(18, 18, 28, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); backdrop-filter: blur(15px); padding: 25px; margin: 5vh auto; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
+            
+            <style>
+                .wizard-header {
+                    border-bottom: 1px solid rgba(255,255,255,0.08);
+                    padding-bottom: 15px;
+                    margin-bottom: 20px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .wizard-header h3 {
+                    margin: 0;
+                    font-size: 1.3rem;
+                    background: linear-gradient(135deg, #a78bfa, #f472b6);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                }
+                .wizard-step-indicator {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 20px;
+                    background: rgba(255,255,255,0.03);
+                    border-radius: 8px;
+                    padding: 10px 15px;
+                    border: 1px solid rgba(255,255,255,0.05);
+                }
+                .step-badge {
+                    font-size: 0.8rem;
+                    color: var(--text-muted);
+                    font-weight: 500;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+                .step-badge.active {
+                    color: #a78bfa;
+                    font-weight: 600;
+                }
+                .step-badge.completed {
+                    color: #10b981;
+                }
+                .wizard-body {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding-right: 5px;
+                    margin-bottom: 20px;
+                    font-size: 0.9rem;
+                }
+                .wizard-body h4 {
+                    margin-top: 0;
+                    margin-bottom: 8px;
+                    font-size: 1.05rem;
+                    color: #ffffff;
+                }
+                .wizard-body p {
+                    color: var(--text-muted);
+                    font-size: 0.82rem;
+                    margin-bottom: 15px;
+                    line-height: 1.4;
+                }
+                .wizard-footer {
+                    border-top: 1px solid rgba(255,255,255,0.08);
+                    padding-top: 15px;
+                    display: flex;
+                    justify-content: space-between;
+                }
+                .preview-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 0.76rem;
+                    text-align: left;
+                    margin-bottom: 15px;
+                    background: rgba(0, 0, 0, 0.25);
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                .preview-table th {
+                    background: rgba(255,255,255,0.05);
+                    color: #a78bfa;
+                    font-weight: 600;
+                    padding: 8px 10px;
+                    border-bottom: 1px solid rgba(255,255,255,0.08);
+                }
+                .preview-table td {
+                    padding: 8px 10px;
+                    border-bottom: 1px solid rgba(255,255,255,0.04);
+                    color: rgba(255,255,255,0.85);
+                }
+                .mapping-row {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 15px;
+                    align-items: center;
+                    padding: 10px;
+                    border-radius: 8px;
+                    background: rgba(255,255,255,0.02);
+                    margin-bottom: 8px;
+                    border: 1px solid rgba(255,255,255,0.04);
+                }
+                .mapping-label {
+                    font-weight: 500;
+                    font-size: 0.85rem;
+                }
+                .mapping-select {
+                    background: rgba(0, 0, 0, 0.4);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    color: white;
+                    padding: 6px 10px;
+                    border-radius: 6px;
+                    width: 100%;
+                    font-size: 0.82rem;
+                }
+                .mapping-select:focus {
+                    border-color: #8b5cf6;
+                    outline: none;
+                }
+            </style>
+
+            <div class="wizard-header">
+                <h3>🔄 Hybrid Generic Parser Setup</h3>
+                <button onclick="closeHybridWizard()" class="btn-close" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            
+            <div class="wizard-step-indicator">
+                <span class="step-badge active" id="badge-step-1">1. Confirm Grid Preview</span>
+                <span class="step-badge" id="badge-step-2">2. Map Column Meanings</span>
+                <span class="step-badge" id="badge-step-3">3. Review & Configure</span>
+            </div>
+            
+            <div class="wizard-body">
+                <!-- STEP 1: PREVIEW TABLE -->
+                <div id="wizard-step-1">
+                    <h4>Confirm Extracted Table Structure</h4>
+                    <p>Below is the raw table grid parsed from the first page of your statement. Does this correctly align with your bank statement's transaction rows?</p>
+                    
+                    <div style="overflow-x: auto; max-height: 300px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 20px; background: rgba(0,0,0,0.25);">
+                        <table class="preview-table" id="wizard-preview-table" style="margin-bottom: 0;">
+                            <thead>
+                                <!-- Dynamic headers -->
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic preview rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="wizard-step-1-warning" class="alert alert-warning hidden" style="font-size: 0.8rem; margin-bottom: 15px;">
+                        ⚠️ <strong>Note:</strong> Some columns could not be recognized automatically. You will configure the mappings in the next step.
+                    </div>
+                </div>
+
+                <!-- STEP 2: COLUMN MAPPING -->
+                <div id="wizard-step-2" class="hidden">
+                    <h4>Map Column Meanings</h4>
+                    <p>Assign the appropriate transaction fields to each column header below. Unmapped or ignored columns will be skipped.</p>
+                    
+                    <div id="wizard-mapping-form-container" style="max-height: 350px; overflow-y: auto; padding-right: 5px;">
+                        <!-- Dynamic mapping rows -->
+                    </div>
+                </div>
+
+                <!-- STEP 3: REVIEW & RENDER -->
+                <div id="wizard-step-3" class="hidden">
+                    <h4>Review Configuration & Start Compilation</h4>
+                    <p>Verify the final settings and configure starting balance parameters. Click Compile to generate Tally XML and Audit logs.</p>
+                    
+                    <div class="glass-card" style="padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                        <h5 style="margin-top:0; margin-bottom: 8px; color: #a78bfa; font-size: 0.85rem;">Active Mappings Summary:</h5>
+                        <ul id="wizard-summary-list" style="margin: 0; padding-left: 20px; font-size: 0.82rem; line-height: 1.5; color: rgba(255,255,255,0.9);">
+                            <!-- Dynamic summary list -->
+                        </ul>
+                    </div>
+
+                    <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label for="wizard-opening-balance" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">Inferred Opening / Starting Balance</label>
+                            <input type="text" id="wizard-opening-balance" placeholder="0.00" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 7px 10px; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 0.85rem;">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 6px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: rgba(255,255,255,0.9);">
+                                <input type="checkbox" id="wizard-save-layout-chk" onchange="toggleWizardLayoutName()" style="width: 15px; height: 15px; cursor: pointer;">
+                                Save this layout for future statements
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group hidden" id="wizard-layout-name-group" style="margin-bottom: 15px;">
+                        <label for="wizard-layout-name-input" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">Layout Template Name</label>
+                        <input type="text" id="wizard-layout-name-input" placeholder="e.g. HDFC Personal Current Account" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 7px 10px; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 0.85rem;">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="wizard-footer">
+                <!-- Left aligned back buttons -->
+                <div>
+                    <button class="btn btn-secondary hidden" id="btn-wizard-back" onclick="navigateWizard(-1)">⬅ Back</button>
+                    <button class="btn btn-secondary" id="btn-wizard-cancel" onclick="closeHybridWizard()">Cancel</button>
+                </div>
+                <!-- Right aligned action buttons -->
+                <div>
+                    <button class="btn btn-primary" id="btn-wizard-next" onclick="navigateWizard(1)">Proceed to Mapping ➔</button>
+                    <button class="btn btn-success hidden" id="btn-wizard-submit" onclick="submitHybridParse()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 500;">Compile Tally XML ⚡</button>
+                </div>
+            </div>
+            
+        </div>
     </div>
 
     <!-- MAIN FRONTEND CONTROLLERS -->
