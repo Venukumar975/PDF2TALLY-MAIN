@@ -118,9 +118,9 @@ function switchTab(tabId) {
     const workspaceEl = document.getElementById("app-workspace");
     if (workspaceEl) {
         if (tabId === "review-tab") {
-            workspaceEl.classList.add("sidebar-minimized");
+            workspaceEl.classList.add("sidebar-minimized", "review-mode-active");
         } else {
-            workspaceEl.classList.remove("sidebar-minimized");
+            workspaceEl.classList.remove("sidebar-minimized", "review-mode-active");
         }
     }
     
@@ -2127,7 +2127,18 @@ const reviewState = {
     rowHeight: 35,
     visibleCount: 15,
     showNarration: false,
-    ledgerCache: {}
+    ledgerCache: {},
+    openingBalance: 0.00,
+    particularsIsFlex: true,
+    colWidths: {
+        date: 90,
+        particulars: 180,
+        narration: 250,
+        vchType: 100,
+        vchNo: 100,
+        debit: 120,
+        credit: 120
+    }
 };
 
 // Initialize Drag & Drop and Persistent JSON Cache
@@ -2207,11 +2218,20 @@ function handleGlobalReviewShortcuts(e) {
     } else if (e.key === "y" || e.key === "Y") {
         openReplaceLedgerModal();
         handled = true;
+    } else if (e.key === "m" || e.key === "M") {
+        openMonthlyAnalysisModal();
+        handled = true;
     } else if (e.key === "Escape") {
-        // Clear selections or close dialogs
-        reviewState.selectedIds.clear();
-        updateReviewStats();
-        onReviewTableScroll();
+        const openModal = document.querySelector(".tally-modal-overlay:not(.hidden)");
+        if (openModal) {
+            openModal.classList.add("hidden");
+            const viewport = document.getElementById("review-virtual-viewport");
+            if (viewport) viewport.focus();
+        } else {
+            reviewState.selectedIds.clear();
+            updateReviewStats();
+            onReviewTableScroll();
+        }
         handled = true;
     } else if (e.ctrlKey && (e.key === "e" || e.key === "E")) {
         exportReviewXML();
@@ -2287,6 +2307,36 @@ function loadReviewXML(file) {
         
         reviewState.xmlDoc = xmlDoc;
         
+        let openingBalance = 0.00;
+        const ledgerNodes = xmlDoc.getElementsByTagName("LEDGER");
+        for (let i = 0; i < ledgerNodes.length; i++) {
+            const node = ledgerNodes[i];
+            const name = node.getAttribute("NAME") || "";
+            const isBank = /bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(name);
+            if (isBank) {
+                const opNode = node.querySelector("OPENINGBALANCE");
+                if (opNode) {
+                    const val = parseFloat(opNode.textContent || "0");
+                    openingBalance = -val;
+                }
+            }
+        }
+        reviewState.openingBalance = openingBalance;
+        reviewState.showNarration = false;
+        const particularsHeader = document.getElementById("col-header-particulars");
+        if (particularsHeader) {
+            particularsHeader.style.flex = "1";
+            particularsHeader.style.width = "auto";
+        }
+        const narrationHeader = document.getElementById("col-header-narration");
+        if (narrationHeader) {
+            narrationHeader.style.display = "none";
+        }
+        const label = document.getElementById("btn-tally-narration-label");
+        if (label) {
+            label.textContent = "Show Narration";
+        }
+        
         const voucherNodes = xmlDoc.getElementsByTagName("VOUCHER");
         reviewState.vouchers = [];
         reviewState.selectedIds.clear();
@@ -2298,10 +2348,10 @@ function loadReviewXML(file) {
         
         for (let i = 0; i < voucherNodes.length; i++) {
             const node = voucherNodes[i];
-            const dateVal = node.querySelector("DATE")?.textContent || "";
-            const vchType = node.querySelector("VOUCHERTYPENAME")?.textContent || "";
-            const vchNo = node.querySelector("VOUCHERNUMBER")?.textContent || "";
-            const narration = node.querySelector("NARRATION")?.textContent || "";
+            const dateVal = (node.querySelector("DATE")?.textContent || "").trim();
+            const vchType = (node.querySelector("VOUCHERTYPENAME")?.textContent || "").trim();
+            const vchNo = (node.querySelector("VOUCHERNUMBER")?.textContent || "").trim();
+            const narration = (node.querySelector("NARRATION")?.textContent || "").trim();
             
             // Query ledger list entries
             const entries = node.querySelectorAll("ALLLEDGERENTRIES\\.LIST, LEDGERENTRIES\\.LIST");
@@ -2309,8 +2359,9 @@ function loadReviewXML(file) {
             let amount = 0.0;
             let type = "DEBIT";
             
+            let bankDeemedPos = "Yes";
             entries.forEach(ent => {
-                const ledger = ent.querySelector("LEDGERNAME")?.textContent || "";
+                const ledger = (ent.querySelector("LEDGERNAME")?.textContent || "").trim();
                 uniqueLedgers.add(ledger);
                 
                 const rawAmt = parseFloat(ent.querySelector("AMOUNT")?.textContent || "0");
@@ -2319,13 +2370,13 @@ function loadReviewXML(file) {
                 const isBankName = /bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(ledger);
                 if (isBankName) {
                     bankName = ledger;
+                    bankDeemedPos = ent.querySelector("ISDEEMEDPOSITIVE")?.textContent || "Yes";
                 } else {
                     particulars = ledger;
                     amount = Math.abs(rawAmt);
-                    const deemedPos = ent.querySelector("ISDEEMEDPOSITIVE")?.textContent || "";
-                    type = (deemedPos === "Yes") ? "DEBIT" : "CREDIT";
                 }
             });
+            type = (bankDeemedPos === "Yes") ? "DEBIT" : "CREDIT";
             
             let displayDate = dateVal;
             if (dateVal.length === 8) {
@@ -2404,10 +2455,27 @@ function loadReviewXML(file) {
 function toggleReviewNarrationFromBtn() {
     reviewState.showNarration = !reviewState.showNarration;
     
-    // Toggle header column
     const narrationHeader = document.getElementById("col-header-narration");
-    if (narrationHeader) {
-        narrationHeader.style.display = reviewState.showNarration ? "block" : "none";
+    const particularsHeader = document.getElementById("col-header-particulars");
+    
+    if (reviewState.showNarration) {
+        if (narrationHeader) {
+            narrationHeader.style.display = "block";
+            narrationHeader.style.flex = "1";
+            narrationHeader.style.width = "auto";
+        }
+        if (particularsHeader) {
+            particularsHeader.style.flex = "none";
+            particularsHeader.style.width = "18%";
+        }
+    } else {
+        if (narrationHeader) {
+            narrationHeader.style.display = "none";
+        }
+        if (particularsHeader) {
+            particularsHeader.style.flex = "1";
+            particularsHeader.style.width = "auto";
+        }
     }
     
     // Toggle button text
@@ -2445,7 +2513,7 @@ function applyReviewFilters() {
         if (fromVal && vch.rawDate < fromVal) return false;
         if (toVal && vch.rawDate > toVal) return false;
         
-        // 4. Substring Narration filter
+        // 4. Substring Narration filter (compare case-insensitive)
         if (searchVal && !vch.narration.toLowerCase().includes(searchVal)) {
             return false;
         }
@@ -2472,20 +2540,33 @@ function updateReviewStats() {
     document.getElementById("review-stat-modified").textContent = modified;
     document.getElementById("review-stat-suspense").textContent = remainingSuspense;
     
-    // Footer status bar
-    document.getElementById("review-footer-loaded").textContent = total;
-    document.getElementById("review-footer-showing").textContent = reviewState.filteredVouchers.length;
-    document.getElementById("review-footer-selected").textContent = reviewState.selectedIds.size;
-    document.getElementById("review-footer-modified").textContent = modified;
-    document.getElementById("review-footer-suspense").textContent = remainingSuspense;
+    // Footer status bar (safe check in case footer element is deleted)
+    const fl = document.getElementById("review-footer-loaded");
+    if (fl) fl.textContent = total;
+    const fs = document.getElementById("review-footer-showing");
+    if (fs) fs.textContent = reviewState.filteredVouchers.length;
+    const fsel = document.getElementById("review-footer-selected");
+    if (fsel) fsel.textContent = reviewState.selectedIds.size;
+    const fm = document.getElementById("review-footer-modified");
+    if (fm) fm.textContent = modified;
+    const fsusp = document.getElementById("review-footer-suspense");
+    if (fsusp) fsusp.textContent = remainingSuspense;
 }
 
 function onReviewTableScroll() {
     const viewport = document.getElementById("review-virtual-viewport");
     const spacer = document.getElementById("review-virtual-spacer");
     const content = document.getElementById("review-virtual-content");
+    const header = document.getElementById("review-table-header");
     
     if (!viewport || !spacer || !content) return;
+    
+    if (header) {
+        header.style.width = "100%";
+        header.scrollLeft = viewport.scrollLeft;
+    }
+    spacer.style.width = "100%";
+    content.style.width = "100%";
     
     const count = reviewState.filteredVouchers.length;
     spacer.style.height = `${count * reviewState.rowHeight}px`;
@@ -2511,15 +2592,23 @@ function onReviewTableScroll() {
         
         const modStyle = vch.modified ? "color: #2ecc71; font-weight: bold;" : "";
         
+        const particularsCellStyles = reviewState.showNarration ?
+            "width: 18%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; box-sizing: border-box;" :
+            "flex: 1; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; box-sizing: border-box;";
+            
+        const narrationCellStyles = reviewState.showNarration ?
+            "flex: 1; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box; display: block;" :
+            "display: none;";
+            
         html += `
             <div class="review-row ${bgClass}" onclick="onReviewRowClick(event, ${i})" style="display: flex; height: ${reviewState.rowHeight}px; align-items: center; border-bottom: 1px solid #eeeeee; font-size: 0.78rem; position: absolute; top: ${i * reviewState.rowHeight}px; left: 0; right: 0; cursor: pointer; user-select: none; ${borderStyle} ${modStyle}">
-                <div style="width: 10%; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap;">${vch.date}</div>
-                <div style="flex: 1; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500;">${vch.particulars}</div>
-                <div style="width: 25%; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: ${reviewState.showNarration ? 'block' : 'none'};">${vch.narration}</div>
-                <div style="width: 12%; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap;">${vch.vchType}</div>
-                <div style="width: 10%; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap;">${vch.vchNo}</div>
-                <div style="width: 14%; padding: 6px 8px; border-right: 1px solid #eeeeee; text-align: right; overflow: hidden; white-space: nowrap; color: #10b981;">${debitText}</div>
-                <div style="width: 14%; padding: 6px 8px; text-align: right; overflow: hidden; white-space: nowrap; color: #ef4444;">${creditText}</div>
+                <div style="width: 10%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box;">${vch.date}</div>
+                <div style="${particularsCellStyles}">${vch.particulars}</div>
+                <div style="${narrationCellStyles}">${vch.narration}</div>
+                <div style="width: 12%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box;">${vch.vchType}</div>
+                <div style="width: 10%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box;">${vch.vchNo}</div>
+                <div style="width: 14%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; text-align: right; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #10b981; box-sizing: border-box;">${debitText}</div>
+                <div style="width: 14%; flex-shrink: 0; padding: 6px 8px; text-align: right; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #ef4444; box-sizing: border-box;">${creditText}</div>
             </div>
         `;
     }
@@ -2670,9 +2759,104 @@ function onReviewTableKeydown(e) {
     }
 }
 
-// -------------------------------------------------------------
-// TALLY DIALOG POPUPS & ACTION HANDLERS
-// -------------------------------------------------------------
+function openMonthlyAnalysisModal() {
+    const modal = document.getElementById("review-modal-monthly");
+    if (!modal) return;
+    
+    // Sort vouchers by rawDate to calculate correct cumulative closing balances
+    const sortedVch = [...reviewState.vouchers].sort((a, b) => a.rawDate.localeCompare(b.rawDate));
+    
+    const openingBal = reviewState.openingBalance || 0.00;
+    
+    // Group by month key "YYYY-MM"
+    const groups = {};
+    
+    sortedVch.forEach(v => {
+        let year = "";
+        let month = "";
+        let monthName = "";
+        
+        if (v.rawDate && v.rawDate.length === 8) {
+            year = v.rawDate.substring(0, 4);
+            month = v.rawDate.substring(4, 6);
+            
+            const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1);
+            monthName = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+        } else {
+            // Fallback parsing from date field e.g. "02-04-2025"
+            const parts = v.date.split("-");
+            if (parts.length === 3) {
+                year = parts[2];
+                month = parts[1];
+                const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1);
+                monthName = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+            } else {
+                monthName = "Unknown Month";
+            }
+        }
+        
+        const key = `${year}-${month}`;
+        if (!groups[key]) {
+            groups[key] = {
+                key: key,
+                name: monthName,
+                count: 0,
+                debit: 0.0,
+                credit: 0.0
+            };
+        }
+        
+        groups[key].count++;
+        groups[key].debit += parseFloat(v.debit || 0);
+        groups[key].credit += parseFloat(v.credit || 0);
+    });
+    
+    // Convert to sorted array
+    const sortedGroups = Object.values(groups).sort((a, b) => a.key.localeCompare(b.key));
+    
+    // Calculate cumulative closing balances month by month
+    let runningBalance = openingBal;
+    sortedGroups.forEach(g => {
+        // Bank balance increases with Debit (money received) and decreases with Credit (money spent)
+        runningBalance = runningBalance + g.debit - g.credit;
+        g.closingBalance = runningBalance;
+    });
+    
+    // Populate opening balance display
+    const opBalSection = document.getElementById("review-monthly-opbal-section");
+    const opBalVal = document.getElementById("review-monthly-opbal-val");
+    if (openingBal !== 0.0) {
+        if (opBalSection) opBalSection.style.display = "block";
+        if (opBalVal) opBalVal.textContent = formatCurrency(openingBal);
+    } else {
+        // Hide if opening balance is zero/not found
+        if (opBalSection) opBalSection.style.display = "none";
+    }
+    
+    // Populate table
+    const tbody = document.getElementById("review-monthly-table-body");
+    if (tbody) {
+        if (sortedGroups.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="padding: 15px; text-align: center; color: #718096;">No voucher data loaded</td></tr>`;
+        } else {
+            let html = "";
+            sortedGroups.forEach(g => {
+                html += `
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="width: 28%; padding: 8px; font-weight: 500; color: #2d3748; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${g.name}</td>
+                        <td style="width: 14%; padding: 8px; text-align: right; color: #4a5568;">${g.count}</td>
+                        <td style="width: 19%; padding: 8px; text-align: right; color: #10b981; white-space: nowrap;">${g.debit > 0 ? formatCurrency(g.debit) : "-"}</td>
+                        <td style="width: 19%; padding: 8px; text-align: right; color: #ef4444; white-space: nowrap;">${g.credit > 0 ? formatCurrency(g.credit) : "-"}</td>
+                        <td style="width: 20%; padding: 8px; text-align: right; font-weight: 600; color: #002d5a; white-space: nowrap;">${formatCurrency(g.closingBalance)}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+    }
+    
+    modal.classList.remove("hidden");
+}
 
 function openPeriodModal() {
     const modal = document.getElementById("review-modal-period");
@@ -2731,6 +2915,45 @@ function openNarrationFilterModal() {
 }
 
 function confirmNarrationFilter() {
+    const keywordInput = document.getElementById("review-modal-narration-keyword");
+    const keyword = keywordInput ? keywordInput.value.toLowerCase().trim() : "";
+    
+    if (keyword) {
+        // Run test filter count on all currently active vouchers (ignoring the narration filter itself)
+        const statusVal = document.getElementById("review-modal-status-select").value;
+        const ledgerVal = document.getElementById("review-modal-ledger-select").value;
+        const fromVal = document.getElementById("review-modal-from-date").value.replace(/-/g, "");
+        const toVal = document.getElementById("review-modal-to-date").value.replace(/-/g, "");
+        
+        const matchingCount = reviewState.vouchers.filter(vch => {
+            // 1. Status filter
+            if (statusVal === "suspense" && !vch.particulars.toLowerCase().includes("suspense")) {
+                return false;
+            }
+            if (statusVal === "modified" && !vch.modified) {
+                return false;
+            }
+            
+            // 2. Ledger filter
+            if (ledgerVal !== "all" && vch.particulars !== ledgerVal) {
+                return false;
+            }
+            
+            // 3. Date range filter
+            if (fromVal && vch.rawDate < fromVal) return false;
+            if (toVal && vch.rawDate > toVal) return false;
+            
+            // Check keyword (convert input keyword and actual stored narration to lowercase)
+            return vch.narration.toLowerCase().includes(keyword);
+        }).length;
+        
+        if (matchingCount === 0) {
+            alert("No results found");
+            // Do not close the modal, let the user adjust the input
+            return;
+        }
+    }
+    
     closeReviewModal("narration");
     applyReviewFilters();
 }
@@ -2940,8 +3163,24 @@ function clearReviewDesk() {
     document.getElementById("review-modal-narration-keyword").value = "";
     document.getElementById("review-modal-new-ledger").value = "";
     
+    reviewState.showNarration = false;
+    const particularsHeader = document.getElementById("col-header-particulars");
+    if (particularsHeader) {
+        particularsHeader.style.flex = "1";
+        particularsHeader.style.width = "auto";
+    }
+    const narrationHeader = document.getElementById("col-header-narration");
+    if (narrationHeader) {
+        narrationHeader.style.display = "none";
+    }
+    const label = document.getElementById("btn-tally-narration-label");
+    if (label) {
+        label.textContent = "Show Narration";
+    }
+    
     document.getElementById("review-import-zone").classList.remove("hidden");
     document.getElementById("review-table-container").classList.add("hidden");
     
     updateReviewStats();
 }
+

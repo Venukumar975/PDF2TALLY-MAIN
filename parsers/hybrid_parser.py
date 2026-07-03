@@ -221,20 +221,6 @@ def parse_hybrid_transactions(file_path, mapping, boundary_date=None) -> list:
                             
                         raw_date = cleaned_row[date_idx]
                         parsed_dt_str = parse_date(raw_date)
-                        if not parsed_dt_str:
-                            # Skip rows that don't start with a valid date (e.g. header duplicates or footer text)
-                            continue
-                            
-                        # Date filter check
-                        if boundary_date:
-                            try:
-                                dt = datetime.strptime(parsed_dt_str, "%d-%m-%Y").date()
-                                if dt < boundary_date:
-                                    continue
-                            except ValueError:
-                                continue
-                                
-                        narration = cleaned_row[narr_idx]
                         
                         # Extract debit / credit amounts
                         raw_debit = cleaned_row[debit_idx] if debit_idx != -1 else ""
@@ -245,40 +231,58 @@ def parse_hybrid_transactions(file_path, mapping, boundary_date=None) -> list:
                         credit_val = clean_amount(raw_credit)
                         balance_val = clean_amount(raw_balance)
                         
-                        # Handle single-column amounts with indicator labels
-                        # e.g., if Debit and Credit are mapped to the same index
-                        if debit_idx == credit_idx and debit_idx != -1:
-                            val_str = cleaned_row[debit_idx].lower()
-                            amt = clean_amount(val_str)
-                            if 'dr' in val_str or 'w' in val_str or '-' in val_str:
-                                debit_val = amt
-                                credit_val = 0.0
-                            elif 'cr' in val_str or 'd' in val_str or '+' in val_str:
-                                debit_val = 0.0
-                                credit_val = amt
-                            else:
-                                # Default to debit if unlabelled
-                                debit_val = amt
-                                credit_val = 0.0
-                                
-                        # Determine transaction type based on values
-                        txn_type = "DEBIT" # money in (receipt)
-                        amount_val = 0.0
-                        
-                        if debit_val > 0.0:
-                            txn_type = "CREDIT" # payment (cash leaves bank)
-                            amount_val = debit_val
-                        elif credit_val > 0.0:
-                            txn_type = "DEBIT" # receipt (cash enters bank)
-                            amount_val = credit_val
+                        if parsed_dt_str:
+                            # Date filter check
+                            if boundary_date:
+                                try:
+                                    dt = datetime.strptime(parsed_dt_str, "%d-%m-%Y").date()
+                                    if dt < boundary_date:
+                                        continue
+                                except ValueError:
+                                    continue
+                                    
+                            narration = cleaned_row[narr_idx]
                             
-                        transactions.append({
-                            "gl_date": parsed_dt_str,
-                            "narration": narration,
-                            "amount": amount_val,
-                            "type": txn_type,
-                            "balance": balance_val
-                        })
+                            # Handle single-column amounts with indicator labels
+                            # e.g., if Debit and Credit are mapped to the same index
+                            if debit_idx == credit_idx and debit_idx != -1:
+                                val_str = cleaned_row[debit_idx].lower()
+                                amt = clean_amount(val_str)
+                                if 'dr' in val_str or 'w' in val_str or '-' in val_str:
+                                    debit_val = amt
+                                    credit_val = 0.0
+                                elif 'cr' in val_str or 'd' in val_str or '+' in val_str:
+                                    debit_val = 0.0
+                                    credit_val = amt
+                                else:
+                                    # Default to debit if unlabelled
+                                    debit_val = amt
+                                    credit_val = 0.0
+                                    
+                            # Determine transaction type based on values
+                            txn_type = "DEBIT" # money in (receipt)
+                            amount_val = 0.0
+                            
+                            if debit_val > 0.0:
+                                txn_type = "CREDIT" # payment (cash leaves bank)
+                                amount_val = debit_val
+                            elif credit_val > 0.0:
+                                txn_type = "DEBIT" # receipt (cash enters bank)
+                                amount_val = credit_val
+                                
+                            transactions.append({
+                                "gl_date": parsed_dt_str,
+                                "narration": narration,
+                                "amount": amount_val,
+                                "type": txn_type,
+                                "balance": balance_val
+                            })
+                        else:
+                            # Continuation row (no date) -> append narration to previous transaction if not noise
+                            if transactions and cleaned_row[narr_idx]:
+                                extra_narration = cleaned_row[narr_idx]
+                                if extra_narration.lower() not in {"narration", "description", "particulars", "remarks", "details"}:
+                                    transactions[-1]["narration"] += " " + extra_narration
                         
         return transactions
     except Exception as e:

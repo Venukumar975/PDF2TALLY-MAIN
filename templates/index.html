@@ -8,7 +8,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
     </style>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=2.2.3">
     <style>
         /* Tally selected row golden highlight */
         .review-row.tally-selected {
@@ -59,6 +59,13 @@
             display: none !important;
         }
 
+        /* Expand review pane to cover entire page padding and margins */
+        .app-layout.review-mode-active .app-content {
+            padding: 0 !important;
+            overflow-y: hidden !important;
+            height: 100vh !important;
+        }
+
         /* Tally Button Panel Classes */
         .tally-btn-key {
             display: flex;
@@ -67,7 +74,7 @@
             border: 1px solid #cbd5e0;
             border-radius: 4px;
             margin-bottom: 6px;
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             cursor: pointer;
             overflow: hidden;
             text-align: left;
@@ -78,20 +85,24 @@
             background: #e2e8f0;
         }
         .tally-btn-shortcut {
-            width: 60px;
+            width: 45px;
             background: #cbd5e0;
             color: #2d3748;
             font-weight: bold;
-            padding: 8px;
+            padding: 6px 4px;
             text-align: center;
             border-right: 1px solid #cbd5e0;
             font-family: monospace;
+            flex-shrink: 0;
         }
         .tally-btn-label {
             flex: 1;
-            padding: 8px 12px;
+            padding: 6px 8px;
             color: #1a202c;
             font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Tally Modal Dialog Overlay styling */
@@ -311,10 +322,11 @@
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">B</span>
                     <span>Bank Statement</span>
                 </a>
-                <a href="#review-tab" class="nav-item" onclick="switchTab('review-tab')">
+                <a href="/review" class="nav-item">
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">R</span>
                     <span>Review Desk</span>
                 </a>
+
                 <a href="#cash-tab" class="nav-item" onclick="switchTab('cash-tab')">
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">A</span>
                     <span>Ashramam Ledger</span>
@@ -581,203 +593,6 @@
                 </div>
             </section>
 
-            <!-- SECTION: VOUCHER REVIEW DESK -->
-            <section id="review-tab" class="tab-pane hidden animate-fade-in" style="padding: 0; display: flex; flex-direction: column; height: calc(100vh - 64px); background: #ffffff; color: #333333; position: relative;">
-                
-                <!-- TALLY HEADER -->
-                <div class="tally-header" style="background: #002d5a; color: #ffffff; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; border-bottom: 2px solid #005ea5; flex-shrink: 0;">
-                    <div style="font-weight: bold; letter-spacing: 0.5px;">Voucher Review Desk</div>
-                    <div style="display: flex; gap: 20px;">
-                        <span id="review-imported-filename" style="color: #a5d8ff;">Imported XML: None</span>
-                        <span id="review-bank-profile" style="color: #a5d8ff;">Bank: Unspecified</span>
-                        <span id="review-current-period" style="color: #a5d8ff;">Period: Full Range</span>
-                    </div>
-                </div>
-
-                <!-- MAIN WORKSPACE WORK AREA -->
-                <div style="display: flex; flex: 1; min-height: 0; position: relative; background: #ffffff;">
-                    
-                    <!-- LEFT COLUMN: MAIN VOUCHER DESK & BULK ACTIONS -->
-                    <div style="flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #dcdcdc; padding: 10px;">
-                        
-                        <!-- Import dropzone block if no file loaded -->
-                        <div id="review-import-zone" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px dashed #002d5a; border-radius: 8px; margin: 10px; background: #f8fafc; cursor: pointer; text-align: center; padding: 20px; transition: all 0.2s;">
-                            <input type="file" id="review-file-input" accept=".xml" class="hidden" onchange="handleReviewXMLSelect(event)">
-                            <div onclick="document.getElementById('review-file-input').click();">
-                                <span style="font-size: 3rem; color: #002d5a;">📂</span>
-                                <h3 style="color: #002d5a; margin: 10px 0 5px 0; font-size: 1.15rem;">Import Tally XML</h3>
-                                <p style="color: #64748b; font-size: 0.85rem; max-width: 320px; margin: 0 auto;">Drag & drop your generated Tally XML file here or click to browse</p>
-                            </div>
-                        </div>
-
-                        <!-- Virtualized Table Viewport -->
-                        <div id="review-table-container" class="hidden" style="flex: 1; display: flex; flex-direction: column; min-height: 0; background: #ffffff; border: 1px solid #cccccc; border-radius: 4px; overflow: hidden; position: relative;">
-                            
-                            <!-- Header labels -->
-                            <div style="display: flex; background: #e6f2ff; font-weight: bold; border-bottom: 1px solid #cccccc; font-size: 0.78rem; text-transform: uppercase; color: #002d5a; flex-shrink: 0; user-select: none; z-index: 10;">
-                                <div id="col-header-date" style="width: 10%; padding: 8px; border-right: 1px solid #cccccc;">Date</div>
-                                <div id="col-header-particulars" style="flex: 1; padding: 8px; border-right: 1px solid #cccccc; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Particulars (Current Ledger)</div>
-                                <div id="col-header-narration" style="width: 25%; padding: 8px; border-right: 1px solid #cccccc; display: none;">Narration</div>
-                                <div id="col-header-vchtype" style="width: 12%; padding: 8px; border-right: 1px solid #cccccc;">Vch Type</div>
-                                <div id="col-header-vchno" style="width: 10%; padding: 8px; border-right: 1px solid #cccccc;">Vch No.</div>
-                                <div id="col-header-debit" style="width: 14%; padding: 8px; border-right: 1px solid #cccccc; text-align: right;">Debit</div>
-                                <div id="col-header-credit" style="width: 14%; padding: 8px; text-align: right;">Credit</div>
-                            </div>
-                            
-                            <!-- Virtualized Viewport Scroll Area -->
-                            <div id="review-virtual-viewport" onscroll="onReviewTableScroll()" style="flex: 1; overflow-y: auto; position: relative; outline: none; background: #ffffff;" tabindex="0">
-                                <!-- Tall Spacer that gives correct scrollbar height -->
-                                <div id="review-virtual-spacer" style="width: 100%; position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none;"></div>
-                                <!-- Visible Rows Container -->
-                                <div id="review-virtual-content" style="width: 100%; position: absolute; top: 0; left: 0; z-index: 2;"></div>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- RIGHT COLUMN: TALLY ACTION KEYS PANEL -->
-                    <div style="width: 200px; flex-shrink: 0; background: #e0e6ed; border-left: 1px solid #9ca3af; display: flex; flex-direction: column; padding: 6px; gap: 4px; box-sizing: border-box; user-select: none;">
-                        
-                        <!-- Panel: Active Stats (miniature) -->
-                        <div style="background: #f0f4f8; border: 1px solid #cbd5e0; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; font-size: 0.72rem; color: #2d3748; line-height: 1.3;">
-                            <div style="font-weight: bold; color: #002d5a; margin-bottom: 4px; border-bottom: 1px solid #cbd5e0; padding-bottom: 2px;">Voucher Stats</div>
-                            <div>Total: <strong id="review-stat-total" style="float: right;">0</strong></div>
-                            <div>Modified: <strong id="review-stat-modified" style="float: right; color: #2ecc71;">0</strong></div>
-                            <div>Suspense: <strong id="review-stat-suspense" style="float: right; color: #e74c3c;">0</strong></div>
-                        </div>
-
-                        <!-- Tally prime styled buttons -->
-                        <button class="tally-btn-key" onclick="openPeriodModal()">
-                            <div class="tally-btn-shortcut">F2</div>
-                            <div class="tally-btn-label">Period</div>
-                        </button>
-                        
-                        <button class="tally-btn-key" onclick="openLedgerFilterModal()">
-                            <div class="tally-btn-shortcut">F4</div>
-                            <div class="tally-btn-label">Ledger</div>
-                        </button>
-                        
-                        <button class="tally-btn-key" id="btn-tally-toggle-narration" onclick="toggleReviewNarrationFromBtn()">
-                            <div class="tally-btn-shortcut">5</div>
-                            <div class="tally-btn-label" id="btn-tally-narration-label">Show Narration</div>
-                        </button>
-                        
-                        <button class="tally-btn-key" onclick="openNarrationFilterModal()">
-                            <div class="tally-btn-shortcut">6</div>
-                            <div class="tally-btn-label">Narration Filter</div>
-                        </button>
-                        
-                        <button class="tally-btn-key" onclick="openReplaceLedgerModal()">
-                            <div class="tally-btn-shortcut">Y</div>
-                            <div class="tally-btn-label">Replace Ledger</div>
-                        </button>
-
-                        <div style="flex-grow: 1;"></div>
-
-                        <!-- Export / Clear Actions -->
-                        <button class="tally-btn-key" onclick="exportReviewXML()" style="border-color: #005ea5;">
-                            <div class="tally-btn-shortcut" style="background: #005ea5; color: white; width: 65px; font-size: 0.72rem;">Ctrl+E</div>
-                            <div class="tally-btn-label" style="font-weight: bold; color: #002d5a;">Export XML</div>
-                        </button>
-                        
-                        <button class="tally-btn-key" onclick="clearReviewDesk()">
-                            <div class="tally-btn-shortcut" style="background: #e74c3c; color: white; width: 65px; font-size: 0.72rem;">Esc</div>
-                            <div class="tally-btn-label" style="font-weight: bold; color: #e74c3c;">Clear Desk</div>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- POPUP DIALOGS FOR KEY ACTIONS -->
-
-                <!-- 1. PERIOD FILTER MODAL -->
-                <div id="review-modal-period" class="tally-modal-overlay hidden">
-                    <div class="tally-modal-card">
-                        <div class="tally-modal-header">Change Period</div>
-                        <div class="tally-modal-body">
-                            <label for="review-modal-from-date">From Date:</label>
-                            <input type="date" id="review-modal-from-date">
-                            <label for="review-modal-to-date">To Date:</label>
-                            <input type="date" id="review-modal-to-date">
-                        </div>
-                        <div class="tally-modal-footer">
-                            <button class="btn btn-secondary" onclick="closeReviewModal('period')">No</button>
-                            <button class="btn btn-primary" onclick="confirmPeriodFilter()">Yes</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2. LEDGER FILTER MODAL -->
-                <div id="review-modal-ledger" class="tally-modal-overlay hidden">
-                    <div class="tally-modal-card">
-                        <div class="tally-modal-header">Select Ledger Filter</div>
-                        <div class="tally-modal-body">
-                            <label for="review-modal-ledger-select">Ledger Account Name:</label>
-                            <select id="review-modal-ledger-select">
-                                <option value="all">All Ledgers</option>
-                            </select>
-                            <label for="review-modal-status-select">Voucher Status:</label>
-                            <select id="review-modal-status-select">
-                                <option value="all">All Vouchers</option>
-                                <option value="suspense" selected>Only Suspense Vouchers</option>
-                                <option value="modified">Only Modified Vouchers</option>
-                            </select>
-                        </div>
-                        <div class="tally-modal-footer">
-                            <button class="btn btn-secondary" onclick="closeReviewModal('ledger')">No</button>
-                            <button class="btn btn-primary" onclick="confirmLedgerFilter()">Yes</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 3. NARRATION FILTER MODAL -->
-                <div id="review-modal-narration" class="tally-modal-overlay hidden">
-                    <div class="tally-modal-card">
-                        <div class="tally-modal-header">Narration Filter</div>
-                        <div class="tally-modal-body">
-                            <label for="review-modal-narration-keyword">Enter Keyword:</label>
-                            <input type="text" id="review-modal-narration-keyword" placeholder="Type search term (e.g. SWIGGY)..." autocomplete="off">
-                            <p style="font-size: 0.78rem; color: #718096; margin-top: 5px;">This will filter transactions where narration contains the keyword.</p>
-                        </div>
-                        <div class="tally-modal-footer">
-                            <button class="btn btn-secondary" onclick="closeReviewModal('narration')">No</button>
-                            <button class="btn btn-primary" onclick="confirmNarrationFilter()">Yes</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 4. REPLACE LEDGER MODAL -->
-                <div id="review-modal-replace" class="tally-modal-overlay hidden" style="z-index: 1100;">
-                    <div class="tally-modal-card">
-                        <div class="tally-modal-header">Replace Ledger Account</div>
-                        <div class="tally-modal-body">
-                            <p style="font-size: 0.8rem; margin-bottom: 10px; color: #4a5568;">Selected Vouchers: <strong id="review-modal-replace-count" style="color: #002d5a;">0</strong></p>
-                            
-                            <label for="review-modal-target-ledger">Ledger to Overwrite (Target):</label>
-                            <input type="text" id="review-modal-target-ledger" value="Suspense" placeholder="e.g. Suspense">
-                            
-                            <label for="review-modal-new-ledger">Replace with (New Ledger):</label>
-                            <div style="position: relative;">
-                                <input type="text" id="review-modal-new-ledger" onfocus="showLedgerAutocompleteModal()" oninput="filterLedgerAutocompleteModal()" placeholder="Search or enter ledger name..." autocomplete="off">
-                                <!-- Modal autocomplete suggestions list -->
-                                <div id="review-modal-ledger-autocomplete-list" class="hidden" style="position: absolute; top: 100%; left: 0; right: 0; background: #ffffff; border: 1px solid #bbbbbb; box-shadow: 0 4px 10px rgba(0,0,0,0.15); max-height: 140px; overflow-y: auto; z-index: 1200; border-radius: 4px;"></div>
-                            </div>
-                        </div>
-                        <div class="tally-modal-footer" style="margin-top: 15px;">
-                            <button class="btn btn-secondary" onclick="closeReviewModal('replace')">No</button>
-                            <button class="btn btn-primary" onclick="confirmReplaceLedger()">Yes</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- TALLY FOOTER STATUS BAR -->
-                <div class="tally-footer" style="background: #002d5a; color: #ffffff; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; border-top: 2px solid #005ea5; flex-shrink: 0; user-select: none;">
-                    <div>Loaded: <span id="review-footer-loaded" style="font-weight: bold; color: #a5d8ff;">0</span></div>
-                    <div>Showing: <span id="review-footer-showing" style="font-weight: bold; color: #a5d8ff;">0</span></div>
-                    <div>Selected: <span id="review-footer-selected" style="font-weight: bold; color: #a5d8ff;">0</span></div>
-                    <div>Modified: <span id="review-footer-modified" style="font-weight: bold; color: #2ecc71;">0</span></div>
-                    <div>Remaining Suspense: <span id="review-footer-suspense" style="font-weight: bold; color: #e74c3c;">0</span></div>
-                </div>
-            </section>
 
             <!-- SECTION 2: ASHRAMAM CASH RECEIPTS LEDGER -->
             <section id="cash-tab" class="tab-pane hidden animate-fade-in">
@@ -983,7 +798,7 @@
                 </header>
 
                 <div class="alert alert-danger" style="margin-bottom: 25px; border-left: 5px solid #ef4444; background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px;">
-                    <strong>⚠️ Text-Copyable PDFs ONLY (No Scanned Documents):</strong> Only upload digital PDFs where you can select and copy the text. Scanned images, mobile phone photos, or photocopy PDFs are NOT supported because this app runs offline and does not use visual character guessing (OCR).
+                    <strong>Text-Copyable PDFs ONLY (No Scanned Documents):</strong> Only upload digital PDFs where you can select and copy the text. Scanned images, mobile phone photos, or photocopy PDFs are NOT supported because this app runs offline and does not use visual character guessing (OCR).
                 </div>
 
                 <div class="glass-card" style="margin-bottom: 25px;">
@@ -1030,7 +845,7 @@
                 </div>
 
                 <div class="glass-card">
-                    <h3>🌾 Ashramam Cash Receipts Excel</h3>
+                    <h3> Ashramam Cash Receipts Excel</h3>
                     <p>The spreadsheet must contain clean columns for your receipts batch. The converter expects the following details:</p>
                     <ul class="benefit-list" style="margin-left: 20px; margin-top: 10px;">
                         <li><strong>File Types:</strong> Excel Workbooks (<code>.xlsx</code>, <code>.xls</code>) or comma-separated tables (<code>.csv</code>).</li>
@@ -1368,6 +1183,6 @@
     </div>
 
     <!-- MAIN FRONTEND CONTROLLERS -->
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=2.2.3"></script>
 </body>
 </html>

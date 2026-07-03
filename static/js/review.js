@@ -1,0 +1,1104 @@
+/**
+ * Voucher Review Desk - Standalone Fullscreen JavaScript Engine
+ * Focus Mode Client Implementation
+ */
+
+const reviewState = {
+    xmlDoc: null,
+    originalFileName: "",
+    vouchers: [],
+    filteredVouchers: [],
+    selectedIds: new Set(),
+    focusedIndex: -1,
+    lastSelectedIndex: -1,
+    rowHeight: 35,
+    visibleCount: 15,
+    showNarration: false,
+    ledgerCache: {},
+    openingBalance: 0.00,
+    uniqueLedgers: new Set(),
+    statusFilter: "suspense"
+};
+
+// Autocomplete navigation state
+let autocompleteIndex = -1;
+
+// -------------------------------------------------------------
+// INITIALIZATION
+// -------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+    // Load ledger mappings cache from backend JSON
+    fetch("/api/review/cache")
+        .then(res => res.json())
+        .then(data => {
+            reviewState.ledgerCache = data || {};
+        })
+        .catch(err => console.error("Failed to load mappings cache:", err));
+
+    // Setup drag & drop dropzone
+    const dropzone = document.getElementById("review-import-zone");
+    if (dropzone) {
+        dropzone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            dropzone.style.background = "#ebf8ff";
+            dropzone.style.borderColor = "#005ea5";
+        });
+        dropzone.addEventListener("dragleave", () => {
+            dropzone.style.background = "#f8fafc";
+            dropzone.style.borderColor = "#002d5a";
+        });
+        dropzone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            dropzone.style.background = "#f8fafc";
+            dropzone.style.borderColor = "#002d5a";
+            
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith(".xml")) {
+                loadReviewXMLFile(file);
+            }
+        });
+    }
+
+    // Keyboard events handler
+    document.addEventListener("keydown", handleGlobalKeydown);
+    
+    // Focus viewport
+    const viewport = document.getElementById("review-virtual-viewport");
+    if (viewport) {
+        viewport.focus();
+    }
+});
+
+// Helper currency formatter
+function formatCurrency(val) {
+    return "₹" + parseFloat(val).toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+// -------------------------------------------------------------
+// FILE LOADING
+// -------------------------------------------------------------
+function handleReviewXMLSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        loadReviewXMLFile(file);
+    }
+}
+
+function loadReviewXMLFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        loadReviewXML(e.target.result, file.name);
+    };
+    reader.readAsText(file);
+}
+
+function loadReviewXML(xmlString, fileName) {
+    try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+        
+        // Basic check for valid XML structure
+        if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+            alert("Error parsing XML file. Please check if the file format is correct.");
+            return;
+        }
+
+        reviewState.xmlDoc = xmlDoc;
+        reviewState.originalFileName = fileName;
+
+        // Parse Opening Balance
+        let openingBalance = 0.00;
+        const ledgerNodes = xmlDoc.getElementsByTagName("LEDGER");
+        for (let j = 0; j < ledgerNodes.length; j++) {
+            const lName = ledgerNodes[j].getAttribute("NAME") || "";
+            if (lName.toLowerCase().includes("bank") || lName.toLowerCase().includes("sbi") || lName.toLowerCase().includes("bob")) {
+                const opNode = ledgerNodes[j].querySelector("OPENINGBALANCE");
+                if (opNode) {
+                    const val = parseFloat(opNode.textContent || "0");
+                    openingBalance = -val; // Tally debit opening balances are negative in XML
+                }
+            }
+        }
+        reviewState.openingBalance = openingBalance;
+        reviewState.showNarration = false;
+
+        // Reset elements
+        const particularsHeader = document.getElementById("col-header-particulars");
+        if (particularsHeader) {
+            particularsHeader.style.flex = "1";
+            particularsHeader.style.width = "auto";
+        }
+        const narrationHeader = document.getElementById("col-header-narration");
+        if (narrationHeader) {
+            narrationHeader.style.display = "none";
+        }
+        const label = document.getElementById("btn-tally-narration-label");
+        if (label) {
+            label.textContent = "Show Narration";
+        }
+
+        // Parse Vouchers list
+        const voucherNodes = xmlDoc.getElementsByTagName("VOUCHER");
+        reviewState.vouchers = [];
+        reviewState.selectedIds.clear();
+        reviewState.focusedIndex = -1;
+        reviewState.lastSelectedIndex = -1;
+        reviewState.uniqueLedgers.clear();
+
+        let bankName = "Unknown Bank";
+
+        for (let i = 0; i < voucherNodes.length; i++) {
+            const node = voucherNodes[i];
+            const dateVal = (node.querySelector("DATE")?.textContent || "").trim();
+            const vchType = (node.querySelector("VOUCHERTYPENAME")?.textContent || "").trim();
+            const vchNo = (node.querySelector("VOUCHERNUMBER")?.textContent || "").trim();
+            const narration = (node.querySelector("NARRATION")?.textContent || "").trim();
+
+            const entries = node.querySelectorAll("ALLLEDGERENTRIES\\.LIST, LEDGERENTRIES\\.LIST");
+            let particulars = "Suspense";
+            let amount = 0.0;
+            let type = "DEBIT";
+
+            let bankDeemedPos = "Yes";
+            entries.forEach(ent => {
+                const ledger = (ent.querySelector("LEDGERNAME")?.textContent || "").trim();
+                reviewState.uniqueLedgers.add(ledger);
+
+                const rawAmt = parseFloat(ent.querySelector("AMOUNT")?.textContent || "0");
+
+                // Particulars is the non-bank account ledger
+                const isBank = ledger.toLowerCase().includes("bank") || ledger.toLowerCase().includes("sbi") || ledger.toLowerCase().includes("bob");
+                if (!isBank) {
+                    particulars = ledger;
+                } else {
+                    bankName = ledger;
+                    amount = Math.abs(rawAmt);
+                    // Standard sign mirroring for Debit vs Credit
+                    const isPos = ent.querySelector("ISDEEMEDPOSITIVE")?.textContent || "Yes";
+                    bankDeemedPos = isPos;
+                }
+            });
+
+            // Bank is DeemedPositive YES -> Debit in Tally, DeemedPositive NO -> Credit in Tally
+            if (bankDeemedPos.trim() === "Yes") {
+                type = "DEBIT";
+            } else {
+                type = "CREDIT";
+            }
+
+            const isSuspense = particulars.toLowerCase().includes("suspense");
+            reviewState.vouchers.push({
+                id: i,
+                node: node,
+                date: dateVal.length === 8 ? `${dateVal.substring(6, 8)}-${dateVal.substring(4, 6)}-${dateVal.substring(0, 4)}` : dateVal,
+                rawDate: dateVal,
+                particulars: particulars,
+                originallySuspense: true,
+                narration: narration,
+                vchType: vchType,
+                vchNo: vchNo,
+                debit: type === "DEBIT" ? amount : 0,
+                credit: type === "CREDIT" ? amount : 0,
+                modified: !isSuspense
+            });
+        }
+
+        // Apply pre-cached mappings
+        applyCacheMappings();
+
+        // Update details
+        document.getElementById("review-imported-filename").textContent = `Imported XML: ${fileName}`;
+        document.getElementById("review-bank-profile").textContent = `Bank: ${bankName}`;
+        
+        // Find min/max dates
+        const sortedDates = reviewState.vouchers.map(v => v.rawDate).filter(Boolean).sort();
+        if (sortedDates.length > 0) {
+            const minD = sortedDates[0];
+            const maxD = sortedDates[sortedDates.length - 1];
+            const fromStr = `${minD.substring(0, 4)}-${minD.substring(4, 6)}-${minD.substring(6, 8)}`;
+            const toStr = `${maxD.substring(0, 4)}-${maxD.substring(4, 6)}-${maxD.substring(6, 8)}`;
+            document.getElementById("review-modal-from-date").value = fromStr;
+            document.getElementById("review-modal-to-date").value = toStr;
+            document.getElementById("review-current-period").textContent = `Period: ${minD.substring(6, 8)}/${minD.substring(4, 6)}/${minD.substring(0, 4)} to ${maxD.substring(6, 8)}/${maxD.substring(4, 6)}/${maxD.substring(0, 4)}`;
+        }
+
+        document.getElementById("review-import-zone").classList.add("hidden");
+        document.getElementById("review-table-container").classList.remove("hidden");
+
+        applyReviewFilters();
+        updateReviewStats();
+        
+        // Focus table container
+        document.getElementById("review-virtual-viewport").focus();
+
+    } catch (err) {
+        console.error("Error loading review desk XML:", err);
+        alert("Failed to parse XML contents: " + err.message);
+    }
+}
+
+// -------------------------------------------------------------
+// FILTER IMPLEMENTATION
+// -------------------------------------------------------------
+function applyReviewFilters() {
+    const statusVal = reviewState.statusFilter || "suspense";
+    const ledgerVal = document.getElementById("review-modal-ledger-select").value;
+    const searchVal = document.getElementById("review-modal-narration-keyword").value.toLowerCase().trim();
+    
+    const fromVal = document.getElementById("review-modal-from-date").value.replace(/-/g, "");
+    const toVal = document.getElementById("review-modal-to-date").value.replace(/-/g, "");
+    
+    // 1. Calculate Period + Status filtered vouchers (For Voucher Stats)
+    reviewState.periodFilteredVouchers = reviewState.vouchers.filter(vch => {
+        // Date range filter
+        if (fromVal && vch.rawDate < fromVal) return false;
+        if (toVal && vch.rawDate > toVal) return false;
+        
+        // Status filter
+        if (statusVal === "suspense" && !vch.particulars.toLowerCase().includes("suspense")) {
+            return false;
+        }
+        if (statusVal === "modified" && !vch.modified) {
+            return false;
+        }
+        
+        return true;
+    });
+
+    // Helper to escape regex special characters
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    // Build flexible spacing regex if narration keyword is entered
+    let narrationRegex = null;
+    if (searchVal) {
+        const words = searchVal.replace(/\s+/g, " ").split(" ").filter(Boolean);
+        if (words.length > 0) {
+            const escapedWords = words.map(w => escapeRegExp(w));
+            narrationRegex = new RegExp(escapedWords.join("\\s+"), "i");
+        }
+    }
+    
+    // 2. Calculate Final filtered vouchers (For grid rendering and Filtration Stats)
+    reviewState.filteredVouchers = reviewState.periodFilteredVouchers.filter(vch => {
+        // Ledger filter
+        if (ledgerVal !== "all" && vch.particulars !== ledgerVal) {
+            return false;
+        }
+        
+        // Narration keyword filter
+        if (narrationRegex && !narrationRegex.test(vch.narration)) {
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // Reset focus index if it exceeds filtered count
+    if (reviewState.focusedIndex >= reviewState.filteredVouchers.length) {
+        reviewState.focusedIndex = reviewState.filteredVouchers.length - 1;
+    }
+    
+    onReviewTableScroll();
+    updateReviewStats();
+}
+
+// -------------------------------------------------------------
+// VIRTUAL TABLE RENDERER
+// -------------------------------------------------------------
+function onReviewTableScroll() {
+    const viewport = document.getElementById("review-virtual-viewport");
+    const spacer = document.getElementById("review-virtual-spacer");
+    const content = document.getElementById("review-virtual-content");
+    const header = document.getElementById("review-table-header");
+    
+    if (!viewport || !spacer || !content) return;
+    
+    if (header) {
+        header.style.width = "100%";
+        header.scrollLeft = viewport.scrollLeft;
+    }
+    spacer.style.width = "100%";
+    content.style.width = "100%";
+    
+    const count = reviewState.filteredVouchers.length;
+    spacer.style.height = `${count * reviewState.rowHeight}px`;
+    
+    const scrollTop = viewport.scrollTop;
+    const viewportHeight = viewport.clientHeight;
+    reviewState.visibleCount = Math.ceil(viewportHeight / reviewState.rowHeight);
+    
+    const startIndex = Math.max(0, Math.floor(scrollTop / reviewState.rowHeight) - 2);
+    const endIndex = Math.min(count, startIndex + reviewState.visibleCount + 5);
+    
+    let html = "";
+    for (let i = startIndex; i < endIndex; i++) {
+        const vch = reviewState.filteredVouchers[i];
+        const isSelected = reviewState.selectedIds.has(vch.id);
+        const isFocused = (reviewState.focusedIndex === i);
+        
+        const bgClass = isSelected ? "tally-selected" : "";
+        const borderStyle = isFocused ? "outline: 2px solid #002d5a; outline-offset: -2px; z-index: 5;" : "";
+        
+        const debitText = vch.debit > 0 ? formatCurrency(vch.debit) : "-";
+        const creditText = vch.credit > 0 ? formatCurrency(vch.credit) : "-";
+        
+        const modStyle = vch.modified ? "color: #2ecc71; font-weight: bold;" : "";
+        
+        const particularsCellStyles = reviewState.showNarration ?
+            "width: 11%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; box-sizing: border-box;" :
+            "flex: 1; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; box-sizing: border-box;";
+            
+        const narrationCellStyles = reviewState.showNarration ?
+            "flex: 1; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box; display: block;" :
+            "display: none;";
+            
+        html += `
+            <div class="review-row ${bgClass}" onclick="onReviewRowClick(event, ${i})" style="display: flex; height: ${reviewState.rowHeight}px; align-items: center; border-bottom: 1px solid #eeeeee; font-size: 0.78rem; position: absolute; top: ${i * reviewState.rowHeight}px; left: 0; right: 0; cursor: pointer; user-select: none; ${borderStyle} ${modStyle}">
+                <div style="width: 7%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box;">${vch.date}</div>
+                <div style="${particularsCellStyles}" title="${vch.particulars}">${vch.particulars}</div>
+                <div style="${narrationCellStyles}" title="${vch.narration}">${vch.narration}</div>
+                <div style="width: 6%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box;">${vch.vchType}</div>
+                <div style="width: 7%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box;">${vch.vchNo}</div>
+                <div style="width: 9%; flex-shrink: 0; padding: 6px 8px; border-right: 1px solid #eeeeee; text-align: right; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #10b981; box-sizing: border-box;">${debitText}</div>
+                <div style="width: 9%; flex-shrink: 0; padding: 6px 8px; text-align: right; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #ef4444; box-sizing: border-box;">${creditText}</div>
+            </div>
+        `;
+    }
+    
+    content.innerHTML = html;
+}
+
+// -------------------------------------------------------------
+// STATISTICS UPDATES
+// -------------------------------------------------------------
+function updateReviewStats() {
+    // If periodFilteredVouchers is not initialized yet (e.g. at startup before load)
+    if (!reviewState.periodFilteredVouchers) {
+        reviewState.periodFilteredVouchers = [...reviewState.vouchers];
+    }
+
+    // 1. Update Voucher Stats (based on periodFilteredVouchers)
+    const vchTotal = reviewState.periodFilteredVouchers.length;
+    const vchModified = reviewState.periodFilteredVouchers.filter(v => v.modified).length;
+    const vchSuspense = reviewState.periodFilteredVouchers.filter(v => v.particulars.toLowerCase().includes("suspense")).length;
+    
+    document.getElementById("review-stat-total").textContent = vchTotal;
+    document.getElementById("review-stat-modified").textContent = vchModified;
+    document.getElementById("review-stat-suspense").textContent = vchSuspense;
+    
+    // Toggle active highlights on stats buttons based on reviewState.statusFilter
+    const btnTotal = document.getElementById("btn-stats-total");
+    const btnModified = document.getElementById("btn-stats-modified");
+    const btnSuspense = document.getElementById("btn-stats-suspense");
+    
+    if (btnTotal) btnTotal.className = "stats-interactive-row";
+    if (btnModified) btnModified.className = "stats-interactive-row";
+    if (btnSuspense) btnSuspense.className = "stats-interactive-row";
+    
+    const currentStatus = reviewState.statusFilter || "suspense";
+    if (currentStatus === "all") {
+        if (btnTotal) btnTotal.classList.add("active-all");
+    } else if (currentStatus === "modified") {
+        if (btnModified) btnModified.classList.add("active-modified");
+    } else if (currentStatus === "suspense") {
+        if (btnSuspense) btnSuspense.classList.add("active-suspense");
+    }
+    
+    // 2. Update Filtration Stats (based on final filteredVouchers)
+    const ledgerVal = document.getElementById("review-modal-ledger-select").value;
+    const searchVal = document.getElementById("review-modal-narration-keyword").value.trim();
+    
+    const isFiltered = (ledgerVal !== "all" || searchVal !== "" || currentStatus !== "suspense");
+    const filterStatsCard = document.getElementById("review-filtration-stats");
+    
+    if (isFiltered) {
+        const filTotal = reviewState.filteredVouchers.length;
+        const filModified = reviewState.filteredVouchers.filter(v => v.modified).length;
+        const filSuspense = reviewState.filteredVouchers.filter(v => v.particulars.toLowerCase().includes("suspense")).length;
+        
+        document.getElementById("filter-stat-total").textContent = filTotal;
+        document.getElementById("filter-stat-modified").textContent = filModified;
+        document.getElementById("filter-stat-suspense").textContent = filSuspense;
+        
+        if (filterStatsCard) {
+            filterStatsCard.classList.remove("hidden");
+        }
+    } else {
+        if (filterStatsCard) {
+            filterStatsCard.classList.add("hidden");
+        }
+    }
+}
+
+function toggleStatsFilter(targetFilter) {
+    if (targetFilter === "all") {
+        reviewState.statusFilter = "all";
+    } else if (targetFilter === "modified") {
+        reviewState.statusFilter = (reviewState.statusFilter === "modified") ? "all" : "modified";
+    } else if (targetFilter === "suspense") {
+        reviewState.statusFilter = (reviewState.statusFilter === "suspense") ? "all" : "suspense";
+    }
+    applyReviewFilters();
+}
+
+// -------------------------------------------------------------
+// MAPPINGS CACHE APPLICATION
+// -------------------------------------------------------------
+function applyCacheMappings() {
+    let modifiedCount = 0;
+    reviewState.vouchers.forEach(vch => {
+        if (vch.particulars.toLowerCase().includes("suspense")) {
+            // Check for match in cache keys
+            for (const keyword in reviewState.ledgerCache) {
+                if (vch.narration.toLowerCase().includes(keyword.toLowerCase())) {
+                    const targetLedger = reviewState.ledgerCache[keyword];
+                    updateVoucherLedger(vch, targetLedger, true);
+                    modifiedCount++;
+                    break;
+                }
+            }
+        }
+    });
+    if (modifiedCount > 0) {
+        updateReviewStats();
+    }
+}
+
+// -------------------------------------------------------------
+// VOUCHER SELECTION ACTIONS
+// -------------------------------------------------------------
+function onReviewRowClick(event, index) {
+    const vch = reviewState.filteredVouchers[index];
+    if (!vch) return;
+    
+    if (event.ctrlKey) {
+        // Toggle selection
+        if (reviewState.selectedIds.has(vch.id)) {
+            reviewState.selectedIds.delete(vch.id);
+        } else {
+            reviewState.selectedIds.add(vch.id);
+        }
+    } else if (event.shiftKey && reviewState.lastSelectedIndex !== -1) {
+        // Range selection
+        reviewState.selectedIds.clear();
+        const start = Math.min(reviewState.lastSelectedIndex, index);
+        const end = Math.max(reviewState.lastSelectedIndex, index);
+        for (let j = start; j <= end; j++) {
+            const cur = reviewState.filteredVouchers[j];
+            if (cur) reviewState.selectedIds.add(cur.id);
+        }
+    } else {
+        // Single selection
+        reviewState.selectedIds.clear();
+        reviewState.selectedIds.add(vch.id);
+    }
+    
+    reviewState.focusedIndex = index;
+    reviewState.lastSelectedIndex = index;
+    
+    onReviewTableScroll();
+}
+
+function updateVoucherLedger(vch, newLedgerName, triggerXMLUpdate = true) {
+    vch.particulars = newLedgerName;
+    vch.modified = true;
+    
+    if (triggerXMLUpdate && reviewState.xmlDoc) {
+        // Update PARTYLEDGERNAME tag under VOUCHER
+        const partyLedNameNode = vch.node.querySelector("PARTYLEDGERNAME");
+        if (partyLedNameNode) {
+            partyLedNameNode.textContent = newLedgerName;
+        }
+
+        const entries = vch.node.querySelectorAll("ALLLEDGERENTRIES\\.LIST, LEDGERENTRIES\\.LIST");
+        entries.forEach(ent => {
+            const ledNameNode = ent.querySelector("LEDGERNAME");
+            if (ledNameNode) {
+                const currentName = ledNameNode.textContent || "";
+                const isBank = currentName.toLowerCase().includes("bank") || currentName.toLowerCase().includes("sbi") || currentName.toLowerCase().includes("bob");
+                if (!isBank) {
+                    ledNameNode.textContent = newLedgerName;
+                }
+            }
+        });
+    }
+}
+
+// -------------------------------------------------------------
+// KEYBOARD COMMAND HANDLERS
+// -------------------------------------------------------------
+function handleGlobalKeydown(e) {
+    // If user is focused on dialog inputs, disable shortcut triggers
+    const activeEl = document.activeElement;
+    const isInput = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "SELECT");
+    
+    if (isInput) {
+        if (e.key === "Escape") {
+            // Escape exits the active filter modal
+            closeActiveModal();
+        } else if (e.key === "Enter") {
+            // Enter key confirms active modal
+            confirmActiveModal();
+        } else if (activeEl.id === "review-modal-new-ledger") {
+            handleAutocompleteKeydown(e);
+        }
+        return;
+    }
+    
+    // Virtual table navigation keys
+    if (e.key === "ArrowUp") {
+        e.preventDefault();
+        navigateFocus(-1, e.shiftKey);
+    } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        navigateFocus(1, e.shiftKey);
+    } else if (e.key === "PageUp") {
+        e.preventDefault();
+        navigateFocus(-8, e.shiftKey);
+    } else if (e.key === "PageDown") {
+        e.preventDefault();
+        navigateFocus(8, e.shiftKey);
+    } else if (e.key === "Home") {
+        e.preventDefault();
+        navigateFocus(-reviewState.filteredVouchers.length, e.shiftKey);
+    } else if (e.key === "End") {
+        e.preventDefault();
+        navigateFocus(reviewState.filteredVouchers.length, e.shiftKey);
+    } else if (e.key === " ") {
+        // Spacebar toggles row selection
+        e.preventDefault();
+        toggleFocusedSelection();
+    }
+    
+    // Tally Shortcuts
+    if (e.key === "F2") {
+        e.preventDefault();
+        openPeriodModal();
+    } else if (e.key === "F4") {
+        e.preventDefault();
+        openLedgerFilterModal();
+    } else if (e.key === "5") {
+        e.preventDefault();
+        toggleReviewNarrationFromBtn();
+    } else if (e.key === "6") {
+        e.preventDefault();
+        openNarrationFilterModal();
+    } else if (e.key === "y" || e.key === "Y") {
+        e.preventDefault();
+        openReplaceLedgerModal();
+    } else if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        openMonthlyAnalysisModal();
+    } else if (e.key === "e" && e.ctrlKey) {
+        e.preventDefault();
+        exportReviewXML();
+    } else if (e.key === "Escape") {
+        e.preventDefault();
+        const ledgerVal = document.getElementById("review-modal-ledger-select").value;
+        const searchVal = document.getElementById("review-modal-narration-keyword").value.trim();
+        const currentStatus = reviewState.statusFilter || "suspense";
+        
+        const isFiltered = (ledgerVal !== "all" || searchVal !== "" || currentStatus !== "suspense");
+        
+        if (isFiltered) {
+            // Reset all active filtrations
+            document.getElementById("review-modal-narration-keyword").value = "";
+            document.getElementById("review-modal-ledger-select").value = "all";
+            reviewState.statusFilter = "suspense"; // Default back to Suspense only
+            applyReviewFilters();
+        } else {
+            // Otherwise open exit confirmation
+            openExitConfirmation();
+        }
+    }
+}
+
+function navigateFocus(offset, shiftKey) {
+    if (reviewState.filteredVouchers.length === 0) return;
+    
+    let oldFocus = reviewState.focusedIndex;
+    let newFocus = oldFocus + offset;
+    if (newFocus < 0) newFocus = 0;
+    if (newFocus >= reviewState.filteredVouchers.length) {
+        newFocus = reviewState.filteredVouchers.length - 1;
+    }
+    
+    if (oldFocus === newFocus) return;
+    
+    reviewState.focusedIndex = newFocus;
+    
+    if (shiftKey) {
+        if (reviewState.shiftAnchorIndex === undefined || reviewState.shiftAnchorIndex === -1) {
+            reviewState.shiftAnchorIndex = oldFocus;
+        }
+        // Select range from anchor to newFocus
+        reviewState.selectedIds.clear();
+        const start = Math.min(reviewState.shiftAnchorIndex, newFocus);
+        const end = Math.max(reviewState.shiftAnchorIndex, newFocus);
+        for (let j = start; j <= end; j++) {
+            const v = reviewState.filteredVouchers[j];
+            if (v) reviewState.selectedIds.add(v.id);
+        }
+    } else {
+        reviewState.shiftAnchorIndex = -1;
+    }
+    
+    // Scroll viewport to show focused row
+    const viewport = document.getElementById("review-virtual-viewport");
+    if (viewport) {
+        const rowTop = newFocus * reviewState.rowHeight;
+        const rowBottom = rowTop + reviewState.rowHeight;
+        const viewTop = viewport.scrollTop;
+        const viewBottom = viewTop + viewport.clientHeight;
+        
+        if (rowTop < viewTop) {
+            viewport.scrollTop = rowTop;
+        } else if (rowBottom > viewBottom) {
+            viewport.scrollTop = rowBottom - viewport.clientHeight;
+        }
+    }
+    
+    onReviewTableScroll();
+}
+
+function toggleFocusedSelection() {
+    if (reviewState.focusedIndex === -1) return;
+    const vch = reviewState.filteredVouchers[reviewState.focusedIndex];
+    if (!vch) return;
+    
+    if (reviewState.selectedIds.has(vch.id)) {
+        reviewState.selectedIds.delete(vch.id);
+    } else {
+        reviewState.selectedIds.add(vch.id);
+    }
+    onReviewTableScroll();
+}
+
+// -------------------------------------------------------------
+// FILTER / SETTING MODALS POPUPS
+// -------------------------------------------------------------
+function closeReviewModal(modalKey) {
+    const modal = document.getElementById(`review-modal-${modalKey}`);
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+    // Return focus to table viewport
+    document.getElementById("review-virtual-viewport").focus();
+}
+
+function closeActiveModal() {
+    const modals = ["period", "ledger", "narration", "replace", "monthly", "exit-confirm"];
+    modals.forEach(m => closeReviewModal(m));
+}
+
+function confirmActiveModal() {
+    const modals = [
+        { id: "review-modal-period", confirm: confirmPeriodFilter },
+        { id: "review-modal-ledger", confirm: confirmLedgerFilter },
+        { id: "review-modal-narration", confirm: confirmNarrationFilter },
+        { id: "review-modal-replace", confirm: confirmReplaceLedger }
+    ];
+    for (const m of modals) {
+        const el = document.getElementById(m.id);
+        if (el && !el.classList.contains("hidden")) {
+            m.confirm();
+            break;
+        }
+    }
+}
+
+// F2 Period Modal
+function openPeriodModal() {
+    const modal = document.getElementById("review-modal-period");
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    const input = document.getElementById("review-modal-from-date");
+    setTimeout(() => input.focus(), 80);
+}
+
+function confirmPeriodFilter() {
+    const fromInput = document.getElementById("review-modal-from-date").value;
+    const toInput = document.getElementById("review-modal-to-date").value;
+    
+    const minD = fromInput.replace(/-/g, "");
+    const maxD = toInput.replace(/-/g, "");
+    
+    if (minD && maxD) {
+        document.getElementById("review-current-period").textContent = `Period: ${minD.substring(6, 8)}/${minD.substring(4, 6)}/${minD.substring(0, 4)} to ${maxD.substring(6, 8)}/${maxD.substring(4, 6)}/${maxD.substring(0, 4)}`;
+    }
+    
+    closeReviewModal("period");
+    applyReviewFilters();
+}
+
+// F4 Ledger Modal
+function openLedgerFilterModal() {
+    const modal = document.getElementById("review-modal-ledger");
+    if (!modal) return;
+    
+    // Prefill unique options in ledger select dropdown
+    const select = document.getElementById("review-modal-ledger-select");
+    const currentVal = select.value;
+    select.innerHTML = '<option value="all">All Ledgers</option>';
+    
+    const sorted = Array.from(reviewState.uniqueLedgers).sort();
+    sorted.forEach(l => {
+        const opt = document.createElement("option");
+        opt.value = l;
+        opt.textContent = l;
+        select.appendChild(opt);
+    });
+    
+    select.value = currentVal;
+    modal.classList.remove("hidden");
+    setTimeout(() => select.focus(), 80);
+}
+
+function confirmLedgerFilter() {
+    closeReviewModal("ledger");
+    applyReviewFilters();
+}
+
+// 5 Toggling Narration
+function toggleReviewNarrationFromBtn() {
+    reviewState.showNarration = !reviewState.showNarration;
+    
+    const narrationHeader = document.getElementById("col-header-narration");
+    const particularsHeader = document.getElementById("col-header-particulars");
+    
+    if (reviewState.showNarration) {
+        if (narrationHeader) {
+            narrationHeader.style.display = "block";
+            narrationHeader.style.flex = "1";
+            narrationHeader.style.width = "auto";
+        }
+        if (particularsHeader) {
+            particularsHeader.style.flex = "none";
+            particularsHeader.style.width = "11%";
+        }
+    } else {
+        if (narrationHeader) {
+            narrationHeader.style.display = "none";
+        }
+        if (particularsHeader) {
+            particularsHeader.style.flex = "1";
+            particularsHeader.style.width = "auto";
+        }
+    }
+    
+    const label = document.getElementById("btn-tally-narration-label");
+    if (label) {
+        label.textContent = reviewState.showNarration ? "Hide Narration" : "Show Narration";
+    }
+    
+    onReviewTableScroll();
+}
+
+// 6 Narration search Modal
+function openNarrationFilterModal() {
+    const modal = document.getElementById("review-modal-narration");
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    const input = document.getElementById("review-modal-narration-keyword");
+    setTimeout(() => input.focus(), 80);
+}
+
+function confirmNarrationFilter() {
+    const searchInput = document.getElementById("review-modal-narration-keyword");
+    const val = searchInput.value.toLowerCase().trim();
+    
+    if (val) {
+        const words = val.replace(/\s+/g, " ").split(" ").filter(Boolean);
+        if (words.length > 0) {
+            const escaped = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            const regex = new RegExp(escaped.join("\\s+"), "i");
+            const tempFiltered = reviewState.vouchers.filter(vch => regex.test(vch.narration));
+            if (tempFiltered.length === 0) {
+                alert(`No results found for keyword: "${searchInput.value}"`);
+                searchInput.focus();
+                return;
+            }
+        }
+    }
+    
+    closeReviewModal("narration");
+    applyReviewFilters();
+}
+
+// Y Replace Ledger modal & Autocomplete autocomplete
+function openReplaceLedgerModal() {
+    if (reviewState.selectedIds.size === 0) {
+        alert("Please select at least one voucher row to overwrite ledgers.");
+        return;
+    }
+    const modal = document.getElementById("review-modal-replace");
+    if (!modal) return;
+    
+    document.getElementById("review-modal-replace-count").textContent = reviewState.selectedIds.size;
+    document.getElementById("review-modal-new-ledger").value = "";
+    
+    // Prefill target ledger input with the particulars name of the first selected voucher
+    const firstId = Array.from(reviewState.selectedIds)[0];
+    const firstVch = reviewState.vouchers.find(v => v.id === firstId);
+    const defTarget = firstVch ? firstVch.particulars : "Suspense";
+    document.getElementById("review-modal-target-ledger").value = defTarget;
+    
+    modal.classList.remove("hidden");
+    setTimeout(() => document.getElementById("review-modal-new-ledger").focus(), 80);
+}
+
+function confirmReplaceLedger() {
+    const newLedgerName = document.getElementById("review-modal-new-ledger").value.trim();
+    const targetLedgerName = document.getElementById("review-modal-target-ledger").value.trim();
+    
+    if (!newLedgerName) {
+        alert("Please enter a replace ledger name.");
+        return;
+    }
+    
+    let replaceCount = 0;
+    reviewState.vouchers.forEach(vch => {
+        if (reviewState.selectedIds.has(vch.id)) {
+            const isMatch = (targetLedgerName === "*") || (vch.particulars.toLowerCase() === targetLedgerName.toLowerCase());
+            if (isMatch) {
+                updateVoucherLedger(vch, newLedgerName, true);
+                
+                // Add mapping rule to cache automatically
+                // Match keyword from narration (e.g. clean description or first 3 words)
+                const narrationWords = vch.narration.trim().split(/\s+/).slice(0, 4).join(" ");
+                if (narrationWords) {
+                    reviewState.ledgerCache[narrationWords] = newLedgerName;
+                }
+                replaceCount++;
+            }
+        }
+    });
+    
+    // Save updated mappings to backend persistent cache JSON
+    fetch("/api/review/cache/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewState.ledgerCache)
+    }).catch(err => console.error("Failed to save ledger cache updates:", err));
+    
+    closeReviewModal("replace");
+    
+    applyReviewFilters();
+    updateReviewStats();
+    
+    alert(`Successfully replaced ledger in ${replaceCount} voucher(s).`);
+}
+
+function showLedgerAutocompleteModal() {
+    filterLedgerAutocompleteModal();
+}
+
+function filterLedgerAutocompleteModal() {
+    const input = document.getElementById("review-modal-new-ledger");
+    const list = document.getElementById("review-modal-ledger-autocomplete-list");
+    if (!input || !list) return;
+    
+    const query = input.value.toLowerCase().trim();
+    list.innerHTML = "";
+    autocompleteIndex = -1;
+    
+    // Options are unique ledgers from Tally XML + cached custom mappings
+    const options = new Set(reviewState.uniqueLedgers);
+    for (const k in reviewState.ledgerCache) {
+        options.add(reviewState.ledgerCache[k]);
+    }
+    
+    const matches = Array.from(options).filter(opt => opt.toLowerCase().includes(query)).sort();
+    
+    if (matches.length > 0) {
+        matches.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "ledger-autocomplete-item";
+            div.textContent = item;
+            div.onclick = () => {
+                input.value = item;
+                list.classList.add("hidden");
+            };
+            list.appendChild(div);
+        });
+        list.classList.remove("hidden");
+    } else {
+        list.classList.add("hidden");
+    }
+}
+
+function handleAutocompleteKeydown(e) {
+    const list = document.getElementById("review-modal-ledger-autocomplete-list");
+    const input = document.getElementById("review-modal-new-ledger");
+    if (!list || list.classList.contains("hidden")) return;
+    
+    const items = list.querySelectorAll(".ledger-autocomplete-item");
+    if (items.length === 0) return;
+    
+    if (e.key === "ArrowDown") {
+        e.preventDefault();
+        autocompleteIndex = (autocompleteIndex + 1) % items.length;
+        highlightAutocompleteItem(items);
+    } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        autocompleteIndex = (autocompleteIndex - 1 + items.length) % items.length;
+        highlightAutocompleteItem(items);
+    } else if (e.key === "Enter" && autocompleteIndex !== -1) {
+        e.preventDefault();
+        input.value = items[autocompleteIndex].textContent;
+        list.classList.add("hidden");
+    }
+}
+
+function highlightAutocompleteItem(items) {
+    items.forEach((item, index) => {
+        if (index === autocompleteIndex) {
+            item.classList.add("active");
+            item.scrollIntoView({ block: "nearest" });
+        } else {
+            item.classList.remove("active");
+        }
+    });
+}
+
+// Hide autocomplete suggestions on outer click
+document.addEventListener("click", (e) => {
+    const list = document.getElementById("review-modal-ledger-autocomplete-list");
+    const input = document.getElementById("review-modal-new-ledger");
+    if (list && e.target !== input && e.target !== list) {
+        list.classList.add("hidden");
+    }
+});
+
+// M Monthly Analysis Modal
+function openMonthlyAnalysisModal() {
+    const modal = document.getElementById("review-modal-monthly");
+    if (!modal) return;
+    
+    // Sort reviewState vouchers chronologically to roll forward balance
+    const sortedVch = [...reviewState.vouchers].sort((a, b) => a.rawDate.localeCompare(b.rawDate));
+    
+    // Monthly aggregations map
+    const monthlyRollup = {};
+    
+    sortedVch.forEach(vch => {
+        if (vch.rawDate.length !== 8) return;
+        const year = vch.rawDate.substring(0, 4);
+        const month = vch.rawDate.substring(4, 6);
+        const monthKey = `${year}-${month}`; // e.g. "2025-04"
+        
+        if (!monthlyRollup[monthKey]) {
+            monthlyRollup[monthKey] = { debit: 0, credit: 0, count: 0 };
+        }
+        
+        monthlyRollup[monthKey].debit += vch.debit;
+        monthlyRollup[monthKey].credit += vch.credit;
+        monthlyRollup[monthKey].count++;
+    });
+    
+    // Render Roll forward ledger balances above months
+    const opBalValNode = document.getElementById("review-monthly-opbal-val");
+    const opBalContainer = document.getElementById("review-monthly-opbal-section");
+    
+    if (reviewState.openingBalance !== 0 && reviewState.openingBalance !== null) {
+        opBalValNode.textContent = formatCurrency(reviewState.openingBalance);
+        opBalContainer.style.display = "block";
+    } else {
+        opBalContainer.style.display = "none";
+    }
+    
+    const tbody = document.getElementById("review-monthly-table-body");
+    tbody.innerHTML = "";
+    
+    let cumulativeBalance = reviewState.openingBalance;
+    
+    const sortedMonthKeys = Object.keys(monthlyRollup).sort();
+    
+    sortedMonthKeys.forEach(mKey => {
+        const item = monthlyRollup[mKey];
+        cumulativeBalance += item.debit - item.credit;
+        
+        // Convert monthKey "2025-04" to Month Name "Apr 2025"
+        const [yr, mn] = mKey.split("-");
+        const dt = new Date(parseInt(yr), parseInt(mn) - 1, 1);
+        const monthName = dt.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+        
+        const row = document.createElement("tr");
+        row.style.borderBottom = "1px solid #e2e8f0";
+        
+        row.innerHTML = `
+            <td style="padding: 8px; font-weight: 500; color: #2d3748;">${monthName}</td>
+            <td style="padding: 8px; text-align: right; color: #4a5568;">${item.count}</td>
+            <td style="padding: 8px; text-align: right; color: #16a34a;">${formatCurrency(item.debit)}</td>
+            <td style="padding: 8px; text-align: right; color: #e53e3e;">${formatCurrency(item.credit)}</td>
+            <td style="padding: 8px; text-align: right; font-weight: bold; color: #2d3748;">${formatCurrency(cumulativeBalance)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    modal.classList.remove("hidden");
+}
+
+// -------------------------------------------------------------
+// XML EXPORTER AND EXIT HANDLERS
+// -------------------------------------------------------------
+function exportReviewXML() {
+    if (!reviewState.xmlDoc) {
+        alert("No active XML document loaded.");
+        return;
+    }
+    
+    // Serialise DOM object back to text
+    const serializer = new XMLSerializer();
+    const xmlString = serializer.serializeToString(reviewState.xmlDoc);
+    
+    const exportName = reviewState.originalFileName.endsWith(".xml") ?
+        reviewState.originalFileName :
+        "tally_review_desk_export.xml";
+        
+    // Trigger browser blob download
+    const blob = new Blob([xmlString], { type: "text/xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function openExitConfirmation() {
+    // Escape or X click opens Exit Confirmation Dialog modal
+    const exitModal = document.getElementById("review-modal-exit-confirm");
+    if (exitModal) {
+        exitModal.classList.remove("hidden");
+    }
+}
+
+function closeExitConfirmation() {
+    const exitModal = document.getElementById("review-modal-exit-confirm");
+    if (exitModal) {
+        exitModal.classList.add("hidden");
+    }
+    // Refocus data grid viewport
+    document.getElementById("review-virtual-viewport").focus();
+}
+
+function confirmExitReview(action) {
+    if (action === "export") {
+        // Save work by triggering download first
+        exportReviewXML();
+        setTimeout(() => {
+            window.location.href = "/";
+        }, 1500);
+    } else if (action === "exit") {
+        // Exit without saving modifications
+        window.location.href = "/";
+    }
+}

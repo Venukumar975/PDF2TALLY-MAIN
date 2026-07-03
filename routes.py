@@ -1,4 +1,5 @@
 import os
+import json
 import io
 import re
 import tempfile
@@ -62,6 +63,10 @@ def activate_page():
     if status["activated"]:
         return redirect("/")
     return render_template("index.html")  # SPA handles rendering based on license status
+
+@routes_bp.route("/review")
+def review_desk():
+    return render_template("review.html")
 
 # -------------------------------------------------------------
 # LICENSE API
