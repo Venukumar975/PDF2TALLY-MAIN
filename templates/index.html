@@ -9,6 +9,30 @@
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
     </style>
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        /* Tally selected row golden highlight */
+        .review-row.tally-selected {
+            background-color: rgba(254, 211, 48, 0.45) !important; /* Golden highlight style */
+            color: #222222 !important;
+        }
+        .review-row:hover {
+            background-color: #f1f5f9;
+        }
+        /* Autocomplete dropdown styles */
+        .ledger-autocomplete-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eeeeee;
+            font-size: 0.8rem;
+            color: #333333;
+            background: #ffffff;
+            text-align: left;
+        }
+        .ledger-autocomplete-item:hover, .ledger-autocomplete-item.active {
+            background-color: #002d5a;
+            color: #ffffff;
+        }
+    </style>
 </head>
 <body>
 
@@ -161,6 +185,10 @@
                 <a href="#bank-tab" class="nav-item active" onclick="switchTab('bank-tab')">
                     <span class="nav-icon"></span>
                     <span>Bank Statement</span>
+                </a>
+                <a href="#review-tab" class="nav-item" onclick="switchTab('review-tab')">
+                    <span class="nav-icon"></span>
+                    <span>Review Desk</span>
                 </a>
                 <a href="#cash-tab" class="nav-item" onclick="switchTab('cash-tab')">
                     <span class="nav-icon"></span>
@@ -425,6 +453,158 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <!-- SECTION: VOUCHER REVIEW DESK -->
+            <section id="review-tab" class="tab-pane hidden animate-fade-in" style="padding: 0; display: flex; flex-direction: column; height: calc(100vh - 64px); background: #ffffff; color: #333333; position: relative;">
+                
+                <!-- TALLY HEADER -->
+                <div class="tally-header" style="background: #002d5a; color: #ffffff; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; border-bottom: 2px solid #005ea5; flex-shrink: 0;">
+                    <div style="font-weight: bold; letter-spacing: 0.5px;">Voucher Review Desk</div>
+                    <div style="display: flex; gap: 20px;">
+                        <span id="review-imported-filename" style="color: #a5d8ff;">Imported XML: None</span>
+                        <span id="review-bank-profile" style="color: #a5d8ff;">Bank: Unspecified</span>
+                        <span id="review-current-period" style="color: #a5d8ff;">Period: Full Range</span>
+                    </div>
+                </div>
+
+                <!-- MAIN WORKSPACE WORK AREA -->
+                <div style="display: flex; flex: 1; min-height: 0; position: relative; background: #ffffff;">
+                    
+                    <!-- LEFT COLUMN: MAIN VOUCHER DESK & BULK ACTIONS -->
+                    <div style="flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #dcdcdc; padding: 10px;">
+                        
+                        <!-- Import dropzone block if no file loaded -->
+                        <div id="review-import-zone" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px dashed #002d5a; border-radius: 8px; margin: 10px; background: #f8fafc; cursor: pointer; text-align: center; padding: 20px; transition: all 0.2s;">
+                            <input type="file" id="review-file-input" accept=".xml" class="hidden" onchange="handleReviewXMLSelect(event)">
+                            <div onclick="document.getElementById('review-file-input').click();">
+                                <span style="font-size: 3rem; color: #002d5a;">📂</span>
+                                <h3 style="color: #002d5a; margin: 10px 0 5px 0; font-size: 1.15rem;">Import Tally XML</h3>
+                                <p style="color: #64748b; font-size: 0.85rem; max-width: 320px; margin: 0 auto;">Drag & drop your generated Tally XML file here or click to browse</p>
+                            </div>
+                        </div>
+
+                        <!-- Virtualized Table Viewport -->
+                        <div id="review-table-container" class="hidden" style="flex: 1; display: flex; flex-direction: column; min-height: 0; background: #ffffff; border: 1px solid #cccccc; border-radius: 4px; overflow: hidden; position: relative;">
+                            
+                            <!-- Header labels -->
+                            <div style="display: flex; background: #e6f2ff; font-weight: bold; border-bottom: 1px solid #cccccc; font-size: 0.78rem; text-transform: uppercase; color: #002d5a; flex-shrink: 0; user-select: none; z-index: 10;">
+                                <div id="col-header-date" style="width: 10%; padding: 8px; border-right: 1px solid #cccccc;">Date</div>
+                                <div id="col-header-particulars" style="flex: 1; padding: 8px; border-right: 1px solid #cccccc; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Particulars (Current Ledger)</div>
+                                <div id="col-header-narration" style="width: 25%; padding: 8px; border-right: 1px solid #cccccc; display: none;">Narration</div>
+                                <div id="col-header-vchtype" style="width: 12%; padding: 8px; border-right: 1px solid #cccccc;">Vch Type</div>
+                                <div id="col-header-vchno" style="width: 10%; padding: 8px; border-right: 1px solid #cccccc;">Vch No.</div>
+                                <div id="col-header-debit" style="width: 14%; padding: 8px; border-right: 1px solid #cccccc; text-align: right;">Debit</div>
+                                <div id="col-header-credit" style="width: 14%; padding: 8px; text-align: right;">Credit</div>
+                            </div>
+                            
+                            <!-- Virtualized Viewport Scroll Area -->
+                            <div id="review-virtual-viewport" onscroll="onReviewTableScroll()" style="flex: 1; overflow-y: auto; position: relative; outline: none; background: #ffffff;" tabindex="0">
+                                <!-- Tall Spacer that gives correct scrollbar height -->
+                                <div id="review-virtual-spacer" style="width: 100%; position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none;"></div>
+                                <!-- Visible Rows Container -->
+                                <div id="review-virtual-content" style="width: 100%; position: absolute; top: 0; left: 0; z-index: 2;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Bulk replacement actions panel -->
+                        <div id="review-bulk-actions" class="hidden" style="margin-top: 10px; padding: 12px; background: #f0f4f8; border: 1px solid #cccccc; border-radius: 6px; display: flex; align-items: center; gap: 15px; flex-shrink: 0; font-size: 0.82rem; z-index: 100;">
+                            <div>Selected Vouchers: <strong id="review-selected-count" style="color: #002d5a; font-size: 0.95rem;">0</strong></div>
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px; position: relative;">
+                                <label for="review-replace-ledger-input" style="font-weight: 500;">Replace Ledger:</label>
+                                <div style="position: relative; flex: 1;">
+                                    <input type="text" id="review-replace-ledger-input" onfocus="showLedgerAutocomplete()" oninput="filterLedgerAutocomplete()" placeholder="Search or type ledger name..." style="width: 100%; padding: 6px 10px; border: 1px solid #cccccc; border-radius: 4px; background: #ffffff; color: #333333; font-size: 0.82rem; box-sizing: border-box;" autocomplete="off">
+                                    <!-- Autocomplete suggestions dropdown -->
+                                    <div id="review-ledger-autocomplete-list" class="hidden" style="position: absolute; bottom: 100%; left: 0; right: 0; background: #ffffff; border: 1px solid #bbbbbb; box-shadow: 0 -2px 10px rgba(0,0,0,0.15); max-height: 180px; overflow-y: auto; z-index: 999; border-radius: 4px; margin-bottom: 4px;"></div>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="applyBulkLedgerReplacement()" style="padding: 6px 16px; font-size: 0.8rem;">Apply</button>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: FILTER & STATS PANEL -->
+                    <div style="width: 280px; flex-shrink: 0; display: flex; flex-direction: column; padding: 10px; gap: 12px; font-size: 0.82rem; border-left: 1px solid #dcdcdc; background: #fafafa;">
+                        
+                        <!-- Panel 1: Statistics -->
+                        <div style="border: 1px solid #cccccc; border-radius: 6px; padding: 12px; background: #fcfcfc;">
+                            <h4 style="margin: 0 0 10px 0; color: #002d5a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; font-size: 0.88rem;">Statistics</h4>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>Total Vouchers:</span>
+                                    <strong id="review-stat-total">0</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; color: #2ecc71;">
+                                    <span>Modified Vouchers:</span>
+                                    <strong id="review-stat-modified">0</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; color: #e74c3c;">
+                                    <span>Suspense Remaining:</span>
+                                    <strong id="review-stat-suspense">0</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel 2: Filters -->
+                        <div style="border: 1px solid #cccccc; border-radius: 6px; padding: 12px; background: #fcfcfc; display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow-y: auto;">
+                            <h4 style="margin: 0; color: #002d5a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; font-size: 0.88rem;">Filters</h4>
+                            
+                            <!-- Status Filter -->
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-weight: 500; margin-bottom: 4px; display: block;">Status Filter</label>
+                                <select id="review-filter-status" onchange="applyReviewFilters()" style="width: 100%; padding: 6px; border: 1px solid #cccccc; border-radius: 4px; background: #ffffff; color: #333333; font-size: 0.8rem;">
+                                    <option value="all">All</option>
+                                    <option value="suspense" selected>Only Suspense</option>
+                                    <option value="modified">Only Modified</option>
+                                </select>
+                            </div>
+
+                            <!-- Current Ledger Filter -->
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-weight: 500; margin-bottom: 4px; display: block;">Ledger Filter</label>
+                                <select id="review-filter-ledger" onchange="applyReviewFilters()" style="width: 100%; padding: 6px; border: 1px solid #cccccc; border-radius: 4px; background: #ffffff; color: #333333; font-size: 0.8rem;">
+                                    <option value="all">All Ledgers</option>
+                                </select>
+                            </div>
+
+                            <!-- Period Filter -->
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-weight: 500; margin-bottom: 4px; display: block;">Period Filter</label>
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                    <input type="date" id="review-filter-from-date" onchange="applyReviewFilters()" style="width: 100%; padding: 4px; border: 1px solid #cccccc; border-radius: 4px; font-size: 0.78rem; box-sizing: border-box;">
+                                    <span>to</span>
+                                    <input type="date" id="review-filter-to-date" onchange="applyReviewFilters()" style="width: 100%; padding: 4px; border: 1px solid #cccccc; border-radius: 4px; font-size: 0.78rem; box-sizing: border-box;">
+                                </div>
+                            </div>
+
+                            <!-- Narration Toggle -->
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; user-select: none;">
+                                <input type="checkbox" id="review-toggle-narration" onchange="toggleReviewNarrationColumn()" style="cursor: pointer;">
+                                <label for="review-toggle-narration" style="cursor: pointer; font-weight: 500;">Show Narrations</label>
+                            </div>
+
+                            <!-- Narration Substring Search -->
+                            <div class="form-group" style="margin-bottom: 0; margin-top: 4px;">
+                                <label style="font-weight: 500; margin-bottom: 4px; display: block;">Search Narration</label>
+                                <input type="text" id="review-search-narration" oninput="applyReviewFilters()" placeholder="Type keyword (e.g. RAHUL)..." style="width: 100%; padding: 6px; border: 1px solid #cccccc; border-radius: 4px; background: #ffffff; color: #333333; font-size: 0.8rem; box-sizing: border-box;">
+                            </div>
+                        </div>
+
+                        <!-- Panel 3: Export/Clear buttons -->
+                        <div style="display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;">
+                            <button id="btn-review-export" class="btn btn-primary btn-block" onclick="exportReviewXML()" style="padding: 10px;">Export Updated XML</button>
+                            <button class="btn btn-secondary btn-block" onclick="clearReviewDesk()" style="padding: 10px;">Clear Review Desk</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TALLY FOOTER STATUS BAR -->
+                <div class="tally-footer" style="background: #002d5a; color: #ffffff; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; border-top: 2px solid #005ea5; flex-shrink: 0; user-select: none;">
+                    <div>Loaded: <span id="review-footer-loaded" style="font-weight: bold; color: #a5d8ff;">0</span></div>
+                    <div>Showing: <span id="review-footer-showing" style="font-weight: bold; color: #a5d8ff;">0</span></div>
+                    <div>Selected: <span id="review-footer-selected" style="font-weight: bold; color: #a5d8ff;">0</span></div>
+                    <div>Modified: <span id="review-footer-modified" style="font-weight: bold; color: #2ecc71;">0</span></div>
+                    <div>Remaining Suspense: <span id="review-footer-suspense" style="font-weight: bold; color: #e74c3c;">0</span></div>
                 </div>
             </section>
 

@@ -2102,3 +2102,668 @@ function buildDynamicMonthlySummary() {
         tbody.appendChild(tr);
     });
 }
+
+// ==========================================
+// VOUCHER REVIEW DESK MODULE (OFFLINE-FIRST)
+// ==========================================
+
+const reviewState = {
+    xmlDoc: null,
+    originalFileName: "",
+    vouchers: [],
+    filteredVouchers: [],
+    selectedIds: new Set(),
+    focusedIndex: -1,
+    lastSelectedIndex: -1,
+    rowHeight: 35,
+    visibleCount: 15,
+    showNarration: false,
+    ledgerCache: {}
+};
+
+// Initialize Drag & Drop and Local Storage Cache
+document.addEventListener("DOMContentLoaded", () => {
+    // Load local storage ledger mappings cache
+    try {
+        const stored = localStorage.getItem("ledger_mapping_cache");
+        if (stored) {
+            reviewState.ledgerCache = JSON.parse(stored);
+        }
+    } catch (e) {
+        console.error("Failed to load ledger cache:", e);
+    }
+    
+    // Set up drag & drop hooks
+    setupReviewDragAndDrop();
+    
+    // Bind Keyboard event listener for virtual viewport
+    const viewport = document.getElementById("review-virtual-viewport");
+    if (viewport) {
+        viewport.addEventListener("keydown", onReviewTableKeydown);
+    }
+    
+    // Autocomplete list close on click outside
+    document.addEventListener("click", (e) => {
+        const autocompleteList = document.getElementById("review-ledger-autocomplete-list");
+        const replaceInput = document.getElementById("review-replace-ledger-input");
+        if (autocompleteList && e.target !== replaceInput && !autocompleteList.contains(e.target)) {
+            autocompleteList.classList.add("hidden");
+        }
+    });
+});
+
+function setupReviewDragAndDrop() {
+    const zone = document.getElementById("review-import-zone");
+    if (!zone) return;
+    
+    ["dragenter", "dragover"].forEach(evtName => {
+        zone.addEventListener(evtName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            zone.style.background = "#e6f2ff";
+            zone.style.borderColor = "#005ea5";
+        }, false);
+    });
+    
+    ["dragleave", "drop"].forEach(evtName => {
+        zone.addEventListener(evtName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            zone.style.background = "#f8fafc";
+            zone.style.borderColor = "#002d5a";
+        }, false);
+    });
+    
+    zone.addEventListener("drop", (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0 && files[0].name.toLowerCase().endsWith(".xml")) {
+            loadReviewXML(files[0]);
+        } else {
+            alert("Please drop a valid Tally XML file.");
+        }
+    }, false);
+}
+
+function handleReviewXMLSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        loadReviewXML(file);
+    }
+}
+
+function loadReviewXML(file) {
+    reviewState.originalFileName = file.name;
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const parser = new DOMParser();
+        let xmlDoc;
+        try {
+            xmlDoc = parser.parseFromString(text, "text/xml");
+            
+            // Check parsing errors
+            const parserError = xmlDoc.querySelector("parsererror");
+            if (parserError) {
+                alert("Error parsing XML: " + parserError.textContent);
+                return;
+            }
+        } catch (err) {
+            alert("Error reading XML file: " + err.message);
+            return;
+        }
+        
+        reviewState.xmlDoc = xmlDoc;
+        
+        const voucherNodes = xmlDoc.getElementsByTagName("VOUCHER");
+        reviewState.vouchers = [];
+        reviewState.selectedIds.clear();
+        reviewState.focusedIndex = -1;
+        reviewState.lastSelectedIndex = -1;
+        
+        let bankName = "Unknown Bank";
+        const uniqueLedgers = new Set();
+        
+        for (let i = 0; i < voucherNodes.length; i++) {
+            const node = voucherNodes[i];
+            const dateVal = node.querySelector("DATE")?.textContent || "";
+            const vchType = node.querySelector("VOUCHERTYPENAME")?.textContent || "";
+            const vchNo = node.querySelector("VOUCHERNUMBER")?.textContent || "";
+            const narration = node.querySelector("NARRATION")?.textContent || "";
+            
+            // Query ledger list entries
+            const entries = node.querySelectorAll("ALLLEDGERENTRIES\\.LIST, LEDGERENTRIES\\.LIST");
+            let particulars = "Suspense";
+            let amount = 0.0;
+            let type = "DEBIT";
+            
+            entries.forEach(ent => {
+                const ledger = ent.querySelector("LEDGERNAME")?.textContent || "";
+                uniqueLedgers.add(ledger);
+                
+                const rawAmt = parseFloat(ent.querySelector("AMOUNT")?.textContent || "0");
+                
+                // Particulars is the non-bank ledger.
+                const isBankName = /bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(ledger);
+                if (isBankName) {
+                    bankName = ledger;
+                } else {
+                    particulars = ledger;
+                    amount = Math.abs(rawAmt);
+                    const deemedPos = ent.querySelector("ISDEEMEDPOSITIVE")?.textContent || "";
+                    type = (deemedPos === "Yes") ? "DEBIT" : "CREDIT";
+                }
+            });
+            
+            let displayDate = dateVal;
+            if (dateVal.length === 8) {
+                displayDate = `${dateVal.substring(6, 8)}-${dateVal.substring(4, 6)}-${dateVal.substring(0, 4)}`;
+            }
+            
+            reviewState.vouchers.push({
+                id: i,
+                date: displayDate,
+                rawDate: dateVal,
+                particulars: particulars,
+                vchType: vchType,
+                vchNo: vchNo,
+                debit: (type === "DEBIT") ? amount : 0.0,
+                credit: (type === "CREDIT") ? amount : 0.0,
+                narration: narration,
+                originalNode: node,
+                modified: false
+            });
+        }
+        
+        // Populate header details
+        document.getElementById("review-imported-filename").textContent = `Imported XML: ${file.name}`;
+        document.getElementById("review-bank-profile").textContent = `Bank: ${bankName}`;
+        
+        // Find date range
+        if (reviewState.vouchers.length > 0) {
+            const sortedDates = [...reviewState.vouchers]
+                .map(v => v.rawDate)
+                .filter(d => d.length === 8)
+                .sort();
+            
+            if (sortedDates.length > 0) {
+                const minD = sortedDates[0];
+                const maxD = sortedDates[sortedDates.length - 1];
+                
+                const fromStr = `${minD.substring(0, 4)}-${minD.substring(4, 6)}-${minD.substring(6, 8)}`;
+                const toStr = `${maxD.substring(0, 4)}-${maxD.substring(4, 6)}-${maxD.substring(6, 8)}`;
+                
+                document.getElementById("review-filter-from-date").value = fromStr;
+                document.getElementById("review-filter-to-date").value = toStr;
+                
+                document.getElementById("review-current-period").textContent = `Period: ${minD.substring(6, 8)}/${minD.substring(4, 6)} to ${maxD.substring(6, 8)}/${maxD.substring(4, 6)}`;
+            }
+        }
+        
+        // Populate ledger dropdown list
+        const ledgerSelect = document.getElementById("review-filter-ledger");
+        if (ledgerSelect) {
+            ledgerSelect.innerHTML = '<option value="all">All Ledgers</option>';
+            // Add unique sorted ledgers
+            Array.from(uniqueLedgers).sort().forEach(led => {
+                const opt = document.createElement("option");
+                opt.value = led;
+                opt.textContent = led;
+                ledgerSelect.appendChild(opt);
+            });
+        }
+        
+        // Update elements visibility
+        document.getElementById("review-import-zone").classList.add("hidden");
+        document.getElementById("review-table-container").classList.remove("hidden");
+        document.getElementById("review-bulk-actions").classList.remove("hidden");
+        
+        // Process default filters & render
+        applyReviewFilters();
+        
+        // Auto focus scroll area
+        setTimeout(() => {
+            const viewport = document.getElementById("review-virtual-viewport");
+            if (viewport) viewport.focus();
+        }, 100);
+    };
+    
+    reader.readAsText(file);
+}
+
+function toggleReviewNarrationColumn() {
+    const chk = document.getElementById("review-toggle-narration");
+    const isChecked = chk ? chk.checked : false;
+    reviewState.showNarration = isChecked;
+    
+    // Toggle header column
+    const narrationHeader = document.getElementById("col-header-narration");
+    if (narrationHeader) {
+        narrationHeader.style.display = isChecked ? "block" : "none";
+    }
+    
+    onReviewTableScroll();
+}
+
+function applyReviewFilters() {
+    const statusVal = document.getElementById("review-filter-status").value;
+    const ledgerVal = document.getElementById("review-filter-ledger").value;
+    const searchVal = document.getElementById("review-search-narration").value.toLowerCase().trim();
+    
+    const fromVal = document.getElementById("review-filter-from-date").value.replace(/-/g, "");
+    const toVal = document.getElementById("review-filter-to-date").value.replace(/-/g, "");
+    
+    reviewState.filteredVouchers = reviewState.vouchers.filter(vch => {
+        // 1. Status filter
+        if (statusVal === "suspense" && !vch.particulars.toLowerCase().includes("suspense")) {
+            return false;
+        }
+        if (statusVal === "modified" && !vch.modified) {
+            return false;
+        }
+        
+        // 2. Ledger filter
+        if (ledgerVal !== "all" && vch.particulars !== ledgerVal) {
+            return false;
+        }
+        
+        // 3. Date range filter
+        if (fromVal && vch.rawDate < fromVal) return false;
+        if (toVal && vch.rawDate > toVal) return false;
+        
+        // 4. Substring Narration filter
+        if (searchVal && !vch.narration.toLowerCase().includes(searchVal)) {
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // Reset focus index if it exceeds length
+    if (reviewState.focusedIndex >= reviewState.filteredVouchers.length) {
+        reviewState.focusedIndex = reviewState.filteredVouchers.length - 1;
+    }
+    
+    updateReviewStats();
+    onReviewTableScroll();
+}
+
+function updateReviewStats() {
+    const total = reviewState.vouchers.length;
+    const modified = reviewState.vouchers.filter(v => v.modified).length;
+    const remainingSuspense = reviewState.vouchers.filter(v => !v.modified && v.particulars.toLowerCase().includes("suspense")).length;
+    
+    // Statistics panel
+    document.getElementById("review-stat-total").textContent = total;
+    document.getElementById("review-stat-modified").textContent = modified;
+    document.getElementById("review-stat-suspense").textContent = remainingSuspense;
+    
+    // Footer status bar
+    document.getElementById("review-footer-loaded").textContent = total;
+    document.getElementById("review-footer-showing").textContent = reviewState.filteredVouchers.length;
+    document.getElementById("review-footer-selected").textContent = reviewState.selectedIds.size;
+    document.getElementById("review-footer-modified").textContent = modified;
+    document.getElementById("review-footer-suspense").textContent = remainingSuspense;
+    
+    // Selected count on actions panel
+    document.getElementById("review-selected-count").textContent = reviewState.selectedIds.size;
+}
+
+function onReviewTableScroll() {
+    const viewport = document.getElementById("review-virtual-viewport");
+    const spacer = document.getElementById("review-virtual-spacer");
+    const content = document.getElementById("review-virtual-content");
+    
+    if (!viewport || !spacer || !content) return;
+    
+    const count = reviewState.filteredVouchers.length;
+    spacer.style.height = `${count * reviewState.rowHeight}px`;
+    
+    const scrollTop = viewport.scrollTop;
+    const viewportHeight = viewport.clientHeight;
+    reviewState.visibleCount = Math.ceil(viewportHeight / reviewState.rowHeight);
+    
+    const startIndex = Math.max(0, Math.floor(scrollTop / reviewState.rowHeight) - 2);
+    const endIndex = Math.min(count, startIndex + reviewState.visibleCount + 5);
+    
+    let html = "";
+    for (let i = startIndex; i < endIndex; i++) {
+        const vch = reviewState.filteredVouchers[i];
+        const isSelected = reviewState.selectedIds.has(vch.id);
+        const isFocused = (reviewState.focusedIndex === i);
+        
+        const bgClass = isSelected ? "tally-selected" : "";
+        const borderStyle = isFocused ? "outline: 2px solid #002d5a; outline-offset: -2px; z-index: 5;" : "";
+        
+        const debitText = vch.debit > 0 ? formatCurrency(vch.debit) : "-";
+        const creditText = vch.credit > 0 ? formatCurrency(vch.credit) : "-";
+        
+        const modStyle = vch.modified ? "color: #2ecc71; font-weight: bold;" : "";
+        
+        html += `
+            <div class="review-row ${bgClass}" onclick="onReviewRowClick(event, ${i})" style="display: flex; height: ${reviewState.rowHeight}px; align-items: center; border-bottom: 1px solid #eeeeee; font-size: 0.78rem; position: absolute; top: ${i * reviewState.rowHeight}px; left: 0; right: 0; cursor: pointer; user-select: none; ${borderStyle} ${modStyle}">
+                <div style="width: 10%; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap;">${vch.date}</div>
+                <div style="flex: 1; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500;">${vch.particulars}</div>
+                <div style="width: 25%; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: ${reviewState.showNarration ? 'block' : 'none'};">${vch.narration}</div>
+                <div style="width: 12%; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap;">${vch.vchType}</div>
+                <div style="width: 10%; padding: 6px 8px; border-right: 1px solid #eeeeee; overflow: hidden; white-space: nowrap;">${vch.vchNo}</div>
+                <div style="width: 14%; padding: 6px 8px; border-right: 1px solid #eeeeee; text-align: right; overflow: hidden; white-space: nowrap; color: #10b981;">${debitText}</div>
+                <div style="width: 14%; padding: 6px 8px; text-align: right; overflow: hidden; white-space: nowrap; color: #ef4444;">${creditText}</div>
+            </div>
+        `;
+    }
+    
+    content.innerHTML = html;
+}
+
+function onReviewRowClick(event, index) {
+    const vch = reviewState.filteredVouchers[index];
+    if (!vch) return;
+    
+    if (event.ctrlKey) {
+        // Toggle selection
+        if (reviewState.selectedIds.has(vch.id)) {
+            reviewState.selectedIds.delete(vch.id);
+        } else {
+            reviewState.selectedIds.add(vch.id);
+        }
+    } else if (event.shiftKey && reviewState.lastSelectedIndex !== -1) {
+        // Range selection
+        reviewState.selectedIds.clear();
+        const start = Math.min(reviewState.lastSelectedIndex, index);
+        const end = Math.max(reviewState.lastSelectedIndex, index);
+        for (let i = start; i <= end; i++) {
+            const item = reviewState.filteredVouchers[i];
+            if (item) reviewState.selectedIds.add(item.id);
+        }
+    } else {
+        // Single selection
+        reviewState.selectedIds.clear();
+        reviewState.selectedIds.add(vch.id);
+    }
+    
+    reviewState.focusedIndex = index;
+    reviewState.lastSelectedIndex = index;
+    
+    updateReviewStats();
+    onReviewTableScroll();
+}
+
+function onReviewTableKeydown(e) {
+    const count = reviewState.filteredVouchers.length;
+    if (count === 0) return;
+    
+    let nextIndex = reviewState.focusedIndex;
+    let handled = false;
+    
+    switch (e.key) {
+        case "ArrowDown":
+            nextIndex = Math.min(count - 1, reviewState.focusedIndex + 1);
+            if (nextIndex !== reviewState.focusedIndex) {
+                if (e.shiftKey) {
+                    const currVch = reviewState.filteredVouchers[nextIndex];
+                    if (currVch) reviewState.selectedIds.add(currVch.id);
+                } else {
+                    reviewState.selectedIds.clear();
+                    const currVch = reviewState.filteredVouchers[nextIndex];
+                    if (currVch) reviewState.selectedIds.add(currVch.id);
+                }
+            }
+            handled = true;
+            break;
+            
+        case "ArrowUp":
+            nextIndex = Math.max(0, reviewState.focusedIndex - 1);
+            if (nextIndex !== reviewState.focusedIndex) {
+                if (e.shiftKey) {
+                    const currVch = reviewState.filteredVouchers[nextIndex];
+                    if (currVch) reviewState.selectedIds.add(currVch.id);
+                } else {
+                    reviewState.selectedIds.clear();
+                    const currVch = reviewState.filteredVouchers[nextIndex];
+                    if (currVch) reviewState.selectedIds.add(currVch.id);
+                }
+            }
+            handled = true;
+            break;
+            
+        case "PageDown":
+            nextIndex = Math.min(count - 1, reviewState.focusedIndex + reviewState.visibleCount);
+            reviewState.selectedIds.clear();
+            const pdVch = reviewState.filteredVouchers[nextIndex];
+            if (pdVch) reviewState.selectedIds.add(pdVch.id);
+            handled = true;
+            break;
+            
+        case "PageUp":
+            nextIndex = Math.max(0, reviewState.focusedIndex - reviewState.visibleCount);
+            reviewState.selectedIds.clear();
+            const puVch = reviewState.filteredVouchers[nextIndex];
+            if (puVch) reviewState.selectedIds.add(puVch.id);
+            handled = true;
+            break;
+            
+        case "Home":
+            nextIndex = 0;
+            reviewState.selectedIds.clear();
+            const hVch = reviewState.filteredVouchers[nextIndex];
+            if (hVch) reviewState.selectedIds.add(hVch.id);
+            handled = true;
+            break;
+            
+        case "End":
+            nextIndex = count - 1;
+            reviewState.selectedIds.clear();
+            const eVch = reviewState.filteredVouchers[nextIndex];
+            if (eVch) reviewState.selectedIds.add(eVch.id);
+            handled = true;
+            break;
+            
+        case "Escape":
+            reviewState.selectedIds.clear();
+            updateReviewStats();
+            onReviewTableScroll();
+            handled = true;
+            break;
+            
+        case "Enter":
+            const replInput = document.getElementById("review-replace-ledger-input");
+            if (replInput) {
+                replInput.focus();
+                replInput.select();
+            }
+            handled = true;
+            break;
+    }
+    
+    if (handled) {
+        e.preventDefault();
+        reviewState.focusedIndex = nextIndex;
+        if (!e.shiftKey) {
+            reviewState.lastSelectedIndex = nextIndex;
+        }
+        
+        // Scroll item into view
+        const viewport = document.getElementById("review-virtual-viewport");
+        if (viewport) {
+            const topBoundary = viewport.scrollTop;
+            const bottomBoundary = topBoundary + viewport.clientHeight;
+            const itemTop = nextIndex * reviewState.rowHeight;
+            const itemBottom = itemTop + reviewState.rowHeight;
+            
+            if (itemTop < topBoundary) {
+                viewport.scrollTop = itemTop;
+            } else if (itemBottom > bottomBoundary) {
+                viewport.scrollTop = itemBottom - viewport.clientHeight;
+            }
+        }
+        
+        updateReviewStats();
+        onReviewTableScroll();
+    }
+}
+
+// Autocomplete suggestions for Bulk ledger replacement
+function showLedgerAutocomplete() {
+    const list = document.getElementById("review-ledger-autocomplete-list");
+    if (!list) return;
+    
+    const options = new Set(["Suspense", "Cash", "Sales", "Expenses", "Food Expenses", "Office Expenses", "Purchases"]);
+    
+    reviewState.vouchers.forEach(v => {
+        if (v.particulars) options.add(v.particulars);
+    });
+    
+    Object.values(reviewState.ledgerCache).forEach(led => {
+        options.add(led);
+    });
+    
+    const sorted = Array.from(options).sort();
+    
+    let html = "";
+    sorted.forEach(opt => {
+        html += `<div class="ledger-autocomplete-item" onclick="selectLedgerAutocomplete('${opt}')">${opt}</div>`;
+    });
+    
+    list.innerHTML = html;
+    list.classList.remove("hidden");
+}
+
+function filterLedgerAutocomplete() {
+    const inputVal = document.getElementById("review-replace-ledger-input").value.toLowerCase().trim();
+    const list = document.getElementById("review-ledger-autocomplete-list");
+    if (!list) return;
+    
+    const items = list.querySelectorAll(".ledger-autocomplete-item");
+    let matchCount = 0;
+    
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        if (text.includes(inputVal)) {
+            item.style.display = "block";
+            matchCount++;
+        } else {
+            item.style.display = "none";
+        }
+    });
+    
+    if (matchCount > 0) {
+        list.classList.remove("hidden");
+    } else {
+        list.classList.add("hidden");
+    }
+}
+
+function selectLedgerAutocomplete(val) {
+    const input = document.getElementById("review-replace-ledger-input");
+    if (input) input.value = val;
+    
+    const list = document.getElementById("review-ledger-autocomplete-list");
+    if (list) list.classList.add("hidden");
+}
+
+function applyBulkLedgerReplacement() {
+    const replInput = document.getElementById("review-replace-ledger-input");
+    if (!replInput) return;
+    
+    const targetLedger = replInput.value.trim();
+    if (!targetLedger) {
+        alert("Please enter or select a target ledger name.");
+        return;
+    }
+    
+    if (reviewState.selectedIds.size === 0) {
+        alert("No vouchers selected. Please select vouchers first.");
+        return;
+    }
+    
+    let replacedCount = 0;
+    
+    reviewState.selectedIds.forEach(id => {
+        const vch = reviewState.vouchers[id];
+        if (vch) {
+            vch.particulars = targetLedger;
+            vch.modified = true;
+            
+            // Save replacement mapping to local storage cache based on voucher narration keywords
+            if (vch.narration) {
+                const cleanWord = vch.narration.toUpperCase().replace(/[^A-Z0-9\s]/g, "").trim().split(/\s+/).slice(0, 3).join(" ");
+                if (cleanWord && cleanWord.length > 2) {
+                    reviewState.ledgerCache[cleanWord] = targetLedger;
+                }
+            }
+            
+            // Replace in XML tree node
+            const entries = vch.originalNode.querySelectorAll("ALLLEDGERENTRIES\\.LIST, LEDGERENTRIES\\.LIST");
+            entries.forEach(ent => {
+                const ledgerNode = ent.querySelector("LEDGERNAME");
+                if (ledgerNode) {
+                    const isBankName = /bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(ledgerNode.textContent);
+                    if (!isBankName) {
+                        ledgerNode.textContent = targetLedger;
+                    }
+                }
+            });
+            
+            replacedCount++;
+        }
+    });
+    
+    // Save updated mappings cache
+    try {
+        localStorage.setItem("ledger_mapping_cache", JSON.stringify(reviewState.ledgerCache));
+    } catch (e) {
+        console.error("Failed to save mappings cache:", e);
+    }
+    
+    alert(`Successfully replaced ledger in ${replacedCount} selected vouchers.`);
+    
+    // Clear selections and bulk input
+    reviewState.selectedIds.clear();
+    replInput.value = "";
+    
+    applyReviewFilters();
+}
+
+function exportReviewXML() {
+    if (!reviewState.xmlDoc) {
+        alert("No XML document loaded.");
+        return;
+    }
+    
+    const serializer = new XMLSerializer();
+    const xmlText = serializer.serializeToString(reviewState.xmlDoc);
+    
+    const blob = new Blob([xmlText], {type: "text/xml"});
+    const link = document.createElement("a");
+    const nameStr = reviewState.originalFileName.replace(/\.xml$/i, "") + "_updated.xml";
+    
+    link.href = URL.createObjectURL(blob);
+    link.download = nameStr;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function clearReviewDesk() {
+    reviewState.xmlDoc = null;
+    reviewState.originalFileName = "";
+    reviewState.vouchers = [];
+    reviewState.filteredVouchers = [];
+    reviewState.selectedIds.clear();
+    reviewState.focusedIndex = -1;
+    reviewState.lastSelectedIndex = -1;
+    
+    document.getElementById("review-imported-filename").textContent = "Imported XML: None";
+    document.getElementById("review-bank-profile").textContent = "Bank: Unspecified";
+    document.getElementById("review-current-period").textContent = "Period: Full Range";
+    document.getElementById("review-replace-ledger-input").value = "";
+    document.getElementById("review-search-narration").value = "";
+    
+    document.getElementById("review-import-zone").classList.remove("hidden");
+    document.getElementById("review-table-container").classList.add("hidden");
+    document.getElementById("review-bulk-actions").classList.add("hidden");
+    
+    updateReviewStats();
+}
