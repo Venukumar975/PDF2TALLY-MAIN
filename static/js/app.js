@@ -114,12 +114,21 @@ function switchTab(tabId) {
         }
     });
     
+    // Toggle minimized sidebar for Review Desk tab
+    const workspaceEl = document.getElementById("app-workspace");
+    if (workspaceEl) {
+        if (tabId === "review-tab") {
+            workspaceEl.classList.add("sidebar-minimized");
+        } else {
+            workspaceEl.classList.remove("sidebar-minimized");
+        }
+    }
+    
     // Specific tab loads
     if (tabId === "lexicon-tab") {
         loadLexiconManager();
     } else if (tabId === "license-tab") {
         updateLicenseTabDetails();
-    // Admin tab load logic removed
     }
 }
 
@@ -2121,17 +2130,10 @@ const reviewState = {
     ledgerCache: {}
 };
 
-// Initialize Drag & Drop and Local Storage Cache
+// Initialize Drag & Drop and Persistent JSON Cache
 document.addEventListener("DOMContentLoaded", () => {
-    // Load local storage ledger mappings cache
-    try {
-        const stored = localStorage.getItem("ledger_mapping_cache");
-        if (stored) {
-            reviewState.ledgerCache = JSON.parse(stored);
-        }
-    } catch (e) {
-        console.error("Failed to load ledger cache:", e);
-    }
+    // Load mappings cache from backend JSON file
+    loadReviewCacheFromServer();
     
     // Set up drag & drop hooks
     setupReviewDragAndDrop();
@@ -2142,15 +2144,84 @@ document.addEventListener("DOMContentLoaded", () => {
         viewport.addEventListener("keydown", onReviewTableKeydown);
     }
     
+    // Global keyboard listener for shortcuts (Tally Action Keys panel)
+    window.addEventListener("keydown", handleGlobalReviewShortcuts);
+    
     // Autocomplete list close on click outside
     document.addEventListener("click", (e) => {
-        const autocompleteList = document.getElementById("review-ledger-autocomplete-list");
-        const replaceInput = document.getElementById("review-replace-ledger-input");
-        if (autocompleteList && e.target !== replaceInput && !autocompleteList.contains(e.target)) {
-            autocompleteList.classList.add("hidden");
+        const modalList = document.getElementById("review-modal-ledger-autocomplete-list");
+        const replaceInput = document.getElementById("review-modal-new-ledger");
+        if (modalList && e.target !== replaceInput && !modalList.contains(e.target)) {
+            modalList.classList.add("hidden");
         }
     });
 });
+
+async function loadReviewCacheFromServer() {
+    try {
+        const res = await fetch("/api/review/cache");
+        const data = await res.json();
+        if (data.success) {
+            reviewState.ledgerCache = data.cache || {};
+        }
+    } catch (e) {
+        console.error("Failed to load persistent ledger cache from server:", e);
+    }
+}
+
+function handleGlobalReviewShortcuts(e) {
+    // Only intercept shortcuts when Review Desk tab is active
+    if (state.activeTab !== "review-tab" || !reviewState.xmlDoc) return;
+    
+    // Ignore if user is actively writing inside an input or select
+    if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "SELECT") {
+        // Esc key closes autocomplete or modal if active
+        if (e.key === "Escape") {
+            const openModal = document.querySelector(".tally-modal-overlay:not(.hidden)");
+            if (openModal) {
+                openModal.classList.add("hidden");
+                // Restore focus to virtual viewport
+                const viewport = document.getElementById("review-virtual-viewport");
+                if (viewport) viewport.focus();
+                e.preventDefault();
+            }
+        }
+        return;
+    }
+    
+    let handled = false;
+    
+    // Check key patterns
+    if (e.key === "F2") {
+        openPeriodModal();
+        handled = true;
+    } else if (e.key === "F4") {
+        openLedgerFilterModal();
+        handled = true;
+    } else if (e.key === "5") {
+        toggleReviewNarrationFromBtn();
+        handled = true;
+    } else if (e.key === "6") {
+        openNarrationFilterModal();
+        handled = true;
+    } else if (e.key === "y" || e.key === "Y") {
+        openReplaceLedgerModal();
+        handled = true;
+    } else if (e.key === "Escape") {
+        // Clear selections or close dialogs
+        reviewState.selectedIds.clear();
+        updateReviewStats();
+        onReviewTableScroll();
+        handled = true;
+    } else if (e.ctrlKey && (e.key === "e" || e.key === "E")) {
+        exportReviewXML();
+        handled = true;
+    }
+    
+    if (handled) {
+        e.preventDefault();
+    }
+}
 
 function setupReviewDragAndDrop() {
     const zone = document.getElementById("review-import-zone");
@@ -2294,18 +2365,17 @@ function loadReviewXML(file) {
                 const fromStr = `${minD.substring(0, 4)}-${minD.substring(4, 6)}-${minD.substring(6, 8)}`;
                 const toStr = `${maxD.substring(0, 4)}-${maxD.substring(4, 6)}-${maxD.substring(6, 8)}`;
                 
-                document.getElementById("review-filter-from-date").value = fromStr;
-                document.getElementById("review-filter-to-date").value = toStr;
+                document.getElementById("review-modal-from-date").value = fromStr;
+                document.getElementById("review-modal-to-date").value = toStr;
                 
                 document.getElementById("review-current-period").textContent = `Period: ${minD.substring(6, 8)}/${minD.substring(4, 6)} to ${maxD.substring(6, 8)}/${maxD.substring(4, 6)}`;
             }
         }
         
-        // Populate ledger dropdown list
-        const ledgerSelect = document.getElementById("review-filter-ledger");
+        // Populate ledger dropdown lists
+        const ledgerSelect = document.getElementById("review-modal-ledger-select");
         if (ledgerSelect) {
             ledgerSelect.innerHTML = '<option value="all">All Ledgers</option>';
-            // Add unique sorted ledgers
             Array.from(uniqueLedgers).sort().forEach(led => {
                 const opt = document.createElement("option");
                 opt.value = led;
@@ -2317,7 +2387,6 @@ function loadReviewXML(file) {
         // Update elements visibility
         document.getElementById("review-import-zone").classList.add("hidden");
         document.getElementById("review-table-container").classList.remove("hidden");
-        document.getElementById("review-bulk-actions").classList.remove("hidden");
         
         // Process default filters & render
         applyReviewFilters();
@@ -2332,27 +2401,31 @@ function loadReviewXML(file) {
     reader.readAsText(file);
 }
 
-function toggleReviewNarrationColumn() {
-    const chk = document.getElementById("review-toggle-narration");
-    const isChecked = chk ? chk.checked : false;
-    reviewState.showNarration = isChecked;
+function toggleReviewNarrationFromBtn() {
+    reviewState.showNarration = !reviewState.showNarration;
     
     // Toggle header column
     const narrationHeader = document.getElementById("col-header-narration");
     if (narrationHeader) {
-        narrationHeader.style.display = isChecked ? "block" : "none";
+        narrationHeader.style.display = reviewState.showNarration ? "block" : "none";
+    }
+    
+    // Toggle button text
+    const label = document.getElementById("btn-tally-narration-label");
+    if (label) {
+        label.textContent = reviewState.showNarration ? "Hide Narration" : "Show Narration";
     }
     
     onReviewTableScroll();
 }
 
 function applyReviewFilters() {
-    const statusVal = document.getElementById("review-filter-status").value;
-    const ledgerVal = document.getElementById("review-filter-ledger").value;
-    const searchVal = document.getElementById("review-search-narration").value.toLowerCase().trim();
+    const statusVal = document.getElementById("review-modal-status-select").value;
+    const ledgerVal = document.getElementById("review-modal-ledger-select").value;
+    const searchVal = document.getElementById("review-modal-narration-keyword").value.toLowerCase().trim();
     
-    const fromVal = document.getElementById("review-filter-from-date").value.replace(/-/g, "");
-    const toVal = document.getElementById("review-filter-to-date").value.replace(/-/g, "");
+    const fromVal = document.getElementById("review-modal-from-date").value.replace(/-/g, "");
+    const toVal = document.getElementById("review-modal-to-date").value.replace(/-/g, "");
     
     reviewState.filteredVouchers = reviewState.vouchers.filter(vch => {
         // 1. Status filter
@@ -2405,9 +2478,6 @@ function updateReviewStats() {
     document.getElementById("review-footer-selected").textContent = reviewState.selectedIds.size;
     document.getElementById("review-footer-modified").textContent = modified;
     document.getElementById("review-footer-suspense").textContent = remainingSuspense;
-    
-    // Selected count on actions panel
-    document.getElementById("review-selected-count").textContent = reviewState.selectedIds.size;
 }
 
 function onReviewTableScroll() {
@@ -2568,11 +2638,7 @@ function onReviewTableKeydown(e) {
             break;
             
         case "Enter":
-            const replInput = document.getElementById("review-replace-ledger-input");
-            if (replInput) {
-                replInput.focus();
-                replInput.select();
-            }
+            openReplaceLedgerModal();
             handled = true;
             break;
     }
@@ -2604,9 +2670,181 @@ function onReviewTableKeydown(e) {
     }
 }
 
-// Autocomplete suggestions for Bulk ledger replacement
-function showLedgerAutocomplete() {
-    const list = document.getElementById("review-ledger-autocomplete-list");
+// -------------------------------------------------------------
+// TALLY DIALOG POPUPS & ACTION HANDLERS
+// -------------------------------------------------------------
+
+function openPeriodModal() {
+    const modal = document.getElementById("review-modal-period");
+    if (!modal) return;
+    
+    modal.classList.remove("hidden");
+    
+    // Prefill dates from current reviewState filters
+    const fromStr = document.getElementById("review-modal-from-date");
+    
+    setTimeout(() => fromStr.focus(), 100);
+}
+
+function confirmPeriodFilter() {
+    const fromInput = document.getElementById("review-modal-from-date").value;
+    const toInput = document.getElementById("review-modal-to-date").value;
+    
+    const minD = fromInput.replace(/-/g, "");
+    const maxD = toInput.replace(/-/g, "");
+    
+    if (minD && maxD) {
+        document.getElementById("review-current-period").textContent = `Period: ${minD.substring(6, 8)}/${minD.substring(4, 6)} to ${maxD.substring(6, 8)}/${maxD.substring(4, 6)}`;
+    }
+    
+    closeReviewModal("period");
+    applyReviewFilters();
+}
+
+function openLedgerFilterModal() {
+    const modal = document.getElementById("review-modal-ledger");
+    if (!modal) return;
+    
+    modal.classList.remove("hidden");
+    
+    setTimeout(() => {
+        const select = document.getElementById("review-modal-ledger-select");
+        if (select) select.focus();
+    }, 100);
+}
+
+function confirmLedgerFilter() {
+    closeReviewModal("ledger");
+    applyReviewFilters();
+}
+
+function openNarrationFilterModal() {
+    const modal = document.getElementById("review-modal-narration");
+    if (!modal) return;
+    
+    modal.classList.remove("hidden");
+    const input = document.getElementById("review-modal-narration-keyword");
+    if (input) {
+        input.value = "";
+        setTimeout(() => input.focus(), 100);
+    }
+}
+
+function confirmNarrationFilter() {
+    closeReviewModal("narration");
+    applyReviewFilters();
+}
+
+function openReplaceLedgerModal() {
+    if (reviewState.selectedIds.size === 0) {
+        alert("Please select vouchers first.");
+        return;
+    }
+    
+    const modal = document.getElementById("review-modal-replace");
+    if (!modal) return;
+    
+    document.getElementById("review-modal-replace-count").textContent = reviewState.selectedIds.size;
+    
+    const newLedgerInput = document.getElementById("review-modal-new-ledger");
+    if (newLedgerInput) newLedgerInput.value = "";
+    
+    modal.classList.remove("hidden");
+    setTimeout(() => {
+        if (newLedgerInput) newLedgerInput.focus();
+    }, 100);
+}
+
+async function confirmReplaceLedger() {
+    const targetLedger = document.getElementById("review-modal-target-ledger").value.trim();
+    const newLedger = document.getElementById("review-modal-new-ledger").value.trim();
+    
+    if (!targetLedger || !newLedger) {
+        alert("Please specify both target and replacement ledger accounts.");
+        return;
+    }
+    
+    let replacedCount = 0;
+    
+    // Run replacement in memory
+    reviewState.selectedIds.forEach(id => {
+        const vch = reviewState.vouchers[id];
+        if (vch) {
+            // Only replace if matching target ledger (or target ledger is '*')
+            if (targetLedger === "*" || vch.particulars.toLowerCase() === targetLedger.toLowerCase()) {
+                vch.particulars = newLedger;
+                vch.modified = true;
+                
+                // Replace in XML tree node
+                const entries = vch.originalNode.querySelectorAll("ALLLEDGERENTRIES\\.LIST, LEDGERENTRIES\\.LIST");
+                entries.forEach(ent => {
+                    const ledgerNode = ent.querySelector("LEDGERNAME");
+                    if (ledgerNode && ledgerNode.textContent.toLowerCase() === targetLedger.toLowerCase()) {
+                        ledgerNode.textContent = newLedger;
+                    }
+                });
+                
+                // Persist new mapping keyword to backend JSON file
+                if (vch.narration) {
+                    const cleanWord = vch.narration.toUpperCase().replace(/[^A-Z0-9\s]/g, "").trim().split(/\s+/).slice(0, 3).join(" ");
+                    if (cleanWord && cleanWord.length > 2) {
+                        reviewState.ledgerCache[cleanWord] = newLedger;
+                        saveReviewMappingToBackend(cleanWord, newLedger);
+                    }
+                }
+                
+                replacedCount++;
+            }
+        }
+    });
+    
+    alert(`Successfully replaced ledger in ${replacedCount} vouchers.`);
+    
+    closeReviewModal("replace");
+    reviewState.selectedIds.clear();
+    
+    // Re-populate ledger filters
+    const ledgerSelect = document.getElementById("review-modal-ledger-select");
+    if (ledgerSelect) {
+        const uniqueLedgers = new Set();
+        reviewState.vouchers.forEach(v => uniqueLedgers.add(v.particulars));
+        
+        ledgerSelect.innerHTML = '<option value="all">All Ledgers</option>';
+        Array.from(uniqueLedgers).sort().forEach(led => {
+            const opt = document.createElement("option");
+            opt.value = led;
+            opt.textContent = led;
+            ledgerSelect.appendChild(opt);
+        });
+    }
+    
+    applyReviewFilters();
+}
+
+async function saveReviewMappingToBackend(keyword, ledger) {
+    try {
+        await fetch("/api/review/cache/update", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({keyword, ledger})
+        });
+    } catch (e) {
+        console.error("Failed to persist ledger mapping to server:", e);
+    }
+}
+
+function closeReviewModal(type) {
+    const modal = document.getElementById(`review-modal-${type}`);
+    if (modal) modal.classList.add("hidden");
+    
+    // Restore focus back to virtual viewport
+    const viewport = document.getElementById("review-virtual-viewport");
+    if (viewport) viewport.focus();
+}
+
+// Autocomplete suggestions inside Replace modal
+function showLedgerAutocompleteModal() {
+    const list = document.getElementById("review-modal-ledger-autocomplete-list");
     if (!list) return;
     
     const options = new Set(["Suspense", "Cash", "Sales", "Expenses", "Food Expenses", "Office Expenses", "Purchases"]);
@@ -2623,16 +2861,16 @@ function showLedgerAutocomplete() {
     
     let html = "";
     sorted.forEach(opt => {
-        html += `<div class="ledger-autocomplete-item" onclick="selectLedgerAutocomplete('${opt}')">${opt}</div>`;
+        html += `<div class="ledger-autocomplete-item" onclick="selectLedgerAutocompleteModal('${opt}')">${opt}</div>`;
     });
     
     list.innerHTML = html;
     list.classList.remove("hidden");
 }
 
-function filterLedgerAutocomplete() {
-    const inputVal = document.getElementById("review-replace-ledger-input").value.toLowerCase().trim();
-    const list = document.getElementById("review-ledger-autocomplete-list");
+function filterLedgerAutocompleteModal() {
+    const inputVal = document.getElementById("review-modal-new-ledger").value.toLowerCase().trim();
+    const list = document.getElementById("review-modal-ledger-autocomplete-list");
     if (!list) return;
     
     const items = list.querySelectorAll(".ledger-autocomplete-item");
@@ -2655,75 +2893,12 @@ function filterLedgerAutocomplete() {
     }
 }
 
-function selectLedgerAutocomplete(val) {
-    const input = document.getElementById("review-replace-ledger-input");
+function selectLedgerAutocompleteModal(val) {
+    const input = document.getElementById("review-modal-new-ledger");
     if (input) input.value = val;
     
-    const list = document.getElementById("review-ledger-autocomplete-list");
+    const list = document.getElementById("review-modal-ledger-autocomplete-list");
     if (list) list.classList.add("hidden");
-}
-
-function applyBulkLedgerReplacement() {
-    const replInput = document.getElementById("review-replace-ledger-input");
-    if (!replInput) return;
-    
-    const targetLedger = replInput.value.trim();
-    if (!targetLedger) {
-        alert("Please enter or select a target ledger name.");
-        return;
-    }
-    
-    if (reviewState.selectedIds.size === 0) {
-        alert("No vouchers selected. Please select vouchers first.");
-        return;
-    }
-    
-    let replacedCount = 0;
-    
-    reviewState.selectedIds.forEach(id => {
-        const vch = reviewState.vouchers[id];
-        if (vch) {
-            vch.particulars = targetLedger;
-            vch.modified = true;
-            
-            // Save replacement mapping to local storage cache based on voucher narration keywords
-            if (vch.narration) {
-                const cleanWord = vch.narration.toUpperCase().replace(/[^A-Z0-9\s]/g, "").trim().split(/\s+/).slice(0, 3).join(" ");
-                if (cleanWord && cleanWord.length > 2) {
-                    reviewState.ledgerCache[cleanWord] = targetLedger;
-                }
-            }
-            
-            // Replace in XML tree node
-            const entries = vch.originalNode.querySelectorAll("ALLLEDGERENTRIES\\.LIST, LEDGERENTRIES\\.LIST");
-            entries.forEach(ent => {
-                const ledgerNode = ent.querySelector("LEDGERNAME");
-                if (ledgerNode) {
-                    const isBankName = /bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(ledgerNode.textContent);
-                    if (!isBankName) {
-                        ledgerNode.textContent = targetLedger;
-                    }
-                }
-            });
-            
-            replacedCount++;
-        }
-    });
-    
-    // Save updated mappings cache
-    try {
-        localStorage.setItem("ledger_mapping_cache", JSON.stringify(reviewState.ledgerCache));
-    } catch (e) {
-        console.error("Failed to save mappings cache:", e);
-    }
-    
-    alert(`Successfully replaced ledger in ${replacedCount} selected vouchers.`);
-    
-    // Clear selections and bulk input
-    reviewState.selectedIds.clear();
-    replInput.value = "";
-    
-    applyReviewFilters();
 }
 
 function exportReviewXML() {
@@ -2758,12 +2933,15 @@ function clearReviewDesk() {
     document.getElementById("review-imported-filename").textContent = "Imported XML: None";
     document.getElementById("review-bank-profile").textContent = "Bank: Unspecified";
     document.getElementById("review-current-period").textContent = "Period: Full Range";
-    document.getElementById("review-replace-ledger-input").value = "";
-    document.getElementById("review-search-narration").value = "";
+    
+    // Clear inputs in modals
+    document.getElementById("review-modal-from-date").value = "";
+    document.getElementById("review-modal-to-date").value = "";
+    document.getElementById("review-modal-narration-keyword").value = "";
+    document.getElementById("review-modal-new-ledger").value = "";
     
     document.getElementById("review-import-zone").classList.remove("hidden");
     document.getElementById("review-table-container").classList.add("hidden");
-    document.getElementById("review-bulk-actions").classList.add("hidden");
     
     updateReviewStats();
 }

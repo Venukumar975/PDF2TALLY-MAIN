@@ -1041,3 +1041,53 @@ def api_detect_opening_balance():
         if os.path.exists(temp_path):
             os.remove(temp_path)
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+# -------------------------------------------------------------
+# PERSISTENT VOUCHER REVIEW DESK LOCAL MAPPING CACHE
+# -------------------------------------------------------------
+
+CACHE_FILE_PATH = os.path.join(os.getcwd(), "ledger_mapping_cache.json")
+
+@routes_bp.route("/api/review/cache", methods=["GET"])
+def api_get_review_cache():
+    try:
+        cache = {}
+        if os.path.exists(CACHE_FILE_PATH):
+            with open(CACHE_FILE_PATH, "r", encoding="utf-8") as f:
+                try:
+                    cache = json.load(f)
+                except Exception:
+                    cache = {}
+        return jsonify({"success": True, "cache": cache})
+    except Exception as e:
+        logger.error(f"Error loading ledger cache: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@routes_bp.route("/api/review/cache/update", methods=["POST"])
+def api_update_review_cache():
+    try:
+        data = request.get_json() or {}
+        keyword = data.get("keyword", "").upper().strip()
+        ledger = data.get("ledger", "").strip()
+        
+        if not keyword or not ledger:
+            return jsonify({"success": False, "message": "Invalid mapping entries."}), 400
+            
+        cache = {}
+        if os.path.exists(CACHE_FILE_PATH):
+            with open(CACHE_FILE_PATH, "r", encoding="utf-8") as f:
+                try:
+                    cache = json.load(f)
+                except Exception:
+                    cache = {}
+                
+        cache[keyword] = ledger
+        
+        with open(CACHE_FILE_PATH, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=4, ensure_ascii=False)
+            
+        return jsonify({"success": True, "cache": cache})
+    except Exception as e:
+        logger.error(f"Error saving ledger cache: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
