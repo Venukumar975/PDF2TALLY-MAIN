@@ -14,7 +14,6 @@ const reviewState = {
     rowHeight: 35,
     visibleCount: 15,
     showNarration: false,
-    ledgerCache: {},
     openingBalance: 0.00,
     manualOpeningBalance: null,
     uniqueLedgers: new Set(),
@@ -32,13 +31,7 @@ let autocompleteIndex = -1;
 // INITIALIZATION
 // -------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-    // Load ledger mappings cache from backend JSON
-    fetch("/api/review/cache")
-        .then(res => res.json())
-        .then(data => {
-            reviewState.ledgerCache = data || {};
-        })
-        .catch(err => console.error("Failed to load mappings cache:", err));
+
 
     // Setup drag & drop dropzone
     const dropzone = document.getElementById("review-import-zone");
@@ -212,8 +205,7 @@ function loadReviewXML(xmlString, fileName) {
             });
         }
 
-        // Apply pre-cached mappings
-        applyCacheMappings();
+
 
         // Compile narration phrase frequencies once at import
         analyzeAllVoucherPhrases();
@@ -478,25 +470,7 @@ function toggleStatsFilter(targetFilter) {
 // -------------------------------------------------------------
 // MAPPINGS CACHE APPLICATION
 // -------------------------------------------------------------
-function applyCacheMappings() {
-    let modifiedCount = 0;
-    reviewState.vouchers.forEach(vch => {
-        if (vch.particulars.toLowerCase().includes("suspense")) {
-            // Check for match in cache keys
-            for (const keyword in reviewState.ledgerCache) {
-                if (vch.narration.toLowerCase().includes(keyword.toLowerCase())) {
-                    const targetLedger = reviewState.ledgerCache[keyword];
-                    updateVoucherLedger(vch, targetLedger, true);
-                    modifiedCount++;
-                    break;
-                }
-            }
-        }
-    });
-    if (modifiedCount > 0) {
-        updateReviewStats();
-    }
-}
+
 
 // -------------------------------------------------------------
 // VOUCHER SELECTION ACTIONS
@@ -912,23 +886,10 @@ function confirmReplaceLedger() {
             if (isMatch) {
                 updateVoucherLedger(vch, newLedgerName, true);
                 
-                // Add mapping rule to cache automatically
-                // Match keyword from narration (e.g. clean description or first 3 words)
-                const narrationWords = vch.narration.trim().split(/\s+/).slice(0, 4).join(" ");
-                if (narrationWords) {
-                    reviewState.ledgerCache[narrationWords] = newLedgerName;
-                }
                 replaceCount++;
             }
         }
     });
-    
-    // Save updated mappings to backend persistent cache JSON
-    fetch("/api/review/cache/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reviewState.ledgerCache)
-    }).catch(err => console.error("Failed to save ledger cache updates:", err));
     
     closeReviewModal("replace");
     
@@ -951,11 +912,8 @@ function filterLedgerAutocompleteModal() {
     list.innerHTML = "";
     autocompleteIndex = -1;
     
-    // Options are unique ledgers from Tally XML + cached custom mappings
+    // Options are unique ledgers from Tally XML
     const options = new Set(reviewState.uniqueLedgers);
-    for (const k in reviewState.ledgerCache) {
-        options.add(reviewState.ledgerCache[k]);
-    }
     
     const matches = Array.from(options).filter(opt => opt.toLowerCase().includes(query)).sort();
     
