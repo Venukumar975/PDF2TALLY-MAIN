@@ -268,7 +268,7 @@
                 <span id="review-current-period" style="color: #a5d8ff; font-weight: normal; font-size: 0.78rem;">Period: Full Range</span>
             </div>
             <div>
-                <button class="tally-header-close" onclick="openExitConfirmation()">✖ Exit (Esc)</button>
+                <button class="tally-header-close" onclick="openExitConfirmation()">✖ Exit</button>
             </div>
         </div>
 
@@ -357,9 +357,18 @@
                     <div class="tally-btn-label">Monthly Analysis</div>
                 </button>
 
+                <button class="tally-btn-key" onclick="openAdvancedFilterModal()" style="border-color: #d97706;">
+                    <div class="tally-btn-shortcut" style="background: #d97706; color: white;">A</div>
+                    <div class="tally-btn-label" style="color: #d97706; font-weight: bold;">Advanced Filter</div>
+                </button>
+
                 <!-- Filtration Stats -->
                 <div id="review-filtration-stats" class="hidden" style="background: #f0f4f8; border: 1px solid #cbd5e0; border-radius: 4px; padding: 6px 10px; margin-top: 6px; font-size: 0.72rem; color: #2d3748; line-height: 1.3;">
                     <div style="font-weight: bold; color: #002d5a; margin-bottom: 4px; border-bottom: 1px solid #cbd5e0; padding-bottom: 2px;">Filtration Stats</div>
+                    <div id="filter-active-phrase-container" class="hidden" style="margin-bottom: 6px; background: #e0f2fe; border: 1px solid #bae6fd; padding: 4px 6px; border-radius: 3px; font-size: 0.68rem; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
+                        <span id="filter-active-phrase-label" style="font-weight: bold; color: #0369a1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px;">Phrase: abc</span>
+                        <span onclick="clearAdvancedPhraseFilter()" style="color: #ef4444; font-weight: bold; cursor: pointer; padding: 0 4px; font-size: 0.85rem; line-height: 1;">×</span>
+                    </div>
                     <div>Filtered: <strong id="filter-stat-total" style="float: right;">0</strong></div>
                     <div>Modified: <strong id="filter-stat-modified" style="float: right; color: #2ecc71;">0</strong></div>
                     <div>Suspense: <strong id="filter-stat-suspense" style="float: right; color: #e74c3c;">0</strong></div>
@@ -462,8 +471,9 @@
         <div class="tally-modal-card" style="width: 750px; max-width: 95%;">
             <div class="tally-modal-header">Monthly Analysis Summary</div>
             <div class="tally-modal-body" style="max-height: 400px; overflow-y: auto; padding: 15px;">
-                <div id="review-monthly-opbal-section" style="background: #e6f2ff; border: 1px solid #b3d7ff; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #002d5a; font-weight: 500;">
-                    Bank Opening Balance: <span id="review-monthly-opbal-val" style="float: right; font-weight: bold;">₹0.00</span>
+                <div id="review-monthly-opbal-section" style="background: #e6f2ff; border: 1px solid #b3d7ff; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #002d5a; font-weight: 500; display: flex; justify-content: space-between; align-items: center;">
+                    <span>Adjust Opening Balance (for UI verification only):</span>
+                    <input type="number" id="review-monthly-opbal-input" step="0.01" style="width: 120px; padding: 4px 8px; border: 1px solid #b3d7ff; border-radius: 4px; font-weight: bold; text-align: right; font-size: 0.85rem; background: #ffffff;" oninput="updateMonthlyAnalysisBalances()">
                 </div>
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.76rem; text-align: left; table-layout: fixed;">
                     <thead>
@@ -486,22 +496,69 @@
         </div>
     </div>
 
+    <!-- 5. ADVANCED FILTER MODAL -->
+    <div id="review-modal-advanced" class="tally-modal-overlay hidden" style="z-index: 1200;">
+        <div class="tally-modal-card" style="width: 380px;">
+            <div class="tally-modal-header" style="background: #d97706;">Advanced Narration Analysis</div>
+            <div class="tally-modal-body" style="display: flex; flex-direction: column; gap: 8px;">
+                <label for="review-modal-advanced-search">Search Phrase:</label>
+                <input type="text" id="review-modal-advanced-search" placeholder="Type search term (e.g. hotel)..." autocomplete="off" oninput="renderAdvancedPhrases()">
+                
+                <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+                    <div style="flex: 1;">
+                        <label for="review-modal-advanced-minfreq" style="margin-bottom: 2px;">Min Frequency:</label>
+                        <select id="review-modal-advanced-minfreq" onchange="renderAdvancedPhrases()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; font-size: 0.8rem; height: 32px;">
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                        </select>
+                    </div>
+                </div>
+
+                <label style="margin-top: 4px; margin-bottom: 2px;">Phrase Lengths:</label>
+                <div style="display: flex; gap: 15px; font-size: 0.78rem; align-items: center; user-select: none;">
+                    <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; cursor: pointer; color: #2d3748;">
+                        <input type="checkbox" id="review-modal-advanced-len1" checked onchange="renderAdvancedPhrases()"> Single Word
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; cursor: pointer; color: #2d3748;">
+                        <input type="checkbox" id="review-modal-advanced-len2" checked onchange="renderAdvancedPhrases()"> Two Words
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; cursor: pointer; color: #2d3748;">
+                        <input type="checkbox" id="review-modal-advanced-len3" checked onchange="renderAdvancedPhrases()"> Three Words
+                    </label>
+                </div>
+
+                <div style="border-top: 1px solid #cbd5e0; margin-top: 8px; padding-top: 8px;">
+                    <label style="margin-bottom: 4px; display: block;">Frequent Phrases:</label>
+                    <div id="review-modal-advanced-list" style="max-height: 180px; overflow-y: auto; border: 1px solid #cbd5e0; border-radius: 4px; background: #fafafa; padding: 4px; display: flex; flex-direction: column; gap: 2px; box-sizing: border-box;">
+                        <!-- Phrase list will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="tally-modal-footer">
+                <button class="btn btn-secondary" onclick="closeReviewModal('advanced')" style="font-size: 0.78rem;">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 6. EXIT CONFIRMATION MODAL -->
     <div id="review-modal-exit-confirm" class="tally-modal-overlay hidden" style="z-index: 1300;">
-        <div class="tally-modal-card" style="width: 450px;">
-            <div class="tally-modal-header" style="background: #e74c3c;">Exit Review Desk</div>
-            <div class="tally-modal-body" style="padding: 20px 15px;">
-                <p style="margin: 0; font-size: 0.9rem; font-weight: 500; color: #1a202c; line-height: 1.4;">
+        <div class="tally-modal-card" style="width: 450px; background: #e0e6ed; border: 2px solid #e74c3c;">
+            <div class="tally-modal-header" style="background: #e74c3c; border-bottom: 1px solid #c0392b;">Exit Review Desk</div>
+            <div class="tally-modal-body" style="padding: 20px 15px; background: transparent; gap: 8px;">
+                <p style="margin: 0; font-size: 0.9rem; font-weight: bold; color: #1a202c; line-height: 1.4;">
                     Are you sure you want to exit the Review Desk?
                 </p>
-                <p style="margin: 8px 0 0 0; font-size: 0.78rem; color: #718096; line-height: 1.4;">
+                <p style="margin: 8px 0 0 0; font-size: 0.78rem; color: #4a5568; line-height: 1.4; font-weight: 500;">
                     If you have made modifications, please export the updated XML first to save your changes. Discarding will lose all changes since loading.
                 </p>
             </div>
-            <div class="tally-modal-footer" style="background: #f7fafc; padding: 10px 15px; display: flex; justify-content: flex-end; gap: 8px;">
-                <button class="btn btn-secondary" onclick="closeExitConfirmation()" style="font-size: 0.78rem;">Cancel</button>
-                <button class="btn" onclick="confirmExitReview('exit')" style="background: #e74c3c; color: white; border: none; font-size: 0.78rem; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Exit Without Saving</button>
-                <button class="btn" onclick="confirmExitReview('export')" style="background: #002d5a; color: white; border: none; font-size: 0.78rem; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Save & Exit</button>
+            <div class="tally-modal-footer" style="background: transparent; padding: 12px 15px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #cbd5e0;">
+                <button class="btn" onclick="closeExitConfirmation()" style="background: #f59e0b; color: white; border: none; font-size: 0.78rem; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
+                <button class="btn" onclick="confirmExitReview('exit')" style="background: #ea580c; color: white; border: none; font-size: 0.78rem; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Exit Without Saving</button>
+                <button class="btn" onclick="confirmExitReview('export')" style="background: #16a34a; color: white; border: none; font-size: 0.78rem; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Save & Exit</button>
             </div>
         </div>
     </div>

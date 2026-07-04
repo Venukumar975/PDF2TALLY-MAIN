@@ -16,8 +16,13 @@ const reviewState = {
     showNarration: false,
     ledgerCache: {},
     openingBalance: 0.00,
+    manualOpeningBalance: null,
     uniqueLedgers: new Set(),
-    statusFilter: "suspense"
+    statusFilter: "suspense",
+    advLen1: true,
+    advLen2: true,
+    advLen3: true,
+    advMinFreq: 2
 };
 
 // Autocomplete navigation state
@@ -123,6 +128,7 @@ function loadReviewXML(xmlString, fileName) {
             }
         }
         reviewState.openingBalance = openingBalance;
+        reviewState.manualOpeningBalance = null;
         reviewState.showNarration = false;
 
         // Reset elements
@@ -209,6 +215,9 @@ function loadReviewXML(xmlString, fileName) {
         // Apply pre-cached mappings
         applyCacheMappings();
 
+        // Compile narration phrase frequencies once at import
+        analyzeAllVoucherPhrases();
+
         // Update details
         document.getElementById("review-imported-filename").textContent = `Imported XML: ${fileName}`;
         document.getElementById("review-bank-profile").textContent = `Bank: ${bankName}`;
@@ -293,6 +302,16 @@ function applyReviewFilters() {
         // Narration keyword filter
         if (narrationRegex && !narrationRegex.test(vch.narration)) {
             return false;
+        }
+
+        // Advanced phrase filter
+        if (reviewState.advancedPhraseFilter) {
+            if (!vch.normalizedNarration) {
+                vch.normalizedNarration = normalizeNarration(vch.narration);
+            }
+            if (!vch.normalizedNarration.includes(reviewState.advancedPhraseFilter)) {
+                return false;
+            }
         }
         
         return true;
@@ -413,8 +432,18 @@ function updateReviewStats() {
     const ledgerVal = document.getElementById("review-modal-ledger-select").value;
     const searchVal = document.getElementById("review-modal-narration-keyword").value.trim();
     
-    const isFiltered = (ledgerVal !== "all" || searchVal !== "" || currentStatus !== "suspense");
+    const isFiltered = (ledgerVal !== "all" || searchVal !== "" || currentStatus !== "suspense" || reviewState.advancedPhraseFilter);
     const filterStatsCard = document.getElementById("review-filtration-stats");
+    
+    // Manage active phrase badge
+    const activePhraseContainer = document.getElementById("filter-active-phrase-container");
+    const activePhraseLabel = document.getElementById("filter-active-phrase-label");
+    if (reviewState.advancedPhraseFilter) {
+        if (activePhraseLabel) activePhraseLabel.textContent = `Phrase: ${reviewState.advancedPhraseFilter}`;
+        if (activePhraseContainer) activePhraseContainer.classList.remove("hidden");
+    } else {
+        if (activePhraseContainer) activePhraseContainer.classList.add("hidden");
+    }
     
     if (isFiltered) {
         const filTotal = reviewState.filteredVouchers.length;
@@ -594,26 +623,33 @@ function handleGlobalKeydown(e) {
     } else if (e.key === "m" || e.key === "M") {
         e.preventDefault();
         openMonthlyAnalysisModal();
+    } else if (e.key === "a" || e.key === "A") {
+        e.preventDefault();
+        openAdvancedFilterModal();
     } else if (e.key === "e" && e.ctrlKey) {
         e.preventDefault();
         exportReviewXML();
     } else if (e.key === "Escape") {
         e.preventDefault();
+        
+        // First check if any active modal is open and close it
+        if (closeActiveModal()) {
+            return;
+        }
+        
         const ledgerVal = document.getElementById("review-modal-ledger-select").value;
         const searchVal = document.getElementById("review-modal-narration-keyword").value.trim();
         const currentStatus = reviewState.statusFilter || "suspense";
         
-        const isFiltered = (ledgerVal !== "all" || searchVal !== "" || currentStatus !== "suspense");
+        const isFiltered = (ledgerVal !== "all" || searchVal !== "" || currentStatus !== "suspense" || reviewState.advancedPhraseFilter);
         
         if (isFiltered) {
             // Reset all active filtrations
             document.getElementById("review-modal-narration-keyword").value = "";
             document.getElementById("review-modal-ledger-select").value = "all";
             reviewState.statusFilter = "suspense"; // Default back to Suspense only
+            reviewState.advancedPhraseFilter = null; // Clear advanced filter
             applyReviewFilters();
-        } else {
-            // Otherwise open exit confirmation
-            openExitConfirmation();
         }
     }
 }
@@ -692,8 +728,16 @@ function closeReviewModal(modalKey) {
 }
 
 function closeActiveModal() {
-    const modals = ["period", "ledger", "narration", "replace", "monthly", "exit-confirm"];
-    modals.forEach(m => closeReviewModal(m));
+    const modals = ["period", "ledger", "narration", "replace", "monthly", "advanced", "exit-confirm"];
+    let closedAny = false;
+    modals.forEach(m => {
+        const el = document.getElementById(`review-modal-${m}`);
+        if (el && !el.classList.contains("hidden")) {
+            closeReviewModal(m);
+            closedAny = true;
+        }
+    });
+    return closedAny;
 }
 
 function confirmActiveModal() {
@@ -975,10 +1019,34 @@ document.addEventListener("click", (e) => {
     }
 });
 
-// M Monthly Analysis Modal
 function openMonthlyAnalysisModal() {
     const modal = document.getElementById("review-modal-monthly");
     if (!modal) return;
+    
+    // Set initial balance input value based on current file opening balance or manual override
+    const opBalInput = document.getElementById("review-monthly-opbal-input");
+    if (opBalInput) {
+        if (reviewState.manualOpeningBalance !== null) {
+            opBalInput.value = reviewState.manualOpeningBalance;
+        } else {
+            const val = (reviewState.openingBalance !== null && reviewState.openingBalance !== undefined) ? 
+                reviewState.openingBalance : 0.00;
+            opBalInput.value = val;
+        }
+    }
+    
+    updateMonthlyAnalysisBalances();
+    modal.classList.remove("hidden");
+}
+
+function updateMonthlyAnalysisBalances() {
+    const opBalInput = document.getElementById("review-monthly-opbal-input");
+    const opBalVal = opBalInput ? (parseFloat(opBalInput.value) || 0.00) : 0.00;
+    
+    // Save to manual override state so it persists across close/reopen
+    if (opBalInput) {
+        reviewState.manualOpeningBalance = opBalVal;
+    }
     
     // Sort reviewState vouchers chronologically to roll forward balance
     const sortedVch = [...reviewState.vouchers].sort((a, b) => a.rawDate.localeCompare(b.rawDate));
@@ -996,26 +1064,16 @@ function openMonthlyAnalysisModal() {
             monthlyRollup[monthKey] = { debit: 0, credit: 0, count: 0 };
         }
         
-        monthlyRollup[monthKey].debit += vch.debit;
-        monthlyRollup[monthKey].credit += vch.credit;
+        monthlyRollup[monthKey].debit += (vch.debit || 0);
+        monthlyRollup[monthKey].credit += (vch.credit || 0);
         monthlyRollup[monthKey].count++;
     });
     
-    // Render Roll forward ledger balances above months
-    const opBalValNode = document.getElementById("review-monthly-opbal-val");
-    const opBalContainer = document.getElementById("review-monthly-opbal-section");
-    
-    if (reviewState.openingBalance !== 0 && reviewState.openingBalance !== null) {
-        opBalValNode.textContent = formatCurrency(reviewState.openingBalance);
-        opBalContainer.style.display = "block";
-    } else {
-        opBalContainer.style.display = "none";
-    }
-    
     const tbody = document.getElementById("review-monthly-table-body");
+    if (!tbody) return;
     tbody.innerHTML = "";
     
-    let cumulativeBalance = reviewState.openingBalance;
+    let cumulativeBalance = opBalVal;
     
     const sortedMonthKeys = Object.keys(monthlyRollup).sort();
     
@@ -1040,8 +1098,6 @@ function openMonthlyAnalysisModal() {
         `;
         tbody.appendChild(row);
     });
-    
-    modal.classList.remove("hidden");
 }
 
 // -------------------------------------------------------------
@@ -1101,4 +1157,183 @@ function confirmExitReview(action) {
         // Exit without saving modifications
         window.location.href = "/";
     }
+}
+
+// -------------------------------------------------------------
+// ADVANCED NARRATION ANALYSIS & PHRASE FREQUENCY FILTER
+// -------------------------------------------------------------
+
+const NARRATION_STOP_WORDS = new Set([
+    "upi", "imps", "neft", "rtgs", "txn", "txnid", "payment", "transfer",
+    "received", "receive", "credit", "credited", "debit", "debited", "bank",
+    "ref", "reference", "to", "from", "by", "via", "cr", "dr", "trf",
+    "account", "a/c", "upiid", "mobile", "transaction", "pay", "collect",
+    "merchant", "online", "offline", "cash", "atm", "fund", "number", "id", "payme"
+]);
+
+function normalizeNarration(text) {
+    if (!text) return "";
+    let clean = text.toLowerCase();
+    const separators = /[\/\\\-_\@\.\,\:\;\(\)\[\]\{\}\|\+\=\*\#\%\&\'\"\?\!\<\>]/g;
+    clean = clean.replace(separators, " ");
+    clean = clean.replace(/\s+/g, " ");
+    return clean.trim();
+}
+
+function isValidWord(word) {
+    if (!word || word.length <= 1) return false;
+    if (/^\d+$/.test(word)) return false; // ignore numeric-only
+    return !NARRATION_STOP_WORDS.has(word);
+}
+
+function generatePhrasesFromNarration(normalizedText) {
+    if (!normalizedText) return [];
+    const words = normalizedText.split(" ");
+    const phrases = [];
+    
+    for (let i = 0; i < words.length; i++) {
+        const w1 = words[i];
+        
+        // Single word
+        if (isValidWord(w1)) {
+            phrases.push(w1);
+            
+            // Two-word phrase
+            if (i + 1 < words.length) {
+                const w2 = words[i + 1];
+                if (isValidWord(w2)) {
+                    phrases.push(`${w1} ${w2}`);
+                    
+                    // Three-word phrase
+                    if (i + 2 < words.length) {
+                        const w3 = words[i + 2];
+                        if (isValidWord(w3)) {
+                            phrases.push(`${w1} ${w2} ${w3}`);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return phrases;
+}
+
+function analyzeAllVoucherPhrases() {
+    const freqMap = {};
+    const sourceSet = (reviewState.periodFilteredVouchers && reviewState.periodFilteredVouchers.length > 0) ?
+        reviewState.periodFilteredVouchers :
+        reviewState.vouchers;
+    
+    sourceSet.forEach(vch => {
+        if (!vch.normalizedNarration) {
+            vch.normalizedNarration = normalizeNarration(vch.narration);
+        }
+        
+        const phrases = generatePhrasesFromNarration(vch.normalizedNarration);
+        const uniquePhrases = new Set(phrases);
+        
+        uniquePhrases.forEach(phrase => {
+            freqMap[phrase] = (freqMap[phrase] || 0) + 1;
+        });
+    });
+    
+    reviewState.phraseFrequencies = Object.keys(freqMap).map(phrase => {
+        const wordCount = phrase.split(" ").length;
+        return {
+            phrase: phrase,
+            count: freqMap[phrase],
+            length: wordCount
+        };
+    });
+    
+    // Sort descending by count
+    reviewState.phraseFrequencies.sort((a, b) => b.count - a.count);
+}
+
+function openAdvancedFilterModal() {
+    const modal = document.getElementById("review-modal-advanced");
+    if (!modal) return;
+    
+    // Dynamically calculate phrase frequencies on active period/status set
+    analyzeAllVoucherPhrases();
+    
+    document.getElementById("review-modal-advanced-search").value = "";
+    document.getElementById("review-modal-advanced-minfreq").value = reviewState.advMinFreq.toString();
+    document.getElementById("review-modal-advanced-len1").checked = reviewState.advLen1;
+    document.getElementById("review-modal-advanced-len2").checked = reviewState.advLen2;
+    document.getElementById("review-modal-advanced-len3").checked = reviewState.advLen3;
+    
+    modal.classList.remove("hidden");
+    renderAdvancedPhrases();
+    
+    setTimeout(() => document.getElementById("review-modal-advanced-search").focus(), 80);
+}
+
+function renderAdvancedPhrases() {
+    const searchVal = document.getElementById("review-modal-advanced-search").value.toLowerCase().trim();
+    const minFreq = parseInt(document.getElementById("review-modal-advanced-minfreq").value, 10) || 2;
+    
+    const showLen1 = document.getElementById("review-modal-advanced-len1").checked;
+    const showLen2 = document.getElementById("review-modal-advanced-len2").checked;
+    const showLen3 = document.getElementById("review-modal-advanced-len3").checked;
+    
+    // Persist active settings in reviewState
+    reviewState.advMinFreq = minFreq;
+    reviewState.advLen1 = showLen1;
+    reviewState.advLen2 = showLen2;
+    reviewState.advLen3 = showLen3;
+    
+    const container = document.getElementById("review-modal-advanced-list");
+    if (!container) return;
+    
+    if (!reviewState.phraseFrequencies) {
+        container.innerHTML = `<div style="padding: 8px; color: #718096; font-style: italic; text-align: center; font-size: 0.76rem;">No phrases analyzed yet.</div>`;
+        return;
+    }
+    
+    const filtered = reviewState.phraseFrequencies.filter(item => {
+        if (item.length === 1 && !showLen1) return false;
+        if (item.length === 2 && !showLen2) return false;
+        if (item.length === 3 && !showLen3) return false;
+        if (item.count < minFreq) return false;
+        if (searchVal && !item.phrase.includes(searchVal)) return false;
+        return true;
+    });
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `<div style="padding: 8px; color: #718096; text-align: center; font-size: 0.76rem;">No matches found.</div>`;
+        return;
+    }
+    
+    const currentStatus = reviewState.statusFilter || "suspense";
+    let badgeStyle = "color: #002d5a; background: #e6f2ff;"; // default blue for 'all'
+    if (currentStatus === "suspense") {
+        badgeStyle = "color: #e53e3e; background: #fed7d7;"; // red
+    } else if (currentStatus === "modified") {
+        badgeStyle = "color: #16a34a; background: #c6f6d5;"; // green
+    }
+    
+    let html = "";
+    filtered.forEach(item => {
+        // Safe string escaping for Javascript onClick attribute
+        const safePhrase = item.phrase.replace(/'/g, "\\'");
+        html += `
+            <div class="stats-interactive-row" onclick="selectAdvancedPhrase('${safePhrase}')" style="padding: 6px 8px; cursor: pointer; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; border-bottom: 1px dashed #e2e8f0; transition: background 0.1s;">
+                <span style="font-weight: 500; color: #2d3748;">${item.phrase}</span>
+                <strong style="${badgeStyle} padding: 2px 6px; border-radius: 10px; font-size: 0.68rem; font-weight: bold;">${item.count}</strong>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function selectAdvancedPhrase(phrase) {
+    reviewState.advancedPhraseFilter = phrase;
+    closeReviewModal("advanced");
+    applyReviewFilters();
+}
+
+function clearAdvancedPhraseFilter() {
+    reviewState.advancedPhraseFilter = null;
+    applyReviewFilters();
 }

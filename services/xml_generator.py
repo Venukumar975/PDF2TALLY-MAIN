@@ -243,10 +243,9 @@ def _add_ledger(request_data, ledger_name, parent_name, opening_balance=None):
     ET.SubElement(ledger, "ISBILLWISEON").text = "No"
     ET.SubElement(ledger, "ISCOSTCENTRESON").text = "No"
     
-    # Ensure opening balance is always written to Tally XML (defaulting to 0.00 if None)
-    op_bal = opening_balance if opening_balance is not None else 0.00
-    tally_op_bal = -op_bal
-    ET.SubElement(ledger, "OPENINGBALANCE").text = f"{tally_op_bal:.2f}"
+    if opening_balance is not None:
+        tally_op_bal = -opening_balance
+        ET.SubElement(ledger, "OPENINGBALANCE").text = f"{tally_op_bal:.2f}"
 
 
 def _add_voucher(request_data, transaction, index, bank_ledger, suspense_ledger, bank_prefix):

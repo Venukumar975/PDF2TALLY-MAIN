@@ -260,6 +260,7 @@ def api_convert_bank():
                 transactions = route_to_parser(bank_type, sanitized_text, opening_balance=opening_bal)
                 if opening_bal is None:
                     opening_bal = 0.00
+                xml_opening_bal = opening_bal
             elif strategy_type == "Incomplete statement (Continuation)":
                 if not boundary_date:
                     boundary_date = date(2025, 4, 1)
@@ -278,11 +279,13 @@ def api_convert_bank():
                         pass
                 transactions = filtered_txns
                 opening_bal = prev_balance if prev_balance is not None else 0.00
+                xml_opening_bal = None  # Do NOT include opening balance in XML for continuation strategy
             else:
                 sanitized_text, opening_bal = WholeChunk.process_strategy(text, parse_opening_func)
                 transactions = route_to_parser(bank_type, sanitized_text, opening_balance=opening_bal)
                 if opening_bal is None:
                     opening_bal = 0.00
+                xml_opening_bal = opening_bal
             
             if not transactions:
                 return jsonify({"success": False, "message": "No valid transaction rows found in PDF statement."}), 400
@@ -290,7 +293,7 @@ def api_convert_bank():
             # Cache inputs for reprocessing ledger names
             LAST_CONVERSION["bank_txns"] = transactions
             LAST_CONVERSION["bank_type"] = bank_type
-            LAST_CONVERSION["bank_opening_bal"] = opening_bal
+            LAST_CONVERSION["bank_opening_bal"] = xml_opening_bal
             LAST_CONVERSION["bank_sanitized_text"] = sanitized_text
             
             # Build initial preview with ledger names
@@ -310,7 +313,7 @@ def api_convert_bank():
                 output_path=None, 
                 bank_ledger=debit_ledger, 
                 suspense_ledger=credit_ledger, 
-                opening_balance=opening_bal
+                opening_balance=xml_opening_bal
             )
             
             validation_report = build_validation_report(
@@ -895,9 +898,11 @@ def api_hybrid_parse():
         except Exception:
             sanitized_text = ""
             
+        xml_opening_balance = None if strategy_type == "Incomplete statement (Continuation)" else opening_balance
+        
         LAST_CONVERSION["bank_txns"] = transactions
         LAST_CONVERSION["bank_type"] = "Hybrid Generic"
-        LAST_CONVERSION["bank_opening_bal"] = opening_balance
+        LAST_CONVERSION["bank_opening_bal"] = xml_opening_balance
         LAST_CONVERSION["bank_sanitized_text"] = sanitized_text
         
         # Generate Tally XML with Hybrid Parser XML Compiler
@@ -906,7 +911,7 @@ def api_hybrid_parse():
             transactions,
             bank_ledger=bank_ledger,
             suspense_ledger=suspense_ledger,
-            opening_balance=opening_balance
+            opening_balance=xml_opening_balance
         )
         
         FILE_CACHE["xml_bank"] = xml_text.encode("utf-8")
