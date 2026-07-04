@@ -17,7 +17,7 @@ const reviewState = {
     openingBalance: 0.00,
     manualOpeningBalance: null,
     uniqueLedgers: new Set(),
-    statusFilter: "suspense",
+    statusFilter: "all",
     advLen1: true,
     advLen2: true,
     advLen3: true,
@@ -122,6 +122,7 @@ function loadReviewXML(xmlString, fileName) {
         }
         reviewState.openingBalance = openingBalance;
         reviewState.manualOpeningBalance = null;
+        reviewState.statusFilter = "all";
         reviewState.showNarration = false;
 
         // Reset elements
@@ -245,27 +246,18 @@ function loadReviewXML(xmlString, fileName) {
 // FILTER IMPLEMENTATION
 // -------------------------------------------------------------
 function applyReviewFilters() {
-    const statusVal = reviewState.statusFilter || "suspense";
+    const statusVal = reviewState.statusFilter || "all";
     const ledgerVal = document.getElementById("review-modal-ledger-select").value;
     const searchVal = document.getElementById("review-modal-narration-keyword").value.toLowerCase().trim();
     
     const fromVal = document.getElementById("review-modal-from-date").value.replace(/-/g, "");
     const toVal = document.getElementById("review-modal-to-date").value.replace(/-/g, "");
     
-    // 1. Calculate Period + Status filtered vouchers (For Voucher Stats)
+    // 1. Calculate Period filtered vouchers (For Voucher Stats)
     reviewState.periodFilteredVouchers = reviewState.vouchers.filter(vch => {
         // Date range filter
         if (fromVal && vch.rawDate < fromVal) return false;
         if (toVal && vch.rawDate > toVal) return false;
-        
-        // Status filter
-        if (statusVal === "suspense" && !vch.particulars.toLowerCase().includes("suspense")) {
-            return false;
-        }
-        if (statusVal === "modified" && !vch.modified) {
-            return false;
-        }
-        
         return true;
     });
 
@@ -286,6 +278,14 @@ function applyReviewFilters() {
     
     // 2. Calculate Final filtered vouchers (For grid rendering and Filtration Stats)
     reviewState.filteredVouchers = reviewState.periodFilteredVouchers.filter(vch => {
+        // Status filter
+        if (statusVal === "suspense" && !vch.particulars.toLowerCase().includes("suspense")) {
+            return false;
+        }
+        if (statusVal === "modified" && !vch.modified) {
+            return false;
+        }
+
         // Ledger filter
         if (ledgerVal !== "all" && vch.particulars !== ledgerVal) {
             return false;
@@ -411,7 +411,7 @@ function updateReviewStats() {
     if (btnModified) btnModified.className = "stats-interactive-row";
     if (btnSuspense) btnSuspense.className = "stats-interactive-row";
     
-    const currentStatus = reviewState.statusFilter || "suspense";
+    const currentStatus = reviewState.statusFilter || "all";
     if (currentStatus === "all") {
         if (btnTotal) btnTotal.classList.add("active-all");
     } else if (currentStatus === "modified") {
@@ -424,7 +424,7 @@ function updateReviewStats() {
     const ledgerVal = document.getElementById("review-modal-ledger-select").value;
     const searchVal = document.getElementById("review-modal-narration-keyword").value.trim();
     
-    const isFiltered = (ledgerVal !== "all" || searchVal !== "" || currentStatus !== "suspense" || reviewState.advancedPhraseFilter);
+    const isFiltered = (searchVal !== "" || reviewState.advancedPhraseFilter);
     const filterStatsCard = document.getElementById("review-filtration-stats");
     
     // Manage active phrase badge
@@ -1178,9 +1178,16 @@ function generatePhrasesFromNarration(normalizedText) {
 
 function analyzeAllVoucherPhrases() {
     const freqMap = {};
-    const sourceSet = (reviewState.periodFilteredVouchers && reviewState.periodFilteredVouchers.length > 0) ?
+    const baseSet = (reviewState.periodFilteredVouchers && reviewState.periodFilteredVouchers.length > 0) ?
         reviewState.periodFilteredVouchers :
         reviewState.vouchers;
+    
+    const statusVal = reviewState.statusFilter || "all";
+    const sourceSet = baseSet.filter(vch => {
+        if (statusVal === "suspense" && !vch.particulars.toLowerCase().includes("suspense")) return false;
+        if (statusVal === "modified" && !vch.modified) return false;
+        return true;
+    });
     
     sourceSet.forEach(vch => {
         if (!vch.normalizedNarration) {
