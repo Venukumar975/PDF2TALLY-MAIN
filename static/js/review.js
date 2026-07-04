@@ -1151,11 +1151,11 @@ function confirmExitReview(action) {
         // Save work by triggering download first
         exportReviewXML();
         setTimeout(() => {
-            window.location.href = "/";
+            window.location.href = "/#license-tab";
         }, 1500);
     } else if (action === "exit") {
         // Exit without saving modifications
-        window.location.href = "/";
+        window.location.href = "/#license-tab";
     }
 }
 

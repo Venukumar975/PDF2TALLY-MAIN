@@ -3,7 +3,7 @@
 // Global application state
 const state = {
     activated: false,
-    userLoggedIn: false,
+    userLoggedIn: sessionStorage.getItem("userLoggedIn") === "true",
     signature: "",
     role: "USER",
     activeTab: "bank-tab",
@@ -87,8 +87,14 @@ function handleRouting() {
 }
 
 function switchTab(tabId) {
-    if (!state.activated && tabId !== "license-tab") {
-        return; // Lock interface if not activated
+    if ((!state.activated || !state.userLoggedIn) && tabId !== "activate-tab") {
+        window.location.hash = "#activate-tab";
+        return;
+    }
+    
+    if (state.activated && state.userLoggedIn && tabId === "activate-tab") {
+        window.location.hash = "#bank-tab";
+        return;
     }
     
     // Admin tab guard removed
@@ -355,7 +361,12 @@ async function checkLicenseStatus(initial = false) {
             if (initial) {
                 handleRouting();
             }
+            if (window.location.hash === "#activate-tab") {
+                window.location.hash = "#bank-tab";
+            }
         } else {
+            state.userLoggedIn = false;
+            sessionStorage.removeItem("userLoggedIn");
             // Locked! Show appropriate state
             if (overlay) overlay.classList.remove("hidden");
             if (workspace) workspace.classList.add("hidden");
@@ -430,8 +441,8 @@ async function checkLicenseStatus(initial = false) {
                 }
             }
             
-            if (window.location.hash === "#admin-tab" || window.location.hash === "#bank-tab") {
-                window.location.hash = "#license-tab";
+            if (window.location.hash !== "#activate-tab") {
+                window.location.hash = "#activate-tab";
             }
         }
     } catch (err) {
@@ -547,6 +558,7 @@ async function verifyDeviceLogin() {
         
         if (data.success && data.activated) {
             state.userLoggedIn = true;
+            sessionStorage.setItem("userLoggedIn", "true");
             if (statusBox) {
                 statusBox.textContent = data.message || "Login successful! Opening Workspace...";
                 statusBox.className = "alert alert-success";
