@@ -372,14 +372,97 @@ async function checkLicenseStatus(initial = false) {
             if (workspace) workspace.classList.add("hidden");
             
             if (status.error_type) {
-                // Connection or server-side issue - stay on the login/register console and show a status message
                 if (stateLoading) stateLoading.classList.add("hidden");
                 if (stateError) stateError.classList.add("hidden");
                 if (statePortal) statePortal.classList.remove("hidden");
                 
                 const statusBox = document.getElementById("login-console-status");
                 const regStatusBox = document.getElementById("register-console-status");
-                
+                const keyInput = document.getElementById("lic-user-key");
+                const verifyBtn = document.getElementById("lic-verify-btn");
+
+                // Auto-restore license if missing, modified/corrupted, or if system clock rollback is detected
+                if (status.error_type === "missing" || status.error_type === "modified" || status.error_type === "tampered") {
+                    if (keyInput) {
+                        keyInput.disabled = true;
+                        keyInput.readOnly = true;
+                        keyInput.value = "";
+                    }
+                    if (verifyBtn) {
+                        verifyBtn.disabled = true;
+                        verifyBtn.textContent = "Checking Server...";
+                    }
+                    if (statusBox) {
+                        let warnMsg = "Local license cache is missing or modified. Contacting licensing server to restore your active license...";
+                        if (status.error_type === "tampered") {
+                            warnMsg = "System clock manipulation detected! Contacting licensing server to verify and restore your license time...";
+                        }
+                        statusBox.textContent = warnMsg;
+                        statusBox.className = "alert alert-warning";
+                        statusBox.classList.remove("hidden");
+                    }
+
+                    fetch("/api/restore-device", { method: "POST" })
+                        .then(res => res.json())
+                        .then(resData => {
+                            if (resData.success && resData.activated) {
+                                if (keyInput) {
+                                    keyInput.value = resData.license_key;
+                                    keyInput.disabled = false;
+                                    keyInput.readOnly = false;
+                                }
+                                if (verifyBtn) {
+                                    verifyBtn.disabled = false;
+                                    verifyBtn.textContent = "Verify & Log In";
+                                }
+                                if (statusBox) {
+                                    statusBox.textContent = "License registry verified successfully! Re-saving local cache and logging in...";
+                                    statusBox.className = "alert alert-success";
+                                }
+                                state.userLoggedIn = true;
+                                sessionStorage.setItem("userLoggedIn", "true");
+                                setTimeout(() => {
+                                    checkLicenseStatus();
+                                }, 1500);
+                            } else {
+                                // No active key registered to this device
+                                if (keyInput) {
+                                    keyInput.disabled = false;
+                                    keyInput.readOnly = false;
+                                    keyInput.value = "";
+                                }
+                                if (verifyBtn) {
+                                    verifyBtn.disabled = false;
+                                    verifyBtn.textContent = "Verify & Log In";
+                                }
+                                if (statusBox) {
+                                    let errMsg = resData.message || "No active license is registered to this computer. Please enter your license key to activate.";
+                                    if (status.error_type === "tampered") {
+                                        errMsg = resData.message || "Clock verification failed: no active registered license matches this device. Enter your key to activate.";
+                                    }
+                                    statusBox.textContent = errMsg;
+                                    statusBox.className = "alert alert-danger";
+                                }
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Restore error:", err);
+                            if (keyInput) {
+                                keyInput.disabled = false;
+                                keyInput.readOnly = false;
+                            }
+                            if (verifyBtn) {
+                                verifyBtn.disabled = false;
+                                verifyBtn.textContent = "Verify & Log In";
+                            }
+                            if (statusBox) {
+                                statusBox.textContent = "Could not connect to licensing server. Please check your internet connection.";
+                                statusBox.className = "alert alert-danger";
+                            }
+                        });
+                    return;
+                }
+
                 let errText = "";
                 if (status.error_type === "internet") {
                     errText = "Internet Connection Issue: unable to contact the cloud licensing server.";
@@ -421,6 +504,18 @@ async function checkLicenseStatus(initial = false) {
                         switchLandingTab("landing-register");
                     }
                 } else if (!status.activated) {
+                    const loginStatusBox = document.getElementById("login-console-status");
+                    if (status.message && status.message.toLowerCase().includes("expired")) {
+                        if (loginStatusBox) {
+                            const licenseKey = status.license_key || "";
+                            loginStatusBox.innerHTML = `
+                                ${status.message}<br>
+                                <button class="btn btn-primary" onclick="triggerClientRenewal('${licenseKey}')" style="margin-top: 10px; padding: 6px 12px; font-size: 0.8rem; line-height: 1;">Request License Renewal 🔄</button>
+                            `;
+                            loginStatusBox.className = "alert alert-danger";
+                            loginStatusBox.classList.remove("hidden");
+                        }
+                    }
                     if (statusBox) {
                         statusBox.textContent = status.message || "Device signature is not registered. Please contact your administrator.";
                         statusBox.className = "alert alert-danger";
@@ -531,6 +626,7 @@ function switchLandingTab(tabId) {
 async function verifyDeviceLogin() {
     const statusBox = document.getElementById("login-console-status");
     const keyInput = document.getElementById("lic-user-key");
+    const verifyBtn = document.getElementById("lic-verify-btn");
     const licenseKey = keyInput ? keyInput.value.trim() : "";
     
     if (!licenseKey) {
@@ -540,6 +636,12 @@ async function verifyDeviceLogin() {
             statusBox.classList.remove("hidden");
         }
         return;
+    }
+    
+    if (keyInput) keyInput.disabled = true;
+    if (verifyBtn) {
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = "Verifying...";
     }
     
     if (statusBox) {
@@ -563,10 +665,16 @@ async function verifyDeviceLogin() {
                 statusBox.textContent = data.message || "Login successful! Opening Workspace...";
                 statusBox.className = "alert alert-success";
             }
+            if (verifyBtn) verifyBtn.textContent = "Success!";
             setTimeout(async () => {
                 await checkLicenseStatus();
             }, 1000);
         } else {
+            if (keyInput) keyInput.disabled = false;
+            if (verifyBtn) {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = "Verify & Log In";
+            }
             if (statusBox) {
                 let msg = data.message || "Verification failed. Invalid license key or device mismatch.";
                 statusBox.textContent = msg;
@@ -581,6 +689,11 @@ async function verifyDeviceLogin() {
             }
         }
     } catch (err) {
+        if (keyInput) keyInput.disabled = false;
+        if (verifyBtn) {
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = "Verify & Log In";
+        }
         if (statusBox) {
             statusBox.textContent = "Connection failed. Please verify your internet settings.";
             statusBox.className = "alert alert-danger";
@@ -621,33 +734,34 @@ async function triggerClientRenewal(licenseKey) {
     }
 }
 
-function updateLicenseTabDetails() {
+async function updateLicenseTabDetails() {
     const signatureVal = document.getElementById("lic-info-signature");
     if (signatureVal) signatureVal.textContent = state.signature;
     
-    fetch("/api/status")
-        .then(res => res.json())
-        .then(status => {
-            const statusVal = document.getElementById("lic-info-status");
-            if (statusVal) {
-                statusVal.textContent = status.activated ? "ACTIVE (Registered)" : "UNLICENSED";
-                statusVal.className = status.activated ? "info-value text-success" : "info-value text-danger";
-            }
-            
-            const roleVal = document.getElementById("lic-info-role");
-            if (roleVal) {
-                roleVal.textContent = status.role || "USER";
-            }
-            
-            const expiryVal = document.getElementById("lic-info-expiry");
-            if (expiryVal) {
-                expiryVal.textContent = status.expiry_date || "-";
-            }
-            
-
-            startLocalLicenseCountdown(status.seconds_remaining, status.expiry_date);
-        })
-        .catch(err => console.error("Error updating license tab details:", err));
+    try {
+        const res = await fetch("/api/status");
+        const status = await res.json();
+        
+        const statusVal = document.getElementById("lic-info-status");
+        if (statusVal) {
+            statusVal.textContent = status.activated ? "ACTIVE (Registered)" : "UNLICENSED";
+            statusVal.className = status.activated ? "info-value text-success" : "info-value text-danger";
+        }
+        
+        const roleVal = document.getElementById("lic-info-role");
+        if (roleVal) {
+            roleVal.textContent = status.role || "USER";
+        }
+        
+        const expiryVal = document.getElementById("lic-info-expiry");
+        if (expiryVal) {
+            expiryVal.textContent = status.expiry_date || "-";
+        }
+        
+        startLocalLicenseCountdown(status.seconds_remaining, status.expiry_date);
+    } catch (err) {
+        console.error("Error updating license tab details:", err);
+    }
 }
 
 function copySignature() {

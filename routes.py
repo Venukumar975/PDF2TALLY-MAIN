@@ -3,6 +3,8 @@ import json
 import io
 import re
 import tempfile
+import time
+import requests
 from flask import Blueprint, request, jsonify, render_template, send_file, redirect, url_for, session
 from datetime import datetime, date, timedelta
 
@@ -106,7 +108,7 @@ def api_activate():
         resp = requests.post(url, json={
             "license_key": license_key,
             "machine_hash": machine_hash
-        }, timeout=10)
+        }, timeout=120)
 
         if resp.status_code == 200:
             res_data = resp.json()
@@ -139,8 +141,53 @@ def api_activate():
             return jsonify({"success": False, "message": msg}), resp.status_code
 
     except Exception as e:
-        logger.error(f"Activation request failed: {e}")
         return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
+
+
+@routes_bp.route("/api/restore-device", methods=["POST"])
+def api_restore_device():
+    import time
+    import requests
+    machine_hash = licensing.get_machine_signature()
+    try:
+        url = f"{licensing.get_cloud_backend_url()}/restore-license-by-machine"
+        resp = requests.post(url, json={
+            "machine_hash": machine_hash
+        }, timeout=120)
+
+        if resp.status_code == 200:
+            res_data = resp.json()
+            if res_data.get("success"):
+                # Save locally to .lic file
+                licensing.save_local_license({
+                    "signature": machine_hash,
+                    "activated": True,
+                    "role": "USER",
+                    "expiry_date": res_data.get("expires_at"),
+                    "seconds_remaining": res_data.get("seconds_remaining"),
+                    "last_sync_real": time.time(),
+                    "last_seen_time": time.time(),
+                    "license_id": res_data.get("license_id"),
+                    "license_key": res_data.get("license_key")
+                })
+                # Sync cache in memory
+                licensing.check_activation(force_refresh=True)
+                return jsonify({
+                    "success": True,
+                    "activated": True,
+                    "license_key": res_data.get("license_key"),
+                    "message": "License successfully restored from cloud registry!"
+                })
+            return jsonify({"success": False, "message": "Failed to restore license."}), 400
+        else:
+            try:
+                msg = resp.json().get("message", "Device has no active registered license.")
+            except Exception:
+                msg = "Device has no active registered license."
+            return jsonify({"success": False, "message": msg}), resp.status_code
+    except Exception as e:
+        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
+
 
 @routes_bp.route("/api/register_request", methods=["POST"])
 def api_register_request():
@@ -160,7 +207,7 @@ def api_register_request():
             "email": email,
             "phone_number": phone_number,
             "machine_hash": machine_hash
-        }, timeout=10)
+        }, timeout=120)
         
         if resp.status_code == 200:
             return jsonify(resp.json())
@@ -172,7 +219,6 @@ def api_register_request():
             return jsonify({"success": False, "message": msg}), resp.status_code
 
     except Exception as e:
-        logger.error(f"Register request connection failed: {e}")
         return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
 
 @routes_bp.route("/api/deactivate", methods=["POST"])

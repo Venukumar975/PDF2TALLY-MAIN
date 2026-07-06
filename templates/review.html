@@ -232,22 +232,43 @@
             overflow-y: auto;
             z-index: 100;
         }
-            transition: background 0.1s;
+        .stats-interactive-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            margin: 5px 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #ffffff;
+            border: 1px solid #cbd5e0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
         }
         .stats-interactive-row:hover {
-            background-color: #e2e8f0;
+            transform: translateY(-1.5px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+            background-color: #f8fafc;
+            border-color: #a0aec0;
         }
         .stats-interactive-row.active-all {
-            background-color: #bee3f8 !important;
-            outline: 1px solid #3182ce;
+            background-color: #ebf8ff !important;
+            border: 2px solid #3182ce !important;
+            box-shadow: 0 4px 8px rgba(49, 130, 206, 0.12) !important;
+            font-weight: bold;
         }
         .stats-interactive-row.active-modified {
-            background-color: #c6f6d5 !important;
-            outline: 1px solid #38a169;
+            background-color: #f0fdf4 !important;
+            border: 2px solid #2ecc71 !important;
+            box-shadow: 0 4px 8px rgba(46, 204, 113, 0.12) !important;
+            font-weight: bold;
         }
         .stats-interactive-row.active-suspense {
-            background-color: #fed7d7 !important;
-            outline: 1px solid #e53e3e;
+            background-color: #fef2f2 !important;
+            border: 2px solid #e74c3c !important;
+            box-shadow: 0 4px 8px rgba(231, 76, 60, 0.12) !important;
+            font-weight: bold;
         }
         .ledger-autocomplete-item:hover, .ledger-autocomplete-item.active {
             background-color: #002d5a;
@@ -315,14 +336,14 @@
                 <!-- Panel Stats -->
                 <div style="background: #f0f4f8; border: 1px solid #cbd5e0; border-radius: 4px; padding: 4px; margin-bottom: 6px; font-size: 0.72rem; color: #2d3748; line-height: 1.3; user-select: none;">
                     <div style="font-weight: bold; color: #002d5a; margin-bottom: 4px; border-bottom: 1px solid #cbd5e0; padding: 2px 6px;">Voucher Stats</div>
-                    <div id="btn-stats-total" class="stats-interactive-row" onclick="toggleStatsFilter('all')" style="padding: 4px 6px; cursor: pointer; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
-                        <span>Total:</span> <strong id="review-stat-total">0</strong>
+                    <div id="btn-stats-total" class="stats-interactive-row" onclick="toggleStatsFilter('all')">
+                        <span style="font-weight: 500;">Total:</span> <strong id="review-stat-total">0</strong>
                     </div>
-                    <div id="btn-stats-modified" class="stats-interactive-row" onclick="toggleStatsFilter('modified')" style="padding: 4px 6px; cursor: pointer; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
-                        <span style="color: #16a34a; font-weight: 500;">Modified:</span> <strong id="review-stat-modified" style="color: #16a34a;">0</strong>
+                    <div id="btn-stats-modified" class="stats-interactive-row" onclick="toggleStatsFilter('modified')">
+                        <span style="color: #2ecc71; font-weight: 500;">Modified:</span> <strong id="review-stat-modified" style="color: #2ecc71;">0</strong>
                     </div>
-                    <div id="btn-stats-suspense" class="stats-interactive-row" onclick="toggleStatsFilter('suspense')" style="padding: 4px 6px; cursor: pointer; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
-                        <span style="color: #e53e3e; font-weight: 500;">Suspense:</span> <strong id="review-stat-suspense" style="color: #e53e3e;">0</strong>
+                    <div id="btn-stats-suspense" class="stats-interactive-row" onclick="toggleStatsFilter('suspense')">
+                        <span style="color: #e74c3c; font-weight: 500;">Suspense:</span> <strong id="review-stat-suspense" style="color: #e74c3c;">0</strong>
                     </div>
                 </div>
 
@@ -544,21 +565,30 @@
     </div>
 
     <!-- 6. EXIT CONFIRMATION MODAL -->
-    <div id="review-modal-exit-confirm" class="tally-modal-overlay hidden" style="z-index: 1300;">
-        <div class="tally-modal-card" style="width: 450px; background: #e0e6ed; border: 2px solid #e74c3c;">
-            <div class="tally-modal-header" style="background: #e74c3c; border-bottom: 1px solid #c0392b;">Exit Review Desk</div>
-            <div class="tally-modal-body" style="padding: 20px 15px; background: transparent; gap: 8px;">
-                <p style="margin: 0; font-size: 0.9rem; font-weight: bold; color: #1a202c; line-height: 1.4;">
-                    Are you sure you want to exit the Review Desk?
+    <div id="review-modal-exit-confirm" class="tally-modal-overlay hidden" style="z-index: 1300; background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+        <div class="tally-modal-card" style="width: 420px; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 16px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04); position: relative; overflow: hidden;">
+            
+            <!-- Red Cross Close button in top-right -->
+            <span onclick="closeExitConfirmation()" style="position: absolute; top: 16px; right: 18px; color: #ef4444; font-size: 1.4rem; font-weight: 700; cursor: pointer; line-height: 1; user-select: none; transition: transform 0.15s ease;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Cancel Exit">×</span>
+
+            <div class="tally-modal-body" style="padding: 26px 22px 18px 22px; background: transparent; display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-size: 1.15rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                    <span style="font-size: 1.3rem;">🚪</span> Exit Review Desk
+                </div>
+                <p style="margin: 0; font-size: 0.88rem; font-weight: 700; color: #1e293b; line-height: 1.4;">
+                    Are you sure you want to exit?
                 </p>
-                <p style="margin: 8px 0 0 0; font-size: 0.78rem; color: #4a5568; line-height: 1.4; font-weight: 500;">
+                <p style="margin: 4px 0 0 0; font-size: 0.78rem; color: #475569; line-height: 1.4; font-weight: 500;">
                     If you have made modifications, please export the updated XML first to save your changes. Discarding will lose all changes since loading.
                 </p>
             </div>
-            <div class="tally-modal-footer" style="background: transparent; padding: 12px 15px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #cbd5e0;">
-                <button class="btn" onclick="closeExitConfirmation()" style="background: #f59e0b; color: white; border: none; font-size: 0.78rem; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
-                <button class="btn" onclick="confirmExitReview('exit')" style="background: #ea580c; color: white; border: none; font-size: 0.78rem; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Exit Without Saving</button>
-                <button class="btn" onclick="confirmExitReview('export')" style="background: #16a34a; color: white; border: none; font-size: 0.78rem; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Save & Exit</button>
+            
+            <div class="tally-modal-footer" style="background: rgba(255, 255, 255, 0.3); padding: 16px 22px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid rgba(255, 255, 255, 0.4);">
+                <!-- Glassmorphic Button 1: Exit Without Saving -->
+                <button class="btn" onclick="confirmExitReview('exit')" style="background: rgba(100, 116, 139, 0.08); color: #475569; border: 1px solid rgba(100, 116, 139, 0.3); font-size: 0.78rem; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 2px rgba(0,0,0,0.02);" onmouseover="this.style.background='rgba(100, 116, 139, 0.15)'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.05)';" onmouseout="this.style.background='rgba(100, 116, 139, 0.08)'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.02)';">Exit Without Saving</button>
+                
+                <!-- Glassmorphic Button 2: Save & Exit -->
+                <button class="btn" onclick="confirmExitReview('export')" style="background: rgba(13, 148, 136, 0.08); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.3); font-size: 0.78rem; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 2px rgba(0,0,0,0.02);" onmouseover="this.style.background='rgba(13, 148, 136, 0.15)'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 6px rgba(13, 148, 136, 0.08)';" onmouseout="this.style.background='rgba(13, 148, 136, 0.08)'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.02)';">Save & Exit</button>
             </div>
         </div>
     </div>

@@ -27,6 +27,7 @@ def check_license():
         "/activate",
         "/api/status",
         "/api/activate",
+        "/api/restore-device",
         "/api/admin/",
         "/api/register_request",
         "/api/request-renewal",

@@ -1140,7 +1140,9 @@ function normalizeNarration(text) {
 
 function isValidWord(word) {
     if (!word || word.length <= 1) return false;
-    if (/^\d+$/.test(word)) return false; // ignore numeric-only
+    if (/^\d+$/.test(word)) {
+        return /^\d{10}$/.test(word); // keep only 10-digit numbers (phone numbers)
+    }
     return !NARRATION_STOP_WORDS.has(word);
 }
 
