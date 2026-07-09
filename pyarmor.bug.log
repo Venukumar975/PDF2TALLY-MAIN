@@ -1,7 +1,7 @@
-[BUG]: Command '['C:\\Users\\pichi\\Desktop\\pdf2tally-2\\pdf2tally\\venv\\Scripts\\python.exe', '-m', 'PyInstaller', '--clean', '--distpath', 'dist', '--workpath', '.pyarmor\\pack\\build', 'pdf2tallyXML.patched.spec']' returned non-zero exit status 1.
+[BUG]: out of license
 
 ## Command Line
-C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Scripts\pyarmor gen --pack pdf2tallyXML.spec -r desktop_run.py app_flask.py routes.py licensing.py services parsers strategies slicers
+C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py gen -O obf_dist -r desktop_run.py app_flask.py routes.py licensing.py services parsers strategies slicers
 
 ## Environments
 Python 3.12.4
@@ -12,17 +12,29 @@ Home C:\Users\pichi\.pyarmor
 
 ## Traceback
 Traceback (most recent call last):
-  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 804, in main
+  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 804, in main
     main_entry(sys.argv[1:])
-  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 789, in main_entry
+  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 789, in main_entry
     return args.func(ctx, args)
            ^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 246, in cmd_gen
-    packer.build()
-  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\repack.py", line 338, in build
-    check_call(cmdlist)
-  File "C:\Users\pichi\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 413, in check_call
-    raise CalledProcessError(retcode, cmd)
-subprocess.CalledProcessError: Command '['C:\\Users\\pichi\\Desktop\\pdf2tally-2\\pdf2tally\\venv\\Scripts\\python.exe', '-m', 'PyInstaller', '--clean', '--distpath', 'dist', '--workpath', '.pyarmor\\pack\\build', 'pdf2tallyXML.patched.spec']' returned non-zero exit status 1.
+  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 248, in cmd_gen
+    builder.process(options)
+  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\generate.py", line 190, in process
+    async_obfuscate_scripts(self, n) if n else self._obfuscate_scripts()
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\generate.py", line 145, in _obfuscate_scripts
+    code = Pytransform3.generate_obfuscated_script(self.ctx, r)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\core\__init__.py", line 95, in generate_obfuscated_script
+    return m.generate_obfuscated_script(ctx, res)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<maker>", line 728, in generate_obfuscated_script
+  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__init__.py", line 16, in process
+    return meth(self, res, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<maker>", line 553, in process
+  File "<maker>", line 559, in coserialize
+  File "<maker>", line 609, in _build_ast_body
+RuntimeError: out of license
 
 

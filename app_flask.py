@@ -14,6 +14,16 @@ from routes import routes_bp, FILE_CACHE, LAST_CONVERSION
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = "PDF2TALLY_FLASK_SESSION_SECRET_KEY_!"
 
+# Suppress Werkzeug HTTP request logs in PyArmor secure production build
+try:
+    from pyarmor_runtime_000000 import __pyarmor__
+    # Secure production build detected - only report errors in the terminal
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+except ImportError:
+    # Standard development mode - keep HTTP request logs visible
+    pass
+
 # Register the routes blueprint
 app.register_blueprint(routes_bp)
 

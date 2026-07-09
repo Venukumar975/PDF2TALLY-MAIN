@@ -21,7 +21,9 @@ const reviewState = {
     advLen1: true,
     advLen2: true,
     advLen3: true,
-    advMinFreq: 2
+    advMinFreq: 2,
+    cachedCompanyLedgers: [],
+    activeCompanyName: ""
 };
 
 // Autocomplete navigation state
@@ -65,6 +67,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (viewport) {
         viewport.focus();
     }
+
+    // Load cached companies list on load
+    loadCachedCompanies();
 });
 
 // Helper currency formatter
@@ -213,7 +218,11 @@ function loadReviewXML(xmlString, fileName) {
 
         // Update details
         document.getElementById("review-imported-filename").textContent = `Imported XML: ${fileName}`;
-        document.getElementById("review-bank-profile").textContent = `Bank: ${bankName}`;
+        const bankProfileEl = document.getElementById("review-bank-profile");
+        if (bankProfileEl) {
+            bankProfileEl.textContent = `Bank: ${bankName}`;
+            bankProfileEl.setAttribute("title", `Ensure your company bank name matches this name: ${bankName}`);
+        }
         
         // Find min/max dates
         const sortedDates = reviewState.vouchers.map(v => v.rawDate).filter(Boolean).sort();
@@ -702,7 +711,7 @@ function closeReviewModal(modalKey) {
 }
 
 function closeActiveModal() {
-    const modals = ["period", "ledger", "narration", "replace", "monthly", "advanced", "exit-confirm"];
+    const modals = ["period", "ledger", "narration", "replace", "monthly", "advanced", "exit-confirm", "sync"];
     let closedAny = false;
     modals.forEach(m => {
         const el = document.getElementById(`review-modal-${m}`);
@@ -908,12 +917,21 @@ function filterLedgerAutocompleteModal() {
     const list = document.getElementById("review-modal-ledger-autocomplete-list");
     if (!input || !list) return;
     
+    // Disable autocomplete dropdown entirely if no company is loaded
+    if (!reviewState.activeCompanyName) {
+        list.classList.add("hidden");
+        return;
+    }
+    
     const query = input.value.toLowerCase().trim();
     list.innerHTML = "";
     autocompleteIndex = -1;
     
-    // Options are unique ledgers from Tally XML
-    const options = new Set(reviewState.uniqueLedgers);
+    // Options are unique ledgers from Tally XML, or cached Tally company ledgers if loaded
+    let options = new Set(reviewState.uniqueLedgers);
+    if (reviewState.cachedCompanyLedgers && reviewState.cachedCompanyLedgers.length > 0) {
+        options = new Set(reviewState.cachedCompanyLedgers);
+    }
     
     const matches = Array.from(options).filter(opt => opt.toLowerCase().includes(query)).sort();
     
@@ -1303,4 +1321,156 @@ function selectAdvancedPhrase(phrase) {
 function clearAdvancedPhraseFilter() {
     reviewState.advancedPhraseFilter = null;
     applyReviewFilters();
+}
+
+
+// -------------------------------------------------------------
+// TALLY INTEGRATION & COMPANY LEDGER CACHING
+// -------------------------------------------------------------
+async function loadCachedCompanies() {
+    try {
+        const res = await fetch("/api/tally/companies");
+        const data = await res.json();
+        if (data.success) {
+            const select = document.getElementById("review-company-select");
+            if (!select) return;
+            
+            // Keep the default option
+            select.innerHTML = '<option value="">-- No Company Loaded --</option>';
+            
+            data.companies.forEach(company => {
+                const opt = document.createElement("option");
+                opt.value = company.safe_name;
+                opt.textContent = company.display_name;
+                select.appendChild(opt);
+            });
+            
+            // If there is an active company in state, pre-select it
+            if (reviewState.activeCompanyName) {
+                select.value = reviewState.activeCompanyName;
+            }
+        }
+    } catch (err) {
+        console.error("Failed to load cached companies list:", err);
+    }
+}
+
+async function onReviewCompanyChange() {
+    const select = document.getElementById("review-company-select");
+    if (!select) return;
+    
+    const companyName = select.value;
+    if (!companyName) {
+        reviewState.cachedCompanyLedgers = [];
+        reviewState.activeCompanyName = "";
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/tally/company/${encodeURIComponent(companyName)}/ledgers`);
+        const data = await res.json();
+        if (data.success) {
+            reviewState.cachedCompanyLedgers = data.ledgers || [];
+            reviewState.activeCompanyName = companyName;
+        } else {
+            alert(`Error loading company ledgers: ${data.message}`);
+            select.value = "";
+            reviewState.cachedCompanyLedgers = [];
+            reviewState.activeCompanyName = "";
+        }
+    } catch (err) {
+        alert(`System error loading company ledgers: ${err.message}`);
+        select.value = "";
+        reviewState.cachedCompanyLedgers = [];
+        reviewState.activeCompanyName = "";
+    }
+}
+
+function openSyncTallyModal() {
+    const modal = document.getElementById("review-modal-sync");
+    if (!modal) return;
+    
+    document.getElementById("sync-company-name-input").value = "";
+    const statusDiv = document.getElementById("sync-tally-status");
+    if (statusDiv) {
+        statusDiv.style.display = "none";
+        statusDiv.className = "";
+        statusDiv.innerHTML = "";
+    }
+    
+    modal.classList.remove("hidden");
+}
+
+async function submitTallySync() {
+    const companyInput = document.getElementById("sync-company-name-input");
+    const companyName = companyInput ? companyInput.value.trim() : "";
+    const statusDiv = document.getElementById("sync-tally-status");
+    const submitBtn = document.getElementById("btn-tally-sync-submit");
+    
+    if (!companyName) {
+        if (statusDiv) {
+            statusDiv.style.display = "block";
+            statusDiv.style.background = "#fef2f2";
+            statusDiv.style.color = "#ef4444";
+            statusDiv.style.border = "1px solid #fecaca";
+            statusDiv.innerHTML = "❌ Error: Company Name is required to sync.";
+        }
+        return;
+    }
+    
+    if (statusDiv) {
+        statusDiv.style.display = "block";
+        statusDiv.style.background = "#ebf8ff";
+        statusDiv.style.color = "#005ea5";
+        statusDiv.style.border = "1px solid #bae6fd";
+        statusDiv.innerHTML = "⌛ Connecting to Tally Prime on port 9000...";
+    }
+    
+    if (submitBtn) submitBtn.disabled = true;
+    
+    try {
+        const res = await fetch("/api/tally/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ company_name: companyName })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            if (statusDiv) {
+                statusDiv.style.background = "#f0fdf4";
+                statusDiv.style.color = "#16a34a";
+                statusDiv.style.border = "1px solid #bbf7d0";
+                statusDiv.innerHTML = `✓ Sync complete! Cached ${data.ledgers.length} ledgers for '${data.company_name}'.`;
+            }
+            
+            // Reload the dropdown and select the newly synced company
+            reviewState.activeCompanyName = data.company_name;
+            await loadCachedCompanies();
+            
+            // Auto-load ledgers for the company
+            reviewState.cachedCompanyLedgers = data.ledgers || [];
+            
+            // Close modal after a short delay so the user sees the success state
+            setTimeout(() => {
+                closeReviewModal("sync");
+            }, 1500);
+        } else {
+            if (statusDiv) {
+                statusDiv.style.background = "#fef2f2";
+                statusDiv.style.color = "#ef4444";
+                statusDiv.style.border = "1px solid #fecaca";
+                statusDiv.innerHTML = `❌ Error: ${data.message}`;
+            }
+        }
+    } catch (err) {
+        if (statusDiv) {
+            statusDiv.style.background = "#fef2f2";
+            statusDiv.style.color = "#ef4444";
+            statusDiv.style.border = "1px solid #fecaca";
+            statusDiv.innerHTML = `❌ System Error: ${err.message}`;
+        }
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
+    }
 }

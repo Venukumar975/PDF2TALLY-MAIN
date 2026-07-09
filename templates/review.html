@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tally Automation Suite - Voucher Review Desk</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
@@ -155,16 +155,25 @@
             gap: 10px;
         }
         .tally-modal-body label {
-            font-weight: 500;
+            font-weight: bold;
             font-size: 0.8rem;
-            color: #4a5568;
+            color: #000000 !important;
         }
         .tally-modal-body input, .tally-modal-body select {
-            padding: 6px;
-            border: 1px solid #cccccc;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 2px solid #000000 !important;
             border-radius: 4px;
-            font-size: 0.82rem;
-            outline-color: #002d5a;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #000000 !important;
+            background-color: #ffffff !important;
+            outline: #000000 solid 1px;
+            outline-offset: -2px;
+        }
+        .tally-modal-body, .tally-modal-body p, .tally-modal-body span, .tally-modal-body div, .tally-modal-body strong {
+            color: #000000 !important;
         }
         .tally-modal-footer {
             padding: 10px 15px;
@@ -270,9 +279,18 @@
             box-shadow: 0 4px 8px rgba(231, 76, 60, 0.12) !important;
             font-weight: bold;
         }
+        .ledger-autocomplete-item {
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            color: #2d3748 !important;
+            cursor: pointer;
+            border-bottom: 1px solid #edf2f7;
+            background-color: #ffffff;
+            transition: background-color 0.15s;
+        }
         .ledger-autocomplete-item:hover, .ledger-autocomplete-item.active {
-            background-color: #002d5a;
-            color: #ffffff;
+            background-color: #002d5a !important;
+            color: #ffffff !important;
         }
     </style>
 </head>
@@ -283,11 +301,24 @@
         <!-- TOP TALLY HEADER -->
         <div class="tally-header">
             <div class="tally-header-title">
-                <span>🎛️ Voucher Review Desk</span>
+                <span style="font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 800; letter-spacing: 0.5px;">Voucher Review Desk</span>
                 <span id="review-imported-filename" style="color: #a5d8ff; font-weight: normal; font-size: 0.78rem;">Imported XML: None</span>
                 <span id="review-bank-profile" style="color: #a5d8ff; font-weight: normal; font-size: 0.78rem;">Bank: Unspecified</span>
                 <span id="review-current-period" style="color: #a5d8ff; font-weight: normal; font-size: 0.78rem;">Period: Full Range</span>
             </div>
+            
+            <!-- Company Selection and Sync Panel -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="review-company-select" style="color: #e2e8f0; font-weight: 600; font-size: 0.78rem;">Company Profile:</label>
+                <select id="review-company-select" onchange="onReviewCompanyChange()" style="background: #00152b; color: #ffffff; border: 1px solid #005ea5; border-radius: 4px; padding: 2px 8px; outline: none; cursor: pointer; max-width: 200px; font-size: 0.76rem; font-weight: bold; height: 26px; box-sizing: border-box; font-family: 'Inter', sans-serif;">
+                    <option value="">-- No Company Loaded --</option>
+                </select>
+                
+                <button onclick="openSyncTallyModal()" style="background: #27ae60; color: #ffffff; border: none; border-radius: 4px; padding: 0 10px; font-weight: bold; cursor: pointer; font-size: 0.76rem; display: flex; align-items: center; gap: 4px; height: 26px; box-sizing: border-box; transition: background 0.15s; font-family: 'Inter', sans-serif;" onmouseover="this.style.background='#2ecc71'" onmouseout="this.style.background='#27ae60'">
+                    <span>🔄</span> Sync Tally
+                </button>
+            </div>
+
             <div>
                 <button class="tally-header-close" onclick="openExitConfirmation()">✖ Exit</button>
             </div>
@@ -594,6 +625,29 @@
                 
                 <!-- Glassmorphic Button 2: Save & Exit -->
                 <button class="btn" onclick="confirmExitReview('export')" style="background: rgba(13, 148, 136, 0.08); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.3); font-size: 0.78rem; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 2px rgba(0,0,0,0.02);" onmouseover="this.style.background='rgba(13, 148, 136, 0.15)'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 6px rgba(13, 148, 136, 0.08)';" onmouseout="this.style.background='rgba(13, 148, 136, 0.08)'; this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.02)';">Save & Exit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. TALLY SYNC MODAL -->
+    <div id="review-modal-sync" class="tally-modal-overlay hidden" style="z-index: 1400;">
+        <div class="tally-modal-card" style="width: 380px;">
+            <div class="tally-modal-header" style="background: #002d5a;">Sync Ledgers from Tally Prime</div>
+            <div class="tally-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <p style="margin: 0; font-size: 0.8rem; color: #000000 !important; line-height: 1.4; font-weight: bold;">
+                    Ensure **Tally Prime** is running on this computer with your client company open.
+                </p>
+                
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label for="sync-company-name-input" style="font-size: 0.8rem; font-weight: bold; color: #000000 !important;">Company Name:</label>
+                    <input type="text" id="sync-company-name-input" placeholder="Enter the exact company name saved in Tally..." style="width: 100%; box-sizing: border-box; padding: 8px; border: 2px solid #000000 !important; border-radius: 4px; font-size: 0.85rem; height: 36px; outline: none; color: #000000 !important; background-color: #ffffff !important;" autocomplete="off">
+                </div>
+                
+                <div id="sync-tally-status" style="margin-top: 5px; font-size: 0.78rem; font-weight: bold; padding: 8px 12px; border-radius: 4px; display: none; line-height: 1.3;"></div>
+            </div>
+            <div class="tally-modal-footer">
+                <button class="btn btn-secondary" onclick="closeReviewModal('sync')" style="font-size: 0.78rem; padding: 6px 12px; height: 32px; color: #000000 !important;">Close</button>
+                <button class="btn btn-primary" id="btn-tally-sync-submit" onclick="submitTallySync()" style="background: #002d5a; color: white !important; border-color: #002d5a; font-size: 0.78rem; padding: 6px 12px; height: 32px;">Start Sync</button>
             </div>
         </div>
     </div>

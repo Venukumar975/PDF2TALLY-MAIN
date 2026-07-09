@@ -788,8 +788,8 @@ def api_hybrid_validate_and_extract():
                 os.remove(temp_path)
             return jsonify({"success": False, "message": res.get("message", "Failed to extract table structure.")}), 400
             
-        # Create temp_uploads directory inside workspace to hold file session
-        temp_dir = os.path.join(os.path.dirname(__file__), "temp_uploads")
+        # Create temp_uploads directory inside user home folder to hold file session
+        temp_dir = os.path.expanduser("~/.pdf2tally/temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
         
         temp_file_id = str(uuid.uuid4())
@@ -880,7 +880,7 @@ def api_hybrid_parse():
         if not temp_file_id:
             return jsonify({"success": False, "message": "Temp File ID is required."}), 400
             
-        temp_dir = os.path.join(os.path.dirname(__file__), "temp_uploads")
+        temp_dir = os.path.expanduser("~/.pdf2tally/temp_uploads")
         pdf_path = os.path.join(temp_dir, f"temp_{temp_file_id}.pdf")
         
         if not os.path.exists(pdf_path):
@@ -1085,6 +1085,7 @@ def api_detect_opening_balance():
             parse_opening_func = get_opening_balance_parser(bank_type)
             op_bal = parse_opening_func(text)
             
+
         if os.path.exists(temp_path):
             os.remove(temp_path)
             
@@ -1098,5 +1099,5 @@ def api_detect_opening_balance():
             os.remove(temp_path)
         return jsonify({"success": False, "message": str(e)}), 500
 
-
-
+# Import Tally sub-routing endpoints
+import routes_tally

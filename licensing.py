@@ -217,7 +217,7 @@ def load_local_license() -> dict:
                 plain_text = _xor_decrypt(encrypted_bytes, sig)
                 data = json.loads(plain_text)
             except Exception:
-                logger.error("License integrity verification failed. Initializing login prompt.")
+                logger.error("License integrity verification failed.Performing REAUTHENTICATION.")
                 return None
                 
             required_keys = ["signature", "activated", "role", "expiry_date", "seconds_remaining", "last_sync_real", "last_seen_time", "sha256"]

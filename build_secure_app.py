@@ -24,7 +24,7 @@ def build_secure():
         sys.executable, "-m", "pyarmor.cli", "gen",
         "-O", "obf_dist",
         "-r",
-        "desktop_run.py", "app_flask.py", "routes.py", "licensing.py",
+        "desktop_run.py", "app_flask.py", "routes.py", "routes_tally.py", "licensing.py",
         "services", "parsers", "strategies", "slicers"
     ]
     
@@ -82,32 +82,17 @@ def build_secure():
                     hidden_imports.append(import_name)
 
     # Append local obfuscated modules to prevent ModuleNotFoundError due to PyArmor encryption
-    local_hidden_imports = [
-        "app_flask",
-        "routes",
-        "licensing",
-        "services",
-        "services.cash_validator",
-        "services.cash_xlsx_writer",
-        "services.cash_xml_generator",
-        "services.logger",
-        "services.pdf_reader",
-        "services.statement_validator",
-        "services.xlsx_viewer",
-        "services.xml_generator",
-        "parsers",
-        "parsers.cash_parser",
-        "parsers.bob_parser",
-        "parsers.router",
-        "parsers.sbi_parser",
-        "strategies",
-        "strategies.ContinuationChunk",
-        "strategies.FirstChunk",
-        "strategies.WholeChunk",
-        "slicers",
-        "slicers.BOB_slicing",
-        "slicers.SBI_slicing",
-    ]
+    local_hidden_imports = ["app_flask", "routes", "routes_tally", "licensing"]
+    local_dirs = ["services", "parsers", "strategies", "slicers"]
+    for folder in local_dirs:
+        local_hidden_imports.append(folder)
+        if os.path.exists(folder):
+            for root, dirs, files in os.walk(folder):
+                for file in files:
+                    if file.endswith('.py') and not file.startswith('__'):
+                        rel_path = os.path.relpath(os.path.join(root, file), os.getcwd())
+                        mod_name = os.path.splitext(rel_path)[0].replace(os.sep, '.')
+                        local_hidden_imports.append(mod_name)
     hidden_imports.extend(local_hidden_imports)
 
     # Deduplicate imports
