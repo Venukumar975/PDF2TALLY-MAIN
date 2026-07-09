@@ -1099,5 +1099,97 @@ def api_detect_opening_balance():
             os.remove(temp_path)
         return jsonify({"success": False, "message": str(e)}), 500
 
+@routes_bp.route("/api/review/save", methods=["POST"])
+def api_review_save():
+    try:
+        data = request.get_json(silent=True) or {}
+        xml_text = data.get("xml", "").strip()
+        debit_ledger = data.get("debit_ledger", "").strip() or "Generic Bank"
+        credit_ledger = data.get("credit_ledger", "").strip() or "Suspense"
+        original_filename = data.get("filename", "").strip() or "tally_import.xml"
+        
+        if not xml_text:
+            return jsonify({"success": False, "message": "XML content is required."}), 400
+            
+        # Determine target default filename for Save As
+        if original_filename.endswith(".xml"):
+            base_name = original_filename[:-4]
+            default_filename = f"{base_name}_reviewed.xml"
+        else:
+            default_filename = f"{original_filename}_reviewed.xml"
+
+        # 1. Trigger Native File Dialog
+        file_path = None
+        
+        # Fallback 1: Try pywebview's active window dialog
+        try:
+            import webview
+            active_win = webview.active_window()
+            if active_win:
+                res = active_win.create_file_dialog(
+                    dialog_type=webview.SAVE_DIALOG,
+                    file_types=("XML files (*.xml)", "All files (*.*)"),
+                    save_filename=default_filename
+                )
+                if res:
+                    if isinstance(res, (list, tuple)):
+                        file_path = res[0]
+                    else:
+                        file_path = res
+        except Exception as e:
+            logger.warning(f"Failed to use pywebview file dialog: {e}")
+            
+        # Fallback 2: Tkinter filedialog
+        if not file_path:
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                file_path = filedialog.asksaveasfilename(
+                    defaultextension=".xml",
+                    filetypes=[("XML files", "*.xml"), ("All files", "*.*")],
+                    initialfile=default_filename,
+                    title="Save XML As..."
+                )
+                root.destroy()
+            except Exception as e:
+                logger.error(f"Failed to use Tkinter file dialog: {e}")
+
+        # If user cancelled selection
+        if not file_path:
+            return jsonify({"success": False, "cancelled": True, "message": "Save action cancelled by user."})
+
+        # 2. Save XML to selected file path
+        with open(file_path, "w", encoding="utf-8") as f_out:
+            f_out.write(xml_text)
+            
+        # 3. Update in-memory XML cache
+        FILE_CACHE["xml_bank"] = xml_text.encode("utf-8")
+        
+        # 4. Regenerate Excel audit workbook in-memory
+        import tempfile
+        fd_xlsx, temp_xlsx = tempfile.mkstemp(suffix=".xlsx")
+        os.close(fd_xlsx)
+        
+        try:
+            from services.xlsx_viewer import export_xml_audit_workbook
+            export_xml_audit_workbook(xml_text, temp_xlsx, bank_ledger=debit_ledger, suspense_ledger=credit_ledger)
+            with open(temp_xlsx, "rb") as f_in:
+                FILE_CACHE["xlsx_bank"] = f_in.read()
+        finally:
+            if os.path.exists(temp_xlsx):
+                os.remove(temp_xlsx)
+                
+        return jsonify({
+            "success": True, 
+            "message": f"File saved successfully as:\n{os.path.basename(file_path)}",
+            "saved_path": file_path
+        })
+    except Exception as e:
+        logger.error(f"Error in review save API: {e}", exc_info=True)
+        return jsonify({"success": False, "message": f"Server error: {str(e)}"})
+
 # Import Tally sub-routing endpoints
 import routes_tally

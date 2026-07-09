@@ -223,6 +223,7 @@ function loadReviewXML(xmlString, fileName) {
             bankProfileEl.textContent = `Bank: ${bankName}`;
             bankProfileEl.setAttribute("title", `Ensure your company bank name matches this name: ${bankName}`);
         }
+        reviewState.bankName = bankName;
         
         // Find min/max dates
         const sortedDates = reviewState.vouchers.map(v => v.rawDate).filter(Boolean).sort();
@@ -585,6 +586,9 @@ function handleGlobalKeydown(e) {
         // Spacebar toggles row selection
         e.preventDefault();
         toggleFocusedSelection();
+    } else if (e.key === "Delete") {
+        e.preventDefault();
+        deleteSelectedVouchers();
     }
     
     // Tally Shortcuts
@@ -609,9 +613,9 @@ function handleGlobalKeydown(e) {
     } else if (e.key === "a" || e.key === "A") {
         e.preventDefault();
         openAdvancedFilterModal();
-    } else if (e.key === "e" && e.ctrlKey) {
+    } else if ((e.key === "s" || e.key === "S" || e.key === "e" || e.key === "E") && e.ctrlKey) {
         e.preventDefault();
-        exportReviewXML();
+        saveReviewXML();
     } else if (e.key === "Escape") {
         e.preventDefault();
         
@@ -1079,7 +1083,7 @@ function updateMonthlyAnalysisBalances() {
 // -------------------------------------------------------------
 // XML EXPORTER AND EXIT HANDLERS
 // -------------------------------------------------------------
-function exportReviewXML() {
+async function saveReviewXML(exitAfterSave = false) {
     if (!reviewState.xmlDoc) {
         alert("No active XML document loaded.");
         return;
@@ -1089,20 +1093,87 @@ function exportReviewXML() {
     const serializer = new XMLSerializer();
     const xmlString = serializer.serializeToString(reviewState.xmlDoc);
     
-    const exportName = reviewState.originalFileName.endsWith(".xml") ?
-        reviewState.originalFileName :
-        "tally_review_desk_export.xml";
+    const saveBtn = document.getElementById("btn-tally-save");
+    const saveLabel = document.getElementById("btn-tally-save-label");
+    const saveShortcut = saveBtn ? saveBtn.querySelector(".tally-btn-shortcut") : null;
+    let originalShortcut = "Ctrl+S";
+    let originalLabel = "Save";
+    if (saveLabel) originalLabel = saveLabel.textContent;
+    if (saveShortcut) originalShortcut = saveShortcut.textContent;
+    
+    if (saveBtn) {
+        if (saveShortcut) saveShortcut.textContent = "...";
+        if (saveLabel) saveLabel.textContent = "Saving...";
+        saveBtn.disabled = true;
+    }
+    
+    try {
+        const response = await fetch("/api/review/save", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                xml: xmlString,
+                debit_ledger: reviewState.bankName || "Generic Bank",
+                credit_ledger: "Suspense",
+                filename: reviewState.originalFileName || "tally_import.xml"
+            })
+        });
         
-    // Trigger browser blob download
-    const blob = new Blob([xmlString], { type: "text/xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = exportName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        const result = await response.json();
+        if (result.success) {
+            alert(result.message);
+            if (exitAfterSave) {
+                window.location.href = "/#license-tab";
+            }
+        } else if (result.cancelled) {
+            console.log("Save cancelled:", result.message);
+        } else {
+            alert("Failed to save changes: " + result.message);
+        }
+    } catch (err) {
+        console.error("Error saving review XML:", err);
+        alert("An error occurred while saving: " + err.message);
+    } finally {
+        if (saveBtn) {
+            if (saveShortcut) saveShortcut.textContent = originalShortcut;
+            if (saveLabel) saveLabel.textContent = originalLabel;
+            saveBtn.disabled = false;
+        }
+    }
+}
+
+function deleteSelectedVouchers() {
+    if (reviewState.selectedIds.size === 0) {
+        alert("Please select at least one voucher to delete.");
+        return;
+    }
+    
+    const confirmDelete = confirm(`Are you sure you want to delete the ${reviewState.selectedIds.size} selected voucher(s)?`);
+    if (!confirmDelete) return;
+    
+    // 1. Remove XML nodes from the DOM
+    reviewState.vouchers.forEach(vch => {
+        if (reviewState.selectedIds.has(vch.id)) {
+            if (vch.node && vch.node.parentNode) {
+                vch.node.parentNode.removeChild(vch.node);
+            }
+        }
+    });
+    
+    // 2. Filter out deleted vouchers from the javascript state array
+    reviewState.vouchers = reviewState.vouchers.filter(vch => !reviewState.selectedIds.has(vch.id));
+    
+    // 3. Reset selection and focused indices
+    reviewState.selectedIds.clear();
+    reviewState.focusedIndex = -1;
+    reviewState.lastSelectedIndex = -1;
+    
+    // 4. Update the review filters and stats
+    applyReviewFilters();
+    updateReviewStats();
+    onReviewTableScroll();
 }
 
 function openExitConfirmation() {
@@ -1124,11 +1195,8 @@ function closeExitConfirmation() {
 
 function confirmExitReview(action) {
     if (action === "export") {
-        // Save work by triggering download first
-        exportReviewXML();
-        setTimeout(() => {
-            window.location.href = "/#license-tab";
-        }, 1500);
+        // Save work by posting back to the server
+        saveReviewXML(true);
     } else if (action === "exit") {
         // Exit without saving modifications
         window.location.href = "/#license-tab";
