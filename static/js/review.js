@@ -33,6 +33,15 @@ let autocompleteIndex = -1;
 // INITIALIZATION
 // -------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
+    // Initialize Theme
+    const savedTheme = localStorage.getItem("review-theme");
+    if (savedTheme === "night") {
+        document.body.classList.add("night-theme");
+        const btnIcon = document.getElementById("theme-toggle-icon");
+        const btnText = document.getElementById("theme-toggle-text");
+        if (btnIcon) btnIcon.textContent = "☀️";
+        if (btnText) btnText.textContent = "Day Mode";
+    }
 
 
     // Setup drag & drop dropzone
@@ -1540,5 +1549,23 @@ async function submitTallySync() {
         }
     } finally {
         if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
+function toggleTheme() {
+    const body = document.body;
+    const btnIcon = document.getElementById("theme-toggle-icon");
+    const btnText = document.getElementById("theme-toggle-text");
+    
+    if (body.classList.contains("night-theme")) {
+        body.classList.remove("night-theme");
+        localStorage.setItem("review-theme", "day");
+        if (btnIcon) btnIcon.textContent = "🌙";
+        if (btnText) btnText.textContent = "Night Mode";
+    } else {
+        body.classList.add("night-theme");
+        localStorage.setItem("review-theme", "night");
+        if (btnIcon) btnIcon.textContent = "☀️";
+        if (btnText) btnText.textContent = "Day Mode";
     }
 }

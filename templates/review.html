@@ -189,12 +189,12 @@
             display: flex;
             width: 100%;
             align-items: center;
-            border: 2px solid #000000 !important;
+            border: 2px solid #000000;
             background: #f7fafc;
             border-radius: 4px;
             padding: 5px 8px;
             cursor: pointer;
-            box-shadow: 2px 2px 0px #000000 !important;
+            box-shadow: 2px 2px 0px #000000;
             transition: all 0.1s ease;
             box-sizing: border-box;
             outline: none;
@@ -202,7 +202,7 @@
         .tally-btn-key:hover {
             background: #ebf8ff;
             transform: translate(-1px, -1px);
-            box-shadow: 3px 3px 0px #000000 !important;
+            box-shadow: 3px 3px 0px #000000;
         }
         .tally-btn-shortcut {
             background: #cbd5e0;
@@ -293,6 +293,221 @@
             background-color: #002d5a !important;
             color: #ffffff !important;
         }
+
+        /* =============================================================
+           NIGHT MODE DARK THEME STYLING
+           ============================================================= */
+        body.night-theme {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        body.night-theme .review-workspace-body {
+            background-color: #0f172a;
+        }
+        body.night-theme .review-table-area {
+            background-color: #0f172a;
+            border-right: 1px solid #334155;
+        }
+        body.night-theme #review-table-container {
+            background: #1e293b !important;
+            border: 2px solid #000000 !important;
+        }
+        body.night-theme #review-table-header {
+            background: #0f172a !important;
+            color: #f8fafc !important;
+            border-bottom: 2px solid #000000 !important;
+        }
+        body.night-theme .review-dropzone {
+            background-color: #1e293b;
+            border-color: #38bdf8;
+        }
+        body.night-theme .review-dropzone:hover {
+            background-color: #334155;
+        }
+        body.night-theme .review-dropzone h3 {
+            color: #38bdf8 !important;
+        }
+        body.night-theme .review-dropzone p,
+        body.night-theme .review-dropzone span {
+            color: #94a3b8 !important;
+        }
+        body.night-theme .review-row {
+            background: #1e293b !important;
+            border-bottom: 1px solid #334155 !important;
+            color: #cbd5e0;
+        }
+        body.night-theme .review-row:hover {
+            background: #334155 !important;
+        }
+        body.night-theme .review-row.tally-selected {
+            background-color: #78350f !important; /* Premium dark amber selection */
+            color: #fef3c7 !important;
+        }
+        body.night-theme .review-row div {
+            border-right-color: #334155 !important;
+        }
+        body.night-theme .review-row [style*="color: #10b981"] {
+            color: #4ade80 !important; /* Lighter emerald green for night mode readability */
+        }
+        body.night-theme .review-row [style*="color: #ef4444"] {
+            color: #f87171 !important; /* Lighter red for night mode readability */
+        }
+
+        /* Right Actions Panel & Buttons */
+        body.night-theme .review-workspace-body > div[style*="width: 170px"] {
+            background-color: #1e293b !important;
+            border-left: 1px solid #334155 !important;
+        }
+        body.night-theme .tally-btn-key {
+            background-color: #334155;
+            /* Allow inline border-color styling to override */
+        }
+        body.night-theme .tally-btn-key:hover {
+            background-color: #475569;
+        }
+        body.night-theme .tally-btn-label {
+            color: #f1f5f9;
+        }
+        body.night-theme .tally-btn-shortcut {
+            background-color: #475569;
+            color: #f8fafc;
+            border-color: #000000 !important;
+        }
+
+        /* Stats Blocks */
+        body.night-theme div[style*="background: #f0f4f8"] {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+            border-color: #000000 !important;
+        }
+        body.night-theme div[style*="background: #f0f4f8"] div {
+            color: #e2e8f0 !important;
+            border-bottom-color: #475569 !important;
+        }
+        body.night-theme div[style*="background: #f0f4f8"] span {
+            color: #cbd5e0 !important;
+        }
+        body.night-theme div[style*="background: #f0f4f8"] strong {
+            color: #ffffff !important;
+        }
+        body.night-theme .stats-interactive-row {
+            background: #1e293b !important;
+            border-color: #000000 !important;
+            color: #f1f5f9 !important;
+        }
+        body.night-theme .stats-interactive-row:hover {
+            background-color: #334155 !important;
+        }
+        body.night-theme .stats-interactive-row.active-all {
+            background-color: #1e3a8a !important;
+            border: 2px solid #3b82f6 !important;
+        }
+        body.night-theme .stats-interactive-row.active-modified {
+            background-color: #064e3b !important;
+            border: 2px solid #10b981 !important;
+        }
+        body.night-theme .stats-interactive-row.active-suspense {
+            background-color: #7f1d1d !important;
+            border: 2px solid #ef4444 !important;
+        }
+        body.night-theme #btn-stats-modified span,
+        body.night-theme #btn-stats-modified strong,
+        body.night-theme .review-row [style*="color: #2ecc71"] {
+            color: #4ade80 !important;
+        }
+        body.night-theme #btn-stats-suspense span,
+        body.night-theme #btn-stats-suspense strong {
+            color: #f87171 !important;
+        }
+
+        /* Header controls */
+        body.night-theme .tally-header {
+            background-color: #0f172a !important;
+            border-bottom: 2px solid #334155 !important;
+        }
+        body.night-theme #theme-toggle-btn {
+            background-color: #1e293b !important;
+            border-color: #38bdf8 !important;
+            color: #38bdf8 !important;
+        }
+        body.night-theme #theme-toggle-btn:hover {
+            background-color: #334155 !important;
+        }
+        body.night-theme #review-company-select {
+            background-color: #1e293b !important;
+            border-color: #38bdf8 !important;
+            color: #ffffff !important;
+        }
+
+        /* Modals and Forms */
+        body.night-theme .tally-modal-card {
+            background-color: #1e293b !important;
+            border-color: #38bdf8 !important;
+        }
+        body.night-theme .tally-modal-header {
+            background-color: #0f172a !important;
+            color: #38bdf8 !important;
+            border-bottom: 1px solid #334155 !important;
+        }
+        body.night-theme .tally-modal-body,
+        body.night-theme .tally-modal-body p,
+        body.night-theme .tally-modal-body span,
+        body.night-theme .tally-modal-body div,
+        body.night-theme .tally-modal-body label {
+            color: #f1f5f9 !important;
+        }
+        body.night-theme .stats-interactive-row span {
+            color: #f1f5f9 !important; /* Force phrase text to be visible on dark row */
+        }
+        body.night-theme .stats-interactive-row strong {
+            padding: 2px 8px !important;
+            border-radius: 10px !important;
+            font-size: 0.68rem !important;
+            font-weight: bold !important;
+        }
+        body.night-theme .stats-interactive-row strong[style*="background: #e6f2ff"],
+        body.night-theme .stats-interactive-row strong[style*="background: rgb(230, 242, 255)"] {
+            background: #1e3a8a !important;
+            color: #93c5fd !important;
+            border: 1px solid #3b82f6 !important;
+        }
+        body.night-theme .stats-interactive-row strong[style*="background: #fed7d7"],
+        body.night-theme .stats-interactive-row strong[style*="background: rgb(254, 215, 215)"] {
+            background: #7f1d1d !important;
+            color: #fca5a5 !important;
+            border: 1px solid #ef4444 !important;
+        }
+        body.night-theme .stats-interactive-row strong[style*="background: #c6f6d5"],
+        body.night-theme .stats-interactive-row strong[style*="background: rgb(198, 246, 213)"] {
+            background: #064e3b !important;
+            color: #6ee7b7 !important;
+            border: 1px solid #10b981 !important;
+        }
+        body.night-theme .tally-modal-body input,
+        body.night-theme .tally-modal-body select {
+            background-color: #0f172a !important;
+            color: #ffffff !important;
+            border-color: #38bdf8 !important;
+            outline-color: #38bdf8 !important;
+        }
+        body.night-theme .tally-modal-footer {
+            background-color: #1e293b !important;
+            border-top-color: #334155 !important;
+        }
+        body.night-theme .ledger-autocomplete-list {
+            background-color: #1e293b !important;
+            border-color: #38bdf8 !important;
+        }
+        body.night-theme .ledger-autocomplete-item {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+            border-bottom-color: #334155 !important;
+        }
+        body.night-theme .ledger-autocomplete-item:hover,
+        body.night-theme .ledger-autocomplete-item.active {
+            background-color: #38bdf8 !important;
+            color: #000000 !important;
+        }
     </style>
 </head>
 <body>
@@ -301,22 +516,25 @@
         
         <!-- TOP TALLY HEADER -->
         <div class="tally-header">
-            <div class="tally-header-title">
-                <span style="font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 800; letter-spacing: 0.5px;">Voucher Review Desk</span>
-                <span id="review-imported-filename" style="color: #a5d8ff; font-weight: normal; font-size: 0.78rem;">Imported XML: None</span>
-                <span id="review-bank-profile" style="color: #a5d8ff; font-weight: normal; font-size: 0.78rem;">Bank: Unspecified</span>
-                <span id="review-current-period" style="color: #a5d8ff; font-weight: normal; font-size: 0.78rem;">Period: Full Range</span>
+            <div class="tally-header-title" style="display: flex; gap: 15px; align-items: center;">
+                <span id="review-imported-filename" style="color: #a5d8ff; font-weight: 500; font-size: 0.78rem;">Imported XML: None</span>
+                <span id="review-bank-profile" style="color: #a5d8ff; font-weight: 500; font-size: 0.78rem;">Bank: Unspecified</span>
+                <span id="review-current-period" style="color: #a5d8ff; font-weight: 500; font-size: 0.78rem;">Period: Full Range</span>
             </div>
             
-            <!-- Company Selection and Sync Panel -->
+            <!-- Company Selection, Theme Toggle and Sync Panel -->
             <div style="display: flex; align-items: center; gap: 8px;">
                 <label for="review-company-select" style="color: #e2e8f0; font-weight: 600; font-size: 0.78rem;">Company Profile:</label>
-                <select id="review-company-select" onchange="onReviewCompanyChange()" style="background: #00152b; color: #ffffff; border: 1px solid #005ea5; border-radius: 4px; padding: 2px 8px; outline: none; cursor: pointer; max-width: 200px; font-size: 0.76rem; font-weight: bold; height: 26px; box-sizing: border-box; font-family: 'Inter', sans-serif;">
+                <select id="review-company-select" onchange="onReviewCompanyChange()" style="background: #00152b; color: #ffffff; border: 1px solid #005ea5; border-radius: 4px; padding: 2px 8px; outline: none; cursor: pointer; max-width: 180px; font-size: 0.76rem; font-weight: bold; height: 26px; box-sizing: border-box; font-family: 'Inter', sans-serif;">
                     <option value="">-- No Company Loaded --</option>
                 </select>
                 
                 <button onclick="openSyncTallyModal()" style="background: #27ae60; color: #ffffff; border: none; border-radius: 4px; padding: 0 10px; font-weight: bold; cursor: pointer; font-size: 0.76rem; display: flex; align-items: center; gap: 4px; height: 26px; box-sizing: border-box; transition: background 0.15s; font-family: 'Inter', sans-serif;" onmouseover="this.style.background='#2ecc71'" onmouseout="this.style.background='#27ae60'">
                     <span>🔄</span> Sync Tally
+                </button>
+
+                <button id="theme-toggle-btn" onclick="toggleTheme()" style="background: #00152b; color: #ffffff; border: 1px solid #005ea5; border-radius: 4px; padding: 0 10px; font-weight: bold; cursor: pointer; font-size: 0.76rem; display: flex; align-items: center; gap: 4px; height: 26px; box-sizing: border-box; transition: all 0.15s; font-family: 'Inter', sans-serif;">
+                    <span id="theme-toggle-icon">🌙</span> <span id="theme-toggle-text">Night Mode</span>
                 </button>
             </div>
 
