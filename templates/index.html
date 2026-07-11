@@ -331,6 +331,10 @@
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">A</span>
                     <span>Ashramam Ledger</span>
                 </a>
+                <a href="#gstr1-tab" class="nav-item" onclick="switchTab('gstr1-tab')">
+                    <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">G</span>
+                    <span>GSTR-1 Offline</span>
+                </a>
                 <a href="#formats-tab" class="nav-item" onclick="switchTab('formats-tab')">
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">F</span>
                     <span>Supported Formats</span>
@@ -785,6 +789,143 @@
                                     </thead>
                                     <tbody>
                                         <!-- Injected by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 2.5: GSTR-1 OFFLINE CONVERTER -->
+            <section id="gstr1-tab" class="tab-pane hidden animate-fade-in">
+                <header class="section-header">
+                    <h2>GSTR-1 Offline JSON Converter</h2>
+                    <p>Load your Sales register Excel/CSV spreadsheets and convert them directly to official GSTR-1 JSON files for direct upload to the GST Portal.</p>
+                </header>
+
+                <div class="grid-2-1">
+                    <!-- LEFT COLUMN: INPUT CONTROLS -->
+                    <div class="glass-card">
+                        <h3>1. Supplier Details & Period</h3>
+                        <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label for="gstr1-supplier-gstin">Supplier GSTIN</label>
+                                <input type="text" id="gstr1-supplier-gstin" placeholder="e.g. 37AAAAA1111A1Z1" maxlength="15" style="text-transform: uppercase;">
+                            </div>
+                            <div class="form-group">
+                                <label for="gstr1-fp">Financial Period (fp)</label>
+                                <input type="text" id="gstr1-fp" placeholder="Format: MMYYYY (e.g. 082025)" maxlength="6">
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <h3>2. Select Sales Register File (.xlsx / .csv)</h3>
+                        <div id="gstr1-dropzone" class="dropzone">
+                            <input type="file" id="gstr1-file-input" accept=".xlsx, .xls, .csv" class="hidden-input" onchange="handleFileSelect('gstr1')">
+                            <div class="dropzone-text">
+                                <span class="dropzone-icon">📁</span>
+                                <p class="dropzone-title">Drag & drop your sales register sheet here</p>
+                                <p class="dropzone-sub">or click to browse your folders</p>
+                            </div>
+                            <div id="gstr1-file-badge" class="file-badge hidden">
+                                <span class="file-icon">📄</span>
+                                <span id="gstr1-file-name" class="file-name">sales.xlsx</span>
+                                <button onclick="clearFile('gstr1')" class="btn-clear">&times;</button>
+                            </div>
+                        </div>
+                        
+                        <div class="actions-bar" style="margin-top: 20px;">
+                            <button id="btn-convert-gstr1" class="btn btn-primary btn-block" onclick="runGstr1Conversion()">
+                                <span id="gstr1-btn-text">Convert to GSTR-1 JSON </span>
+                                <span id="gstr1-spinner" class="spinner-small hidden"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: INFORMATIONAL INFO -->
+                    <div class="sidebar-info">
+                        <div class="glass-card gradient-border-card">
+                            <h3>🔍 Smart GST Validations</h3>
+                            <p>The GSTR-1 offline engine automatically optimizes and formats your sales entries:</p>
+                            <ul class="benefit-list" style="margin-top: 10px;">
+                                <li><strong>Rate Consolidator:</strong> Groups multi-rate rows under a single invoice number as required by the GST portal.</li>
+                                <li><strong>RCM Auto-cleaning:</strong> Converts standard spreadsheet entries (Yes/No) to valid portal flags (Y/N).</li>
+                                <li><strong>POS Zero-Padding:</strong> Formats Place of Supply code prefixes to exactly 2 digits (e.g., "09" or "37").</li>
+                            </ul>
+                        </div>
+                        <div class="glass-card status-msg-box" id="gstr1-status-info">
+                            <p class="neutral-status">Waiting for sales register file...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTTOM AREA: LIVE REGISTER PREVIEW -->
+                <div id="gstr1-results" class="results-container hidden animate-fade-in">
+                    <div class="glass-card">
+                        <div class="results-header">
+                            <h3> GSTR-1 Conversion Summary</h3>
+                            <span class="badge success" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">READY FOR PORTAL</span>
+                        </div>
+
+                        <div class="metrics-strip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                            <div class="metric-card">
+                                <span class="metric-label">Recipients (CTIN)</span>
+                                <span class="metric-value" id="m-gstr1-recipients">0</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Processed Invoices</span>
+                                <span class="metric-value" id="m-gstr1-invoices">0</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Total Taxable Value</span>
+                                <span class="metric-value" id="m-gstr1-taxable">₹ 0.00</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Total GST (C+S+I)</span>
+                                <span class="metric-value text-success" id="m-gstr1-tax">₹ 0.00</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Total Invoice Value</span>
+                                <span class="metric-value" id="m-gstr1-total">₹ 0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- EXPORT JSON -->
+                        <div style="max-width: 400px; margin: 0 auto 20px auto; text-align: center;">
+                            <h4 style="margin-bottom: 8px;">Download GSTR-1 JSON File</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">This JSON file can be uploaded directly to the GST Online Portal under GSTR-1 B2B returns.</p>
+                            <button onclick="triggerDownload('json_gstr1')" class="btn btn-success btn-block" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 500; font-size: 0.95rem;">Download GSTR-1 JSON (.json)</button>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- LIVE REGISTER TABLE -->
+                        <div class="table-section">
+                            <h4>B2B Invoice Alteration & Audit Register</h4>
+                            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">Simulates and lists all consolidated B2B invoice aggregates that will be uploaded.</p>
+                            
+                            <div class="table-wrapper" style="max-height: 450px; overflow-y: auto;">
+                                <table id="gstr1-preview-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Recipient GSTIN</th>
+                                            <th>Invoice No.</th>
+                                            <th>Date</th>
+                                            <th>POS</th>
+                                            <th>Taxable Value</th>
+                                            <th>CGST</th>
+                                            <th>SGST</th>
+                                            <th>IGST</th>
+                                            <th>Invoice Value</th>
+                                            <th>RCM</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Injected dynamically by JS -->
                                     </tbody>
                                 </table>
                             </div>

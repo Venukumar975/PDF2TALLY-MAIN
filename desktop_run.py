@@ -98,6 +98,8 @@ class WebviewApi:
             
         if 'xml' in file_type:
             file_types = ('XML files (*.xml)', 'All files (*.*)')
+        elif 'json' in file_type:
+            file_types = ('JSON files (*.json)', 'All files (*.*)')
         else:
             file_types = ('Excel workbooks (*.xlsx)', 'All files (*.*)')
         

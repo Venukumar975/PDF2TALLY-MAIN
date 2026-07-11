@@ -9,7 +9,8 @@ const state = {
     activeTab: "bank-tab",
     files: {
         bank: null,
-        cash: null
+        cash: null,
+        gstr1: null
     },
     lexicon: {},
     cashSession: {
@@ -27,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
     checkLicenseStatus(true);
     setupDragAndDrop("bank");
     setupDragAndDrop("cash");
+    setupDragAndDrop("gstr1");
     loadSavedLayouts();
     
     // Auto-update debit ledger name when bank selection changes
@@ -3308,5 +3310,98 @@ function clearReviewDesk() {
     document.getElementById("review-table-container").classList.add("hidden");
     
     updateReviewStats();
+}
+
+// ==========================================
+// GSTR-1 OFFLINE CONVERTER FRONTEND CONTROLLER
+// ==========================================
+async function runGstr1Conversion() {
+    const file = state.files.gstr1;
+    const gstin = document.getElementById("gstr1-supplier-gstin").value.trim().toUpperCase();
+    const fp = document.getElementById("gstr1-fp").value.trim();
+
+    if (!file) {
+        showGlobalAlert("Please select or drag a sales register Excel/CSV file first.", "error");
+        updateStatusBox("gstr1", "❌ No file selected.", "error");
+        return;
+    }
+    if (!gstin || gstin.length !== 15) {
+        showGlobalAlert("Please enter a valid 15-character Supplier GSTIN.", "error");
+        return;
+    }
+    if (!fp || fp.length !== 6 || isNaN(fp)) {
+        showGlobalAlert("Please enter a valid Financial Period in MMYYYY format (e.g. 082025).", "error");
+        return;
+    }
+
+    const spinner = document.getElementById("gstr1-spinner");
+    const btnText = document.getElementById("gstr1-btn-text");
+    const resultsContainer = document.getElementById("gstr1-results");
+
+    // Show loading state
+    spinner.classList.remove("hidden");
+    btnText.textContent = "Processing Conversion...";
+    resultsContainer.classList.add("hidden");
+    updateStatusBox("gstr1", "⏳ Reading and converting sales entries...", "neutral");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("supplier_gstin", gstin);
+    formData.append("fp", fp);
+
+    try {
+        const response = await fetch("/api/convert_gstr1", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            updateStatusBox("gstr1", "🟢 GSTR-1 JSON Generated Successfully!", "success");
+
+            // Populate Metrics
+            document.getElementById("m-gstr1-recipients").textContent = data.summary.recipient_count;
+            document.getElementById("m-gstr1-invoices").textContent = data.summary.invoice_count;
+            document.getElementById("m-gstr1-taxable").textContent = formatCurrency(data.summary.total_taxable);
+            
+            const totalTax = data.summary.total_cgst + data.summary.total_sgst + data.summary.total_igst;
+            document.getElementById("m-gstr1-tax").textContent = formatCurrency(totalTax);
+            document.getElementById("m-gstr1-total").textContent = formatCurrency(data.summary.total_invoice_val);
+
+            // Populate Live Preview Table
+            const tbody = document.querySelector("#gstr1-preview-table tbody");
+            tbody.innerHTML = "";
+
+            data.invoices.forEach(inv => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td style="font-family: monospace; font-weight: 500;">${inv.ctin}</td>
+                    <td style="font-weight: 500; color: #a78bfa;">${inv.inum}</td>
+                    <td>${inv.idt}</td>
+                    <td style="text-align: center;">${inv.pos}</td>
+                    <td style="text-align: right; font-weight: 500;">${formatCurrency(inv.txval)}</td>
+                    <td style="text-align: right; color: rgba(255,255,255,0.7);">${formatCurrency(inv.cgst)}</td>
+                    <td style="text-align: right; color: rgba(255,255,255,0.7);">${formatCurrency(inv.sgst)}</td>
+                    <td style="text-align: right; color: rgba(255,255,255,0.7);">${formatCurrency(inv.igst)}</td>
+                    <td style="text-align: right; font-weight: bold; color: #34d399;">${formatCurrency(inv.val)}</td>
+                    <td style="text-align: center;"><span class="badge ${inv.rchrg === 'Y' ? 'warning' : 'neutral'}" style="padding: 2px 6px; font-size: 0.7rem;">${inv.rchrg}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Reveal results
+            resultsContainer.classList.remove("hidden");
+        } else {
+            showGlobalAlert(data.message || "Failed to process GSTR-1 conversion.", "error");
+            updateStatusBox("gstr1", "❌ Conversion failed: " + (data.message || "Unknown error"), "error");
+        }
+    } catch (err) {
+        console.error("GSTR-1 Error:", err);
+        showGlobalAlert("Failed to connect to backend server.", "error");
+        updateStatusBox("gstr1", "❌ Network error connecting to backend.", "error");
+    } finally {
+        spinner.classList.add("hidden");
+        btnText.textContent = "Convert to GSTR-1 JSON";
+    }
 }
 
