@@ -9,7 +9,7 @@ import time
 from services.logger import logger
 
 SECRET_SALT = "PDF2TALLY_SECURE_OFFLINE_LICENSE_SALT_2026_@#$!"
-LICENSE_DIR = os.path.expanduser("~/.pdf2tally")
+LICENSE_DIR = os.path.join(os.environ.get('LOCALAPPDATA'), 'PDF2TALLY')
 LICENSE_FILE_PATH = os.path.join(LICENSE_DIR, ".lic")
 LOGS_DIR = os.path.join(LICENSE_DIR, "logs")
 INTERNAL_DIR = os.path.join(LICENSE_DIR, "internal")
@@ -237,7 +237,7 @@ def load_local_license() -> dict:
             logger.error("License validation required.")
             return None
 
-OBFUSCATED_BACKEND_URL = "aHR0cHM6Ly9wZGYydGFsbHktYmFja2VuZC5vbnJlbmRlci5jb20="
+OBFUSCATED_BACKEND_URL = "aHR0cHM6Ly9sM2pmaWtmb2diZm90NG5kZHRmbmRnMzVlcTBldXdnai5sYW1iZGEtdXJsLmV1LW5vcnRoLTEub24uYXdz"
 
 def get_cloud_backend_url():
     url = os.environ.get("PDF2TALLY_CLOUD_URL")
@@ -247,7 +247,7 @@ def get_cloud_backend_url():
         decoded = base64.b64decode(OBFUSCATED_BACKEND_URL.encode()).decode("utf-8")
         return decoded.strip().rstrip("/")
     except Exception:
-        return "https://pdf2tally-backend.onrender.com"
+        return "https://l3jfikfogbfot4nddtfndg35eq0euwgj.lambda-url.eu-north-1.on.aws"
 
 def sync_with_cloud(retry_duration=5) -> dict:
     """

@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 text_logger = logging.getLogger("FullTextDumper")
 text_logger.propagate = False # Prevents the text from printing to the terminal console
 
-user_dir = os.path.expanduser("~/.pdf2tally")
+user_dir = os.path.join(os.environ.get('LOCALAPPDATA'), 'PDF2TALLY')
 logs_dir = os.path.join(user_dir, "logs")
 os.makedirs(logs_dir, exist_ok=True)
 

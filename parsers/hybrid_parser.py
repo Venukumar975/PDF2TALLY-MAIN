@@ -230,6 +230,10 @@ def parse_hybrid_transactions(file_path, mapping, boundary_date=None) -> list:
                         debit_val = clean_amount(raw_debit)
                         credit_val = clean_amount(raw_credit)
                         balance_val = clean_amount(raw_balance)
+                        # Support negative/debit balances for loan/overdraft accounts
+                        raw_bal_lower = raw_balance.lower()
+                        if 'dr' in raw_bal_lower or 'od' in raw_bal_lower or '-' in raw_bal_lower or 'debit' in raw_bal_lower:
+                            balance_val = -abs(balance_val)
                         
                         if parsed_dt_str:
                             # Date filter check

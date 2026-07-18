@@ -174,8 +174,12 @@ def determine_dr_cr(transactions: list, opening_balance: float, is_fallback=Fals
 
     # If opening_balance is None, default to 0.00 so math doesn't break
     previous_balance = opening_balance if opening_balance is not None else 0.00
+    is_negative_loan = (opening_balance is not None and opening_balance < 0)
     
     for idx, txn in enumerate(transactions): # Iteration over nested list of transactions
+        if is_negative_loan:
+            txn["balance"] = -abs(txn["balance"])
+            
         if idx == 0 and is_fallback:
             txn["is_fallback_type"] = True
         """  

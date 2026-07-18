@@ -6,6 +6,7 @@ from parsers.axis_parser import parse_transactions as parse_axis, parse_opening_
 # Import slicers
 from slicers.BOB_slicing import slice_text_by_date as bob_slice
 from slicers.SBI_slicing import slice_text_by_date as sbi_slice
+
 from slicers.Axis_slicing import slice_text_by_date as axis_slice
 
 # Dictionary containing routing settings for every bank profile

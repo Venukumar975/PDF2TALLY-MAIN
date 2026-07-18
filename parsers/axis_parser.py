@@ -95,8 +95,12 @@ def parse_transactions(text, opening_balance=None):
 
 def determine_dr_cr(transactions, opening_balance, is_fallback=False):
     previous_balance = opening_balance if opening_balance is not None else 0.00
+    is_negative_loan = (opening_balance is not None and opening_balance < 0)
     
     for idx, txn in enumerate(transactions):
+        if is_negative_loan:
+            txn["balance"] = -abs(txn["balance"])
+            
         current_balance = txn["balance"]
         balance_change = round(current_balance - previous_balance, 2)
         

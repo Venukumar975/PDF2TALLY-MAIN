@@ -9,7 +9,8 @@ import licensing
 from services.logger import logger
 
 # Import routes and cache/conversion storage from decoupled routes file
-from routes import routes_bp, FILE_CACHE, LAST_CONVERSION
+from routes import routes_bp
+from routes_base import FILE_CACHE, LAST_CONVERSION
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = "PDF2TALLY_FLASK_SESSION_SECRET_KEY_!"
@@ -41,6 +42,7 @@ def check_license():
         "/api/admin/",
         "/api/register_request",
         "/api/request-renewal",
+        "/api/submit-support",
         "/api/hybrid/",
         "/api/detect-opening-balance",
         "/static/",

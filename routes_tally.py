@@ -5,7 +5,8 @@ import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from flask import request, jsonify
-from routes import routes_bp, logger
+from routes_base import routes_bp
+from services.logger import logger
 
 # -------------------------------------------------------------
 # TALLY PRIME LOCAL SYNCHRONIZATION ENDPOINTS
@@ -81,7 +82,7 @@ def api_tally_sync():
             
         # Step 3: Save results to local disk cache folder
         safe_company_name = re.sub(r'[\\/*?:"<>|]', "", company_name).strip()
-        user_dir = os.path.expanduser("~/.pdf2tally")
+        user_dir = os.path.join(os.environ.get('LOCALAPPDATA'), 'PDF2TALLY')
         companies_dir = os.path.join(user_dir, "tally_companies", safe_company_name)
         os.makedirs(companies_dir, exist_ok=True)
         
@@ -112,7 +113,7 @@ def api_tally_sync():
 @routes_bp.route("/api/tally/companies", methods=["GET"])
 def api_tally_companies():
     try:
-        user_dir = os.path.expanduser("~/.pdf2tally")
+        user_dir = os.path.join(os.environ.get('LOCALAPPDATA'), 'PDF2TALLY')
         companies_dir = os.path.join(user_dir, "tally_companies")
         if not os.path.exists(companies_dir):
             return jsonify({"success": True, "companies": []})
@@ -149,7 +150,7 @@ def api_tally_company_ledgers(company_name):
         import re
         import json
         safe_company_name = re.sub(r'[\\/*?:"<>|]', "", company_name).strip()
-        user_dir = os.path.expanduser("~/.pdf2tally")
+        user_dir = os.path.join(os.environ.get('LOCALAPPDATA'), 'PDF2TALLY')
         cache_path = os.path.join(user_dir, "tally_companies", safe_company_name, "tally_ledger_cache.json")
         
         if not os.path.exists(cache_path):

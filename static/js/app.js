@@ -10,7 +10,8 @@ const state = {
     files: {
         bank: null,
         cash: null,
-        gstr1: null
+        gstr1: null,
+        hsn: null
     },
     lexicon: {},
     cashSession: {
@@ -29,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupDragAndDrop("bank");
     setupDragAndDrop("cash");
     setupDragAndDrop("gstr1");
+    setupDragAndDrop("hsn");
     loadSavedLayouts();
     
     // Auto-update debit ledger name when bank selection changes
@@ -80,6 +82,9 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(() => {
         checkLicenseStatus();
     }, 15000);
+
+    // Check for application updates at startup
+    checkApplicationUpdate();
 });
 
 function handleRouting() {
@@ -137,6 +142,8 @@ function switchTab(tabId) {
         loadLexiconManager();
     } else if (tabId === "license-tab") {
         updateLicenseTabDetails();
+    } else if (tabId === "support-tab") {
+        updateSupportTabDetails();
     }
 }
 
@@ -2495,8 +2502,9 @@ function loadReviewXML(file) {
                 const rawAmt = parseFloat(ent.querySelector("AMOUNT")?.textContent || "0");
                 
                 // Particulars is the non-bank ledger.
-                const isBankName = /bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(ledger);
-                if (isBankName) {
+                const isPartyNode = ent.querySelector("ISPARTYLEDGER");
+                const isPartyLedger = isPartyNode ? (isPartyNode.textContent.trim() === "Yes") : !(/bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(ledger));
+                if (!isPartyLedger) {
                     bankName = ledger;
                     bankDeemedPos = ent.querySelector("ISDEEMEDPOSITIVE")?.textContent || "Yes";
                 } else {
@@ -3321,16 +3329,16 @@ async function runGstr1Conversion() {
     const fp = document.getElementById("gstr1-fp").value.trim();
 
     if (!file) {
-        showGlobalAlert("Please select or drag a sales register Excel/CSV file first.", "error");
+        alert("Please select or drag a sales register Excel/CSV file first.");
         updateStatusBox("gstr1", "❌ No file selected.", "error");
         return;
     }
     if (!gstin || gstin.length !== 15) {
-        showGlobalAlert("Please enter a valid 15-character Supplier GSTIN.", "error");
+        alert("Please enter a valid 15-character Supplier GSTIN.");
         return;
     }
     if (!fp || fp.length !== 6 || isNaN(fp)) {
-        showGlobalAlert("Please enter a valid Financial Period in MMYYYY format (e.g. 082025).", "error");
+        alert("Please enter a valid Financial Period in MMYYYY format (e.g. 082025).");
         return;
     }
 
@@ -3344,10 +3352,13 @@ async function runGstr1Conversion() {
     resultsContainer.classList.add("hidden");
     updateStatusBox("gstr1", "⏳ Reading and converting sales entries...", "neutral");
 
+    const headerRow = document.getElementById("gstr1-header-row") ? document.getElementById("gstr1-header-row").value.trim() : "4";
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("supplier_gstin", gstin);
     formData.append("fp", fp);
+    formData.append("header_row", headerRow || "4");
 
     try {
         const response = await fetch("/api/convert_gstr1", {
@@ -3372,7 +3383,19 @@ async function runGstr1Conversion() {
             const tbody = document.querySelector("#gstr1-preview-table tbody");
             tbody.innerHTML = "";
 
+            let grandTxval = 0;
+            let grandCgst = 0;
+            let grandSgst = 0;
+            let grandIgst = 0;
+            let grandVal = 0;
+
             data.invoices.forEach(inv => {
+                grandTxval += inv.txval || 0;
+                grandCgst += inv.cgst || 0;
+                grandSgst += inv.sgst || 0;
+                grandIgst += inv.igst || 0;
+                grandVal += inv.val || 0;
+
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
                     <td style="font-family: monospace; font-weight: 500;">${inv.ctin}</td>
@@ -3389,19 +3412,852 @@ async function runGstr1Conversion() {
                 tbody.appendChild(tr);
             });
 
+            // Append Grand Total Row
+            const totalTr = document.createElement("tr");
+            totalTr.style.fontWeight = "bold";
+            totalTr.style.background = "rgba(255, 255, 255, 0.05)";
+            totalTr.style.borderTop = "2px solid rgba(255, 255, 255, 0.15)";
+            totalTr.innerHTML = `
+                <td colspan="4" style="text-align: left; font-weight: bold; letter-spacing: 0.5px;">TOTAL</td>
+                <td style="text-align: right; font-weight: bold;">${formatCurrency(grandTxval)}</td>
+                <td style="text-align: right; font-weight: bold; color: rgba(255,255,255,0.9);">${formatCurrency(grandCgst)}</td>
+                <td style="text-align: right; font-weight: bold; color: rgba(255,255,255,0.9);">${formatCurrency(grandSgst)}</td>
+                <td style="text-align: right; font-weight: bold; color: rgba(255,255,255,0.9);">${formatCurrency(grandIgst)}</td>
+                <td style="text-align: right; font-weight: bold; color: #34d399;">${formatCurrency(grandVal)}</td>
+                <td></td>
+            `;
+            tbody.appendChild(totalTr);
+
             // Reveal results
             resultsContainer.classList.remove("hidden");
         } else {
-            showGlobalAlert(data.message || "Failed to process GSTR-1 conversion.", "error");
+            alert(data.message || "Failed to process GSTR-1 conversion.");
             updateStatusBox("gstr1", "❌ Conversion failed: " + (data.message || "Unknown error"), "error");
         }
     } catch (err) {
         console.error("GSTR-1 Error:", err);
-        showGlobalAlert("Failed to connect to backend server.", "error");
+        alert("Failed to connect to backend server.");
         updateStatusBox("gstr1", "❌ Network error connecting to backend.", "error");
     } finally {
         spinner.classList.add("hidden");
         btnText.textContent = "Convert to GSTR-1 JSON";
+    }
+}
+
+// ==========================================
+// GSTR-1 & HSN SUB-TAB SWITCHER
+// ==========================================
+function switchGstr1SubTab(subTabId) {
+    document.querySelectorAll("#gstr1-tab .btn-subtab").forEach(btn => btn.classList.remove("active"));
+    const activeBtn = document.getElementById("btn-subtab-gstr1-" + subTabId.replace("gstr1-", ""));
+    if (activeBtn) activeBtn.classList.add("active");
+    
+    document.querySelectorAll(".gstr1-subtab-pane").forEach(pane => pane.classList.add("hidden"));
+    const activePane = document.getElementById("pane-gstr1-" + subTabId.replace("gstr1-", ""));
+    if (activePane) activePane.classList.remove("hidden");
+}
+
+// ==========================================
+// HSN OFFLINE CONVERTER FRONTEND CONTROLLER
+// ==========================================
+async function runHsnConversion() {
+    const file = state.files.hsn;
+    const gstin = document.getElementById("hsn-supplier-gstin").value.trim().toUpperCase();
+    const fp = document.getElementById("hsn-fp").value.trim();
+
+    if (!file) {
+        alert("Please select or drag a sales register Excel/CSV file first.");
+        updateStatusBox("hsn", "❌ No file selected.", "error");
+        return;
+    }
+    if (!gstin || gstin.length !== 15) {
+        alert("Please enter a valid 15-character Supplier GSTIN.");
+        return;
+    }
+    if (!fp || fp.length !== 6 || isNaN(fp)) {
+        alert("Please enter a valid Financial Period in MMYYYY format (e.g. 082025).");
+        return;
+    }
+
+    const spinner = document.getElementById("hsn-spinner");
+    const btnText = document.getElementById("hsn-btn-text");
+    const resultsContainer = document.getElementById("hsn-results");
+
+    // Show loading state
+    spinner.classList.remove("hidden");
+    btnText.textContent = "Processing Conversion...";
+    resultsContainer.classList.add("hidden");
+    updateStatusBox("hsn", "⏳ Reading and converting HSN summary...", "neutral");
+
+    const headerRow = document.getElementById("hsn-header-row") ? document.getElementById("hsn-header-row").value.trim() : "4";
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("supplier_gstin", gstin);
+    formData.append("fp", fp);
+    formData.append("header_row", headerRow || "4");
+
+    try {
+        const response = await fetch("/api/convert_hsn", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            updateStatusBox("hsn", "🟢 HSN Summary Generated Successfully!", "success");
+
+            // Populate Metrics
+            document.getElementById("m-hsn-count").textContent = data.summary.hsn_count;
+            document.getElementById("m-hsn-qty").textContent = data.summary.total_qty.toFixed(2);
+            document.getElementById("m-hsn-taxable").textContent = formatCurrency(data.summary.total_taxable);
+            document.getElementById("m-hsn-tax").textContent = formatCurrency(data.summary.total_taxes);
+            document.getElementById("m-hsn-total").textContent = formatCurrency(data.summary.total_val);
+
+            // Populate Live HSN Table
+            const tbody = document.querySelector("#hsn-preview-table tbody");
+            tbody.innerHTML = "";
+
+            let grandQty = 0;
+            let grandTxval = 0;
+            let grandCamt = 0;
+            let grandSamt = 0;
+            let grandIamt = 0;
+            let grandVal = 0;
+            let grandCsamt = 0;
+
+            data.hsn_data.forEach(h => {
+                grandQty += h.qty || 0;
+                grandTxval += h.txval || 0;
+                grandCamt += h.camt || 0;
+                grandSamt += h.samt || 0;
+                grandIamt += h.iamt || 0;
+                grandVal += h.val || 0;
+                grandCsamt += h.csamt || 0;
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td style="font-family: monospace; font-weight: 500;">${h.hsn_sc}</td>
+                    <td style="text-align: center;"><span class="badge ${h.sply_ty === 'B2B' ? 'info' : 'warning'}" style="padding: 2px 6px; font-size: 0.75rem;">${h.sply_ty}</span></td>
+                    <td>${h.desc}</td>
+                    <td style="text-align: center;"><span class="badge neutral" style="padding: 2px 6px; font-size: 0.75rem;">${h.uqc}</span></td>
+                    <td style="text-align: right;">${h.qty.toFixed(2)}</td>
+                    <td style="text-align: right; font-weight: 500;">${formatCurrency(h.txval)}</td>
+                    <td style="text-align: right; color: rgba(255,255,255,0.7);">${formatCurrency(h.camt)}</td>
+                    <td style="text-align: right; color: rgba(255,255,255,0.7);">${formatCurrency(h.samt)}</td>
+                    <td style="text-align: right; color: rgba(255,255,255,0.7);">${formatCurrency(h.iamt)}</td>
+                    <td style="text-align: right; font-weight: bold; color: #34d399;">${formatCurrency(h.val)}</td>
+                    <td style="text-align: right; color: rgba(255,255,255,0.5);">${formatCurrency(h.csamt)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Append Grand Total Row
+            const totalTr = document.createElement("tr");
+            totalTr.style.fontWeight = "bold";
+            totalTr.style.background = "rgba(255, 255, 255, 0.05)";
+            totalTr.style.borderTop = "2px solid rgba(255, 255, 255, 0.15)";
+            totalTr.innerHTML = `
+                <td colspan="4" style="text-align: left; font-weight: bold; letter-spacing: 0.5px;">TOTAL</td>
+                <td style="text-align: right;">${grandQty.toFixed(2)}</td>
+                <td style="text-align: right; font-weight: bold;">${formatCurrency(grandTxval)}</td>
+                <td style="text-align: right; font-weight: bold; color: rgba(255,255,255,0.9);">${formatCurrency(grandCamt)}</td>
+                <td style="text-align: right; font-weight: bold; color: rgba(255,255,255,0.9);">${formatCurrency(grandSamt)}</td>
+                <td style="text-align: right; font-weight: bold; color: rgba(255,255,255,0.9);">${formatCurrency(grandIamt)}</td>
+                <td style="text-align: right; font-weight: bold; color: #34d399;">${formatCurrency(grandVal)}</td>
+                <td style="text-align: right; font-weight: bold; color: rgba(255,255,255,0.7);">${formatCurrency(grandCsamt)}</td>
+            `;
+            tbody.appendChild(totalTr);
+
+            // Reveal results
+            resultsContainer.classList.remove("hidden");
+        } else {
+            alert(data.message || "Failed to process HSN conversion.");
+            updateStatusBox("hsn", "❌ Conversion failed: " + (data.message || "Unknown error"), "error");
+        }
+    } catch (err) {
+        console.error("HSN Error:", err);
+        alert("Failed to connect to backend server.");
+        updateStatusBox("hsn", "❌ Network error connecting to backend.", "error");
+    } finally {
+        spinner.classList.add("hidden");
+        btnText.textContent = "Convert HSN Summary";
+    }
+}
+
+
+
+// ==========================================
+// PDF REDACTION FRONTEND CONTROLLER
+// ==========================================
+let redactState = {
+    page: 0,
+    totalPages: 0,
+    scale: 1.5,
+    isSelecting: false,
+    startX: 0,
+    startY: 0,
+    currentRect: null,
+    toolActive: false,
+    isFileLoaded: false,
+    widthPts: 0,
+    heightPts: 0,
+    widthPx: 0,
+    heightPx: 0
+};
+
+function openRedactModal() {
+    document.getElementById("redact-modal").classList.remove("hidden");
+    
+    // Reset state
+    redactState = {
+        page: 0,
+        totalPages: 0,
+        scale: 1.5,
+        isSelecting: false,
+        startX: 0,
+        startY: 0,
+        currentRect: null,
+        toolActive: false,
+        isFileLoaded: false,
+        widthPts: 0,
+        heightPts: 0,
+        widthPx: 0,
+        heightPx: 0
+    };
+    
+    updateRedactUIState();
+    
+    // Auto-load if bank file exists
+    if (state && state.files && state.files.bank) {
+        uploadPdfToRedact(state.files.bank);
+    } else {
+        document.getElementById("redact-empty-msg").classList.remove("hidden");
+        document.getElementById("redact-canvas-container").style.display = "none";
+    }
+}
+
+function closeRedactModal() {
+    document.getElementById("redact-modal").classList.add("hidden");
+    
+    const canvas = document.getElementById("redact-overlay-canvas");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    fetch("/api/redact/cleanup", { method: "POST" })
+        .then(res => res.json())
+        .then(data => console.log("Section Remover session cleaned up on server."))
+        .catch(err => console.error("Error cleaning up section remover: ", err));
+}
+
+function triggerRedactUpload() {
+    document.getElementById("redact-file-input").click();
+}
+
+function handleRedactFileUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        uploadPdfToRedact(file);
+    }
+}
+
+function uploadPdfToRedact(file) {
+    showRedactLoading(true);
+    document.getElementById("redact-empty-msg").classList.add("hidden");
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    fetch("/api/redact/upload", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            redactState.totalPages = data.page_count;
+            redactState.page = 0;
+            redactState.isFileLoaded = true;
+            redactState.filename = file.name;
+            
+            // Sync to main app upload zone
+            if (state && state.files) {
+                if (!state.files.bank || state.files.bank.name !== file.name) {
+                    state.files.bank = file;
+                    const label = document.getElementById("bank-file-label");
+                    if (label) {
+                        label.innerText = file.name;
+                    }
+                }
+            }
+            
+            loadRedactPage();
+        } else {
+            showRedactLoading(false);
+            alert("Error loading PDF: " + data.message);
+        }
+    })
+    .catch(err => {
+        showRedactLoading(false);
+        console.error(err);
+        alert("Server connection failed.");
+    });
+}
+
+function loadRedactPage() {
+    if (!redactState.isFileLoaded) return;
+    
+    showRedactLoading(true);
+    const url = `/api/redact/page?page=${redactState.page}&scale=${redactState.scale}&_=${new Date().getTime()}`;
+    
+    fetch(url)
+    .then(res => res.json())
+    .then(data => {
+        showRedactLoading(false);
+        if (data.success) {
+            const img = document.getElementById("redact-page-img");
+            img.src = data.image;
+            
+            redactState.widthPts = data.width_pts;
+            redactState.heightPts = data.height_pts;
+            redactState.widthPx = data.width_px;
+            redactState.heightPx = data.height_px;
+            
+            img.onload = function() {
+                const container = document.getElementById("redact-canvas-container");
+                container.style.display = "inline-block";
+                
+                const canvas = document.getElementById("redact-overlay-canvas");
+                canvas.width = img.clientWidth;
+                canvas.height = img.clientHeight;
+                
+                redactState.currentRect = null;
+                const ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                updateRedactUIState();
+            };
+        } else {
+            alert("Failed to render page: " + data.message);
+        }
+    })
+    .catch(err => {
+        showRedactLoading(false);
+        console.error(err);
+    });
+}
+
+function changeRedactPage(direction) {
+    const newPage = redactState.page + direction;
+    if (newPage >= 0 && newPage < redactState.totalPages) {
+        redactState.page = newPage;
+        loadRedactPage();
+    }
+}
+
+function toggleRedactTool() {
+    redactState.toolActive = !redactState.toolActive;
+    const btn = document.getElementById("btn-redact-tool");
+    const canvas = document.getElementById("redact-overlay-canvas");
+    
+    if (redactState.toolActive) {
+        btn.style.backgroundColor = "#10b981";
+        btn.style.color = "white";
+        canvas.style.cursor = "crosshair";
+    } else {
+        btn.style.backgroundColor = "#374151";
+        btn.style.color = "#d1d5db";
+        canvas.style.cursor = "default";
+        
+        redactState.currentRect = null;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        updateRedactUIState();
+    }
+}
+
+function removeRedactSelection() {
+    if (!redactState.currentRect) return;
+    
+    showRedactLoading(true);
+    
+    const body = {
+        page: redactState.page,
+        scale: redactState.scale,
+        x0: redactState.currentRect.x,
+        y0: redactState.currentRect.y,
+        x1: redactState.currentRect.x + redactState.currentRect.width,
+        y1: redactState.currentRect.y + redactState.currentRect.height
+    };
+    
+    fetch("/api/redact/remove", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+    })
+    .then(res => res.json())
+    .then(data => {
+        showRedactLoading(false);
+        if (data.success) {
+            const img = document.getElementById("redact-page-img");
+            img.src = data.image;
+            
+            redactState.currentRect = null;
+            const canvas = document.getElementById("redact-overlay-canvas");
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            document.getElementById("btn-redact-undo").disabled = !data.can_undo;
+            updateRedactUIState();
+        } else {
+            alert("Redaction failed: " + data.message);
+        }
+    })
+    .catch(err => {
+        showRedactLoading(false);
+        console.error(err);
+    });
+}
+
+function undoRedact() {
+    showRedactLoading(true);
+    
+    const body = {
+        page: redactState.page,
+        scale: redactState.scale
+    };
+    
+    fetch("/api/redact/undo", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+    })
+    .then(res => res.json())
+    .then(data => {
+        showRedactLoading(false);
+        if (data.success) {
+            const img = document.getElementById("redact-page-img");
+            img.src = data.image;
+            
+            redactState.currentRect = null;
+            const canvas = document.getElementById("redact-overlay-canvas");
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            document.getElementById("btn-redact-undo").disabled = !data.can_undo;
+            updateRedactUIState();
+        } else {
+            alert("Undo failed: " + data.message);
+        }
+    })
+    .catch(err => {
+        showRedactLoading(false);
+        console.error(err);
+    });
+}
+
+function useCleanedPdf() {
+    if (!redactState.isFileLoaded) return;
+    
+    showRedactLoading(true);
+    
+    fetch("/api/redact/use", { method: "POST" })
+    .then(res => res.json())
+    .then(data => {
+        showRedactLoading(false);
+        if (data.success) {
+            const label = document.getElementById("bank-file-label");
+            if (label) {
+                label.innerHTML = `<span style="color: #10b981; font-weight: bold;">[Cleaned]</span> ${data.filename}`;
+            }
+            alert("PDF cleaned and registered for parsing! You can now close this editor and click Convert.");
+            closeRedactModal();
+        } else {
+            alert("Failed to lock cleaned PDF: " + data.message);
+        }
+    })
+    .catch(err => {
+        showRedactLoading(false);
+        console.error(err);
+    });
+}
+
+function downloadCleanedPdf() {
+    if (window.pywebview && window.pywebview.api) {
+        showRedactLoading(true);
+        window.pywebview.api.download_file("last_cleaned_pdf")
+        .then(res => {
+            showRedactLoading(false);
+            if (res.success) {
+                alert(`File successfully saved to:\n${res.path}`);
+            } else if (res.message && res.message !== "Cancelled" && res.message !== "Save cancelled") {
+                alert(`Save failed: ${res.message}`);
+            }
+        })
+        .catch(err => {
+            showRedactLoading(false);
+            alert(`Native download error: ${err.message}`);
+        });
+    } else {
+        showRedactLoading(true);
+        fetch("/api/redact/download")
+        .then(res => {
+            showRedactLoading(false);
+            if (!res.ok) {
+                return res.text().then(text => { alert("Error downloading: " + text); });
+            }
+            return res.blob().then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.style.display = "none";
+                a.href = url;
+                a.download = redactState.filename ? redactState.filename.replace(".pdf", "_cleaned.pdf") : "cleaned.pdf";
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            });
+        })
+        .catch(err => {
+            showRedactLoading(false);
+            console.error("Download error:", err);
+            alert("Failed to download PDF.");
+        });
+    }
+}
+
+function showRedactLoading(show) {
+    const loader = document.getElementById("redact-loading");
+    if (show) {
+        loader.classList.remove("hidden");
+    } else {
+        loader.classList.add("hidden");
+    }
+}
+
+function updateRedactUIState() {
+    const current = redactState.page + 1;
+    const total = redactState.totalPages;
+    
+    document.getElementById("redact-page-label").innerText = `Page ${total > 0 ? current : 0} / ${total}`;
+    
+    document.getElementById("btn-redact-prev").disabled = !redactState.isFileLoaded || current <= 1;
+    document.getElementById("btn-redact-next").disabled = !redactState.isFileLoaded || current >= total;
+    
+    document.getElementById("btn-redact-tool").disabled = !redactState.isFileLoaded;
+    document.getElementById("btn-redact-remove").disabled = !redactState.currentRect;
+    const btnUse = document.getElementById("btn-redact-use");
+    if (btnUse) btnUse.disabled = !redactState.isFileLoaded;
+    document.getElementById("btn-redact-download").disabled = !redactState.isFileLoaded;
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    const canvas = document.getElementById("redact-overlay-canvas");
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext("2d");
+    
+    canvas.addEventListener("mousedown", function(e) {
+        if (!redactState.toolActive || !redactState.isFileLoaded) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        redactState.startX = e.clientX - rect.left;
+        redactState.startY = e.clientY - rect.top;
+        redactState.isSelecting = true;
+        
+        redactState.currentRect = {
+            x: redactState.startX,
+            y: redactState.startY,
+            width: 0,
+            height: 0
+        };
+    });
+    
+    canvas.addEventListener("mousemove", function(e) {
+        if (!redactState.isSelecting) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const curX = e.clientX - rect.left;
+        const curY = e.clientY - rect.top;
+        
+        const x = Math.min(redactState.startX, curX);
+        const y = Math.min(redactState.startY, curY);
+        const width = Math.abs(redactState.startX - curX);
+        const height = Math.abs(redactState.startY - curY);
+        
+        redactState.currentRect = { x, y, width, height };
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "rgba(239, 68, 68, 0.15)";
+        ctx.fillRect(x, y, width, height);
+        
+        ctx.strokeStyle = "rgb(239, 68, 68)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, y, width, height);
+    });
+    
+    canvas.addEventListener("mouseup", function(e) {
+        if (!redactState.isSelecting) return;
+        redactState.isSelecting = false;
+        
+        if (redactState.currentRect && redactState.currentRect.width > 2 && redactState.currentRect.height > 2) {
+            updateRedactUIState();
+        } else {
+            redactState.currentRect = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updateRedactUIState();
+        }
+    });
+});
+
+// =============================================================
+// APPLICATION VERSION MANAGEMENT & UPDATE CHECKER
+// =============================================================
+const CURRENT_VERSION = "1.0.0";
+let updateDownloadUrl = "";
+
+async function checkApplicationUpdate() {
+    try {
+        const res = await fetch("/api/check-version");
+        if (res.ok) {
+            const data = await res.json();
+            const latest = data.latest_version;
+            const mandatory = data.mandatory;
+            updateDownloadUrl = data.download_url || "https://pdf2tally-backend.onrender.com/download";
+            const notes = data.release_notes || "No release notes available.";
+            
+            if (latest && isNewerVersion(CURRENT_VERSION, latest)) {
+                // Update text elements in the modal
+                const verSpan = document.getElementById("new-version-number");
+                if (verSpan) verSpan.textContent = latest;
+                
+                const notesDiv = document.getElementById("release-notes-content");
+                if (notesDiv) notesDiv.textContent = notes;
+                
+                // Show modal
+                const modal = document.getElementById("update-modal");
+                if (modal) {
+                    modal.classList.remove("hidden");
+                }
+                
+                // If it is a mandatory update, hide the "Later" button so they are forced to update
+                const laterBtn = document.getElementById("btn-update-later");
+                if (laterBtn) {
+                    if (mandatory) {
+                        laterBtn.style.display = "none";
+                    } else {
+                        laterBtn.style.display = "block";
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Update check failed:", e);
+    }
+}
+
+function isNewerVersion(current, latest) {
+    const cParts = current.split('.').map(Number);
+    const lParts = latest.split('.').map(Number);
+    for (let i = 0; i < Math.max(cParts.length, lParts.length); i++) {
+        const cVal = cParts[i] || 0;
+        const lVal = lParts[i] || 0;
+        if (lVal > cVal) return true;
+        if (cVal > lVal) return false;
+    }
+    return false;
+}
+
+function downloadUpdate() {
+    if (updateDownloadUrl) {
+        window.open(updateDownloadUrl, "_blank");
+    } else {
+        window.open("https://pdf2tally-backend.onrender.com/", "_blank");
+    }
+}
+
+function closeUpdateModal() {
+    const modal = document.getElementById("update-modal");
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+}
+
+// ==========================================
+// HELP & SUPPORT DESK FRONTEND CONTROLLER
+// ==========================================
+let supportSelectedFiles = [];
+
+function switchSupportSubTab(subTabId) {
+    document.querySelectorAll("#support-tab .btn-subtab").forEach(btn => btn.classList.remove("active"));
+    const activeBtn = document.getElementById("btn-subtab-support-" + subTabId);
+    if (activeBtn) activeBtn.classList.add("active");
+    
+    document.querySelectorAll(".support-subtab-pane").forEach(pane => pane.classList.add("hidden"));
+    const activePane = document.getElementById("pane-support-" + subTabId);
+    if (activePane) activePane.classList.remove("hidden");
+}
+
+function updateSupportTabDetails() {
+    const signatureBadge = document.getElementById("support-machine-sig");
+    if (signatureBadge) {
+        signatureBadge.textContent = state.signature || "UNKNOWN";
+    }
+}
+
+function handleSupportFilesSelect(event) {
+    const files = Array.from(event.target.files);
+    
+    // Add newly selected files to our global supportSelectedFiles array (preventing duplicates by file name + size)
+    files.forEach(newFile => {
+        const isDuplicate = supportSelectedFiles.some(existing => existing.name === newFile.name && existing.size === newFile.size);
+        if (!isDuplicate) {
+            supportSelectedFiles.push(newFile);
+        }
+    });
+    
+    // Reset file input value so the same files can be re-selected if removed
+    event.target.value = "";
+    
+    updateAttachmentsList();
+}
+
+function updateAttachmentsList() {
+    const label = document.getElementById("support-files-label");
+    const container = document.getElementById("support-files-list");
+    if (!container) return;
+    
+    container.innerHTML = "";
+    
+    if (supportSelectedFiles.length > 0) {
+        label.textContent = `${supportSelectedFiles.length} file(s) selected:`;
+        
+        supportSelectedFiles.forEach((file, index) => {
+            const pill = document.createElement("div");
+            pill.style.cssText = "display: flex; align-items: center; gap: 6px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2); padding: 4px 10px; border-radius: 15px; font-size: 0.8rem; color: #fff; max-width: 250px;";
+            
+            const nameSpan = document.createElement("span");
+            nameSpan.textContent = file.name;
+            nameSpan.style.cssText = "text-overflow: ellipsis; overflow: hidden; white-space: nowrap;";
+            
+            const sizeSpan = document.createElement("span");
+            sizeSpan.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
+            sizeSpan.style.cssText = "color: var(--text-muted); font-size: 0.7rem; flex-shrink: 0;";
+            
+            const removeBtn = document.createElement("span");
+            removeBtn.innerHTML = "&times;";
+            removeBtn.style.cssText = "cursor: pointer; font-size: 1rem; color: #ef4444; font-weight: bold; padding-left: 2px; line-height: 1;";
+            removeBtn.onclick = () => {
+                supportSelectedFiles.splice(index, 1);
+                updateAttachmentsList();
+            };
+            
+            pill.appendChild(nameSpan);
+            pill.appendChild(sizeSpan);
+            pill.appendChild(removeBtn);
+            container.appendChild(pill);
+        });
+    } else {
+        label.textContent = "No files selected";
+    }
+}
+
+async function submitSupportRequest(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById("support-email").value.trim();
+    const phone = document.getElementById("support-phone").value.trim();
+    const subjectType = document.getElementById("support-subject-type").value;
+    const message = document.getElementById("support-message").value.trim();
+    
+    const btnSubmit = document.getElementById("btn-submit-support");
+    const btnText = document.getElementById("support-btn-text");
+    const spinner = document.getElementById("support-spinner");
+    const statusMsg = document.getElementById("support-status-message");
+    
+    if (!email || !phone || !subjectType || !message) {
+        alert("Please fill all required fields.");
+        return;
+    }
+    
+    // UI Loading State
+    btnSubmit.disabled = true;
+    spinner.classList.remove("hidden");
+    btnText.textContent = "Sending Request...";
+    statusMsg.classList.add("hidden");
+    
+    try {
+        // Read selected files into Base64 format
+        const attachments = [];
+        let totalSize = 0;
+        
+        for (const file of supportSelectedFiles) {
+            totalSize += file.size;
+            if (totalSize > 5 * 1024 * 1024) { // 5MB total size limit
+                throw new Error("Total attachment size exceeds the 5MB limit. Please select smaller files.");
+            }
+            
+            const base64Content = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(",")[1]);
+                reader.onerror = (e) => reject(e);
+            });
+            
+            attachments.push({
+                filename: file.name,
+                content: base64Content
+            });
+        }
+        
+        // POST to local Flask proxy
+        const response = await fetch("/api/submit-support", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                name: "Customer", // Manual input details
+                email: email,
+                phone: phone,
+                subject_type: subjectType,
+                message: message,
+                signature: state.signature,
+                attachments: attachments
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            statusMsg.textContent = "✅ Support request submitted successfully! We will contact you soon.";
+            statusMsg.className = "alert alert-success";
+            statusMsg.classList.remove("hidden");
+            
+            // Clear form
+            document.getElementById("support-request-form").reset();
+            supportSelectedFiles = [];
+            updateAttachmentsList();
+        } else {
+            statusMsg.textContent = "❌ Error: " + (data.message || "Failed to submit support request.");
+            statusMsg.className = "alert alert-danger";
+            statusMsg.classList.remove("hidden");
+        }
+    } catch (err) {
+        console.error("Support submission failed:", err);
+        statusMsg.textContent = "❌ Submission failed: " + err.message;
+        statusMsg.className = "alert alert-danger";
+        statusMsg.classList.remove("hidden");
+    } finally {
+        btnSubmit.disabled = false;
+        spinner.classList.add("hidden");
+        btnText.textContent = "Submit Support Request";
     }
 }
 

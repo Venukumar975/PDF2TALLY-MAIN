@@ -1,7 +1,7 @@
-[BUG]: out of license
+[BUG]: expected 'except' or 'finally' block (<frozen routes_licensing>, line 129)
 
 ## Command Line
-C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py gen -O obf_dist -r desktop_run.py app_flask.py routes.py licensing.py services parsers strategies slicers
+C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py gen -O obf_dist -r desktop_run.py app_flask.py routes.py routes_tally.py licensing.py routes_base.py routes_licensing.py routes_bank.py routes_gstr1.py routes_hybrid.py routes_download.py services parsers strategies slicers
 
 ## Environments
 Python 3.12.4
@@ -12,29 +12,36 @@ Home C:\Users\pichi\.pyarmor
 
 ## Traceback
 Traceback (most recent call last):
-  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 804, in main
+  File "C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 804, in main
     main_entry(sys.argv[1:])
-  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 789, in main_entry
+  File "C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 789, in main_entry
     return args.func(ctx, args)
            ^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 248, in cmd_gen
+  File "C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 248, in cmd_gen
     builder.process(options)
-  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\generate.py", line 190, in process
+  File "C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\generate.py", line 190, in process
     async_obfuscate_scripts(self, n) if n else self._obfuscate_scripts()
                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\generate.py", line 145, in _obfuscate_scripts
+  File "C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\generate.py", line 145, in _obfuscate_scripts
     code = Pytransform3.generate_obfuscated_script(self.ctx, r)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\core\__init__.py", line 95, in generate_obfuscated_script
+  File "C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\core\__init__.py", line 95, in generate_obfuscated_script
     return m.generate_obfuscated_script(ctx, res)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "<maker>", line 728, in generate_obfuscated_script
-  File "C:\Users\pichi\Desktop\pdf2tally3\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__init__.py", line 16, in process
+  File "C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__init__.py", line 16, in process
     return meth(self, res, *args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "<maker>", line 553, in process
-  File "<maker>", line 559, in coserialize
-  File "<maker>", line 609, in _build_ast_body
-RuntimeError: out of license
+  File "<maker>", line 521, in process
+  File "C:\Users\pichi\Desktop\pdf2tally3_trial\pdf2tally\venv\Lib\site-packages\pyarmor\cli\resource.py", line 156, in reparse
+    self.mtree = ast.parse(''.join(lines), self.frozenname, 'exec')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pichi\AppData\Local\Programs\Python\Python312\Lib\ast.py", line 52, in parse
+    return compile(source, filename, mode, flags,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen routes_licensing>", line 129
+    try:
+    ^^^
+SyntaxError: expected 'except' or 'finally' block
 
 

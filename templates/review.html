@@ -597,6 +597,12 @@
                     </div>
                 </div>
 
+                <!-- Easy Select Mode -->
+                <div style="background: #f0f4f8; border: 2px solid #000000; box-shadow: 2px 2px 0px #000000; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; font-size: 0.72rem; color: #2d3748; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;" onclick="toggleEasySelectMode(event)">
+                    <input type="checkbox" id="review-easy-select-checkbox" style="cursor: pointer; margin: 0; transform: scale(1.15);" onclick="event.stopPropagation(); onEasySelectCheckboxChange();">
+                    <span style="font-weight: bold; color: #002d5a; font-family: 'Inter', sans-serif;">Easy Select Mode</span>
+                </div>
+
                 <!-- Shortcuts Actions -->
                 <button class="tally-btn-key" onclick="openPeriodModal()">
                     <div class="tally-btn-shortcut">F2</div>

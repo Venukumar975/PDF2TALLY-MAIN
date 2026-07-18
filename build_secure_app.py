@@ -25,6 +25,7 @@ def build_secure():
         "-O", "obf_dist",
         "-r",
         "desktop_run.py", "app_flask.py", "routes.py", "routes_tally.py", "licensing.py",
+        "routes_base.py", "routes_licensing.py", "routes_bank.py", "routes_gstr1.py", "routes_hybrid.py", "routes_download.py",
         "services", "parsers", "strategies", "slicers"
     ]
     
@@ -46,7 +47,14 @@ def build_secure():
         "webview",
         "pdfminer",
         "git",
-        "dateutil"
+        "dateutil",
+        "smtplib",
+        "email",
+        "email.mime",
+        "email.mime.multipart",
+        "email.mime.text",
+        "email.mime.base",
+        "email.encoders"
     ]
 
     # Map package names to import names
@@ -82,7 +90,11 @@ def build_secure():
                     hidden_imports.append(import_name)
 
     # Append local obfuscated modules to prevent ModuleNotFoundError due to PyArmor encryption
-    local_hidden_imports = ["app_flask", "routes", "routes_tally", "licensing"]
+    local_hidden_imports = [
+        "app_flask", "routes", "routes_tally", "licensing",
+        "routes_base", "routes_licensing", "routes_bank", "routes_gstr1", "routes_hybrid", "routes_download",
+        "routes_redact"
+    ]
     local_dirs = ["services", "parsers", "strategies", "slicers"]
     for folder in local_dirs:
         local_hidden_imports.append(folder)
@@ -103,10 +115,11 @@ def build_secure():
     print("[BUILD] Invoking PyInstaller compilation...")
     pyinstaller_args = [
         'obf_dist/desktop_run.py',
-        '--name=pdf2tallyXML',
+        '--name=PDF2TALLY',
         '--clean',
         '--noconfirm',
-        '--console',
+        '--noconsole',
+        '--icon=logo.ico',
         '--paths=obf_dist',  # Search obf_dist for imports first
         '--collect-all=pdfplumber',
         '--collect-all=pypdfium2',
@@ -119,7 +132,7 @@ def build_secure():
 
     PyInstaller.__main__.run(pyinstaller_args)
     print("\n[BUILD] SECURE PRODUCTION BUILD COMPLETED SUCCESSFULLY!")
-    print("[BUILD] Output executable is in: dist/pdf2tallyXML/pdf2tallyXML.exe")
+    print("[BUILD] Output executable is in: dist/PDF2TALLY/PDF2TALLY.exe")
 
 if __name__ == "__main__":
     build_secure()

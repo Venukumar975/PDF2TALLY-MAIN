@@ -1,0 +1,20 @@
+4664 MainProcess 2026-07-13 12:46:55,506
+Traceback (most recent call last):
+  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 786, in main
+    main_entry(sys.argv[1:])
+  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 744, in main_entry
+    return args.func(ctx, args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\__main__.py", line 305, in cmd_reg
+    reg.register_regfile(regfile)
+  File "C:\Users\pichi\Desktop\pdf2tally-2\pdf2tally\venv\Lib\site-packages\pyarmor\cli\register.py", line 158, in register_regfile
+    f.extract(item, path=path)
+  File "C:\Users\pichi\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1726, in extract
+    return self._extract_member(member, path, pwd)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pichi\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1766, in _extract_member
+    member = self.getinfo(member)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pichi\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1532, in getinfo
+    raise KeyError(
+KeyError: "There is no item named '.pyarmor_capsule.zip' in the archive"

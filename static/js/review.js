@@ -23,7 +23,8 @@ const reviewState = {
     advLen3: true,
     advMinFreq: 2,
     cachedCompanyLedgers: [],
-    activeCompanyName: ""
+    activeCompanyName: "",
+    easySelectMode: false
 };
 
 // Autocomplete navigation state
@@ -126,7 +127,7 @@ function loadReviewXML(xmlString, fileName) {
         const ledgerNodes = xmlDoc.getElementsByTagName("LEDGER");
         for (let j = 0; j < ledgerNodes.length; j++) {
             const lName = ledgerNodes[j].getAttribute("NAME") || "";
-            if (lName.toLowerCase().includes("bank") || lName.toLowerCase().includes("sbi") || lName.toLowerCase().includes("bob")) {
+            if (/bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(lName)) {
                 const opNode = ledgerNodes[j].querySelector("OPENINGBALANCE");
                 if (opNode) {
                     const val = parseFloat(opNode.textContent || "0");
@@ -184,8 +185,10 @@ function loadReviewXML(xmlString, fileName) {
                 const rawAmt = parseFloat(ent.querySelector("AMOUNT")?.textContent || "0");
 
                 // Particulars is the non-bank account ledger
-                const isBank = ledger.toLowerCase().includes("bank") || ledger.toLowerCase().includes("sbi") || ledger.toLowerCase().includes("bob");
-                if (!isBank) {
+                const isPartyNode = ent.querySelector("ISPARTYLEDGER");
+                const isPartyLedger = isPartyNode ? (isPartyNode.textContent.trim() === "Yes") : !(/bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(ledger));
+                
+                if (isPartyLedger) {
                     particulars = ledger;
                 } else {
                     bankName = ledger;
@@ -505,6 +508,7 @@ function onReviewRowClick(event, index) {
         } else {
             reviewState.selectedIds.add(vch.id);
         }
+        reviewState.shiftAnchorIndex = index;
     } else if (event.shiftKey && reviewState.lastSelectedIndex !== -1) {
         // Range selection
         reviewState.selectedIds.clear();
@@ -514,10 +518,19 @@ function onReviewRowClick(event, index) {
             const cur = reviewState.filteredVouchers[j];
             if (cur) reviewState.selectedIds.add(cur.id);
         }
+    } else if (reviewState.easySelectMode) {
+        // Easy selection mode: toggle selection without keys
+        if (reviewState.selectedIds.has(vch.id)) {
+            reviewState.selectedIds.delete(vch.id);
+        } else {
+            reviewState.selectedIds.add(vch.id);
+        }
+        reviewState.shiftAnchorIndex = index;
     } else {
         // Single selection
         reviewState.selectedIds.clear();
         reviewState.selectedIds.add(vch.id);
+        reviewState.shiftAnchorIndex = index;
     }
     
     reviewState.focusedIndex = index;
@@ -542,8 +555,9 @@ function updateVoucherLedger(vch, newLedgerName, triggerXMLUpdate = true) {
             const ledNameNode = ent.querySelector("LEDGERNAME");
             if (ledNameNode) {
                 const currentName = ledNameNode.textContent || "";
-                const isBank = currentName.toLowerCase().includes("bank") || currentName.toLowerCase().includes("sbi") || currentName.toLowerCase().includes("bob");
-                if (!isBank) {
+                const isPartyNode = ent.querySelector("ISPARTYLEDGER");
+                const isPartyLedger = isPartyNode ? (isPartyNode.textContent.trim() === "Yes") : !(/bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb/i.test(currentName));
+                if (isPartyLedger) {
                     ledNameNode.textContent = newLedgerName;
                 }
             }
@@ -802,6 +816,21 @@ function openLedgerFilterModal() {
 function confirmLedgerFilter() {
     closeReviewModal("ledger");
     applyReviewFilters();
+}
+
+function toggleEasySelectMode(event) {
+    const checkbox = document.getElementById("review-easy-select-checkbox");
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        onEasySelectCheckboxChange();
+    }
+}
+
+function onEasySelectCheckboxChange() {
+    const checkbox = document.getElementById("review-easy-select-checkbox");
+    if (checkbox) {
+        reviewState.easySelectMode = checkbox.checked;
+    }
 }
 
 // 5 Toggling Narration
@@ -1063,12 +1092,20 @@ function updateMonthlyAnalysisBalances() {
     tbody.innerHTML = "";
     
     let cumulativeBalance = opBalVal;
+    const isCashOnly = (reviewState.bankName || "").toLowerCase() === "cash";
     
     const sortedMonthKeys = Object.keys(monthlyRollup).sort();
     
     sortedMonthKeys.forEach(mKey => {
         const item = monthlyRollup[mKey];
-        cumulativeBalance += item.debit - item.credit;
+        
+        let displayBalance;
+        if (isCashOnly) {
+            displayBalance = opBalVal + item.debit - item.credit;
+        } else {
+            cumulativeBalance += item.debit - item.credit;
+            displayBalance = cumulativeBalance;
+        }
         
         // Convert monthKey "2025-04" to Month Name "Apr 2025"
         const [yr, mn] = mKey.split("-");
@@ -1083,7 +1120,7 @@ function updateMonthlyAnalysisBalances() {
             <td style="padding: 8px; text-align: right; color: #4a5568;">${item.count}</td>
             <td style="padding: 8px; text-align: right; color: #16a34a;">${formatCurrency(item.debit)}</td>
             <td style="padding: 8px; text-align: right; color: #e53e3e;">${formatCurrency(item.credit)}</td>
-            <td style="padding: 8px; text-align: right; font-weight: bold; color: #2d3748;">${formatCurrency(cumulativeBalance)}</td>
+            <td style="padding: 8px; text-align: right; font-weight: bold; color: #2d3748;">${formatCurrency(displayBalance)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -1132,12 +1169,39 @@ async function saveReviewXML(exitAfterSave = false) {
         
         const result = await response.json();
         if (result.success) {
-            alert(result.message);
-            if (exitAfterSave) {
-                window.location.href = "/#license-tab";
+            // Check if running in pywebview desktop container
+            if (window.pywebview && window.pywebview.api) {
+                try {
+                    const downloadRes = await window.pywebview.api.download_file("xml_bank");
+                    if (downloadRes.success) {
+                        alert("Changes saved and XML file saved successfully to:\n" + downloadRes.path);
+                        if (exitAfterSave) {
+                            window.location.href = "/#bank-tab";
+                        }
+                    } else if (downloadRes.message && downloadRes.message !== "Cancelled" && downloadRes.message !== "Save cancelled") {
+                        alert("Failed to save XML file: " + downloadRes.message);
+                    }
+                } catch (err) {
+                    alert("Error saving XML file: " + err.message);
+                }
+            } else {
+                // Fallback: Trigger native client-side file download of the XML string in browser
+                const default_filename = (reviewState.originalFileName || "tally_import.xml").replace(".xml", "") + "_reviewed.xml";
+                const blob = new Blob([xmlString], { type: "text/xml" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = default_filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert("Changes saved and XML file downloaded successfully!");
+                if (exitAfterSave) {
+                    window.location.href = "/#bank-tab";
+                }
             }
-        } else if (result.cancelled) {
-            console.log("Save cancelled:", result.message);
         } else {
             alert("Failed to save changes: " + result.message);
         }
@@ -1208,7 +1272,7 @@ function confirmExitReview(action) {
         saveReviewXML(true);
     } else if (action === "exit") {
         // Exit without saving modifications
-        window.location.href = "/#license-tab";
+        window.location.href = "/#bank-tab";
     }
 }
 

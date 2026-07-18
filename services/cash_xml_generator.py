@@ -55,21 +55,21 @@ def generate_ashramam_tally_xml(transactions, cash_ledger="Cash", donation_ledge
         ET.SubElement(vch, "NARRATION").text = txn["narration"]
         ET.SubElement(vch, "PERSISTEDVIEW").text = "Accounting Voucher View"
 
-        # 1. Cash Book Entry (DEBIT -> Money comes in)
-        cash_entry = ET.SubElement(vch, "ALLLEDGERENTRIES.LIST")
-        ET.SubElement(cash_entry, "LEDGERNAME").text = cash_ledger
-        ET.SubElement(cash_entry, "ISDEEMEDPOSITIVE").text = "Yes"
-        ET.SubElement(cash_entry, "ISLASTDEEMEDPOSITIVE").text = "Yes"
-        ET.SubElement(cash_entry, "ISPARTYLEDGER").text = "No"
-        ET.SubElement(cash_entry, "AMOUNT").text = f"-{amount:.2f}"
-
-        # 2. Donation Income Entry (CREDIT -> Tracking Indirect Income)
+        # 1. Donation Income Entry (CREDIT -> Tracking Indirect Income)
         donation_entry = ET.SubElement(vch, "ALLLEDGERENTRIES.LIST")
         ET.SubElement(donation_entry, "LEDGERNAME").text = donation_ledger
         ET.SubElement(donation_entry, "ISDEEMEDPOSITIVE").text = "No"
         ET.SubElement(donation_entry, "ISLASTDEEMEDPOSITIVE").text = "No"
         ET.SubElement(donation_entry, "ISPARTYLEDGER").text = "Yes"
         ET.SubElement(donation_entry, "AMOUNT").text = f"{amount:.2f}"
+
+        # 2. Cash Book Entry (DEBIT -> Money comes in)
+        cash_entry = ET.SubElement(vch, "ALLLEDGERENTRIES.LIST")
+        ET.SubElement(cash_entry, "LEDGERNAME").text = cash_ledger
+        ET.SubElement(cash_entry, "ISDEEMEDPOSITIVE").text = "Yes"
+        ET.SubElement(cash_entry, "ISLASTDEEMEDPOSITIVE").text = "Yes"
+        ET.SubElement(cash_entry, "ISPARTYLEDGER").text = "No"
+        ET.SubElement(cash_entry, "AMOUNT").text = f"-{amount:.2f}"
 
     # Indent configuration layouts formatting
     _indent(envelope)

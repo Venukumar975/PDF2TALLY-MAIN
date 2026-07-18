@@ -90,7 +90,8 @@ class WebviewApi:
         Bypasses standard browser download restrictions in WebViews.
         """
         from app_flask import FILE_CACHE
-        data = FILE_CACHE.get(file_type)
+        cache_key = "last_cleaned_pdf_bytes" if file_type == "last_cleaned_pdf" else file_type
+        data = FILE_CACHE.get(cache_key)
         filename = FILE_CACHE.get(f"{file_type}_filename", "output")
         
         if not data:
@@ -100,6 +101,8 @@ class WebviewApi:
             file_types = ('XML files (*.xml)', 'All files (*.*)')
         elif 'json' in file_type:
             file_types = ('JSON files (*.json)', 'All files (*.*)')
+        elif 'pdf' in file_type:
+            file_types = ('PDF files (*.pdf)', 'All files (*.*)')
         else:
             file_types = ('Excel workbooks (*.xlsx)', 'All files (*.*)')
         

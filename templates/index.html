@@ -188,7 +188,7 @@
                 <div id="lic-loading-timer" style="font-size: 1.2rem; font-weight: bold; margin-top: 10px; color: #8b5cf6;">Connecting...</div>
             </div>
             <div class="activation-footer">
-                <span>🔐 Cloud Licensing Protocol (v2.1.0)</span>
+                <span>License Status Check</span>
             </div>
         </div>
 
@@ -213,7 +213,7 @@
         <!-- 3. UNIFIED LICENSING PORTAL (LOGIN, REGISTER CONSOLES) -->
         <div id="lic-state-portal" class="glass-card activation-box animate-fade-in hidden" style="max-width: 460px; width: 100%; padding: 24px 30px;">
             <div class="activation-header" style="margin-bottom: 15px;">
-                <h2 style="font-weight: 600; font-size: 1.35rem; letter-spacing: -0.5px;">Tally Automation Suite</h2>
+                <h2 style="font-weight: 600; font-size: 1.35rem; letter-spacing: -0.5px;">PDF2TALLY</h2>
                 <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0;">Licensing & Activation Control Portal</p>
             </div>
             
@@ -279,7 +279,7 @@
                     
                     <!-- Row 3: Full Width (Machine fingerprint) -->
                     <div class="signature-container" style="margin-bottom: 10px;">
-                        <label style="font-size: 0.7rem; color: var(--text-muted);">Machine Fingerprint (Auto-Filled):</label>
+                        <label style="font-size: 0.7rem; color: var(--text-muted);">Machine Fingerprint - {Auto-Filled}:</label>
                         <div class="signature-badge" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); margin-top: 2px;">
                             <span id="machine-sig-display" style="font-family: monospace; font-size: 0.85rem; color: #ffffff; letter-spacing: 0.5px;">FETCHING-SIG...</span>
                             <button onclick="copySignature()" title="Copy Signature" class="btn-copy" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; display: flex; align-items: center;">
@@ -297,7 +297,7 @@
             
             <div class="activation-footer" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
                 <span>🔐 Secure Licensing Protocol</span>
-                <span>v2.1.0</span>
+                <span>v1.0.0</span>
             </div>
         </div>
     </div>
@@ -310,9 +310,8 @@
         <!-- SIDEBAR NAVIGATION -->
         <aside class="app-sidebar">
             <div class="brand">
-                <div class="logo">🎛️</div>
                 <div class="brand-text">
-                    <h1>Tally Suite</h1>
+                    <h1>PDF2TALLY</h1>
                     <span>AUTOMATION ENGINE</span>
                 </div>
             </div>
@@ -327,25 +326,29 @@
                     <span>Review Desk</span>
                 </a>
 
-                <a href="#cash-tab" class="nav-item" onclick="switchTab('cash-tab')">
+                <a href="javascript:void(0)" class="nav-item" style="pointer-events: none; display: none !important;">
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">A</span>
                     <span>Ashramam Ledger</span>
                 </a>
                 <a href="#gstr1-tab" class="nav-item" onclick="switchTab('gstr1-tab')">
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">G</span>
-                    <span>GSTR-1 Offline</span>
+                    <span>GSTR-1 & HSN</span>
                 </a>
                 <a href="#formats-tab" class="nav-item" onclick="switchTab('formats-tab')">
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">F</span>
                     <span>Supported Formats</span>
                 </a>
-                <a href="#lexicon-tab" class="nav-item" onclick="switchTab('lexicon-tab')">
+                <a href="javascript:void(0)" class="nav-item" style="pointer-events: none; display: none !important;">
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">D</span>
                     <span>Name Translation Dictionary</span>
                 </a>
                 <a href="#license-tab" class="nav-item" onclick="switchTab('license-tab')">
                     <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">L</span>
                     <span>License & Status</span>
+                </a>
+                <a href="#support-tab" class="nav-item" onclick="switchTab('support-tab')">
+                    <span class="nav-icon" style="font-weight: bold; width: 20px; display: inline-block; text-align: center;">H</span>
+                    <span>Help & Support</span>
                 </a>
             </nav>
             
@@ -357,7 +360,10 @@
                         <p id="license-expiry-side" class="status-sub">Lifetime</p>
                     </div>
                 </div>
-                <div style="font-size: 10px; color: var(--text-muted); opacity: 0.55; text-align: center; margin-top: 2px; font-weight: 400; letter-spacing: 0.3px; user-select: none;">
+                <div style="font-size: 10px; color: var(--text-muted); opacity: 0.7; text-align: center; margin-top: 2px; font-weight: 500; letter-spacing: 0.3px; user-select: none;">
+                    PDF2TALLY v1.0.0
+                </div>
+                <div style="font-size: 9px; color: var(--text-muted); opacity: 0.45; text-align: center; margin-top: 2px; font-weight: 400; user-select: none;">
                     Copyright &copy; Venu Kumar
                 </div>
             </div>
@@ -370,7 +376,7 @@
             <section id="bank-tab" class="tab-pane active animate-fade-in">
                 <header class="section-header">
                     <h2>Bank Statement to Tally Converter</h2>
-                    <p>Load your State Bank of India (SBI) or Bank of Baroda (BOB) bank statements and convert them to Tally XML files for easy import.</p>
+                    <p>Load your State Bank of India (SBI) or Bank of Baroda (BOB) or Other Supported bank statements and convert them to Tally XML files for easy import.</p>
                 </header>
                 
                 <div class="grid-2-1">
@@ -384,7 +390,7 @@
                                     <option value="State Bank of India (SBI)">State Bank of India (SBI)</option>
                                     <option value="Bank of Baroda (BOB)">Bank of Baroda (BOB)</option>
                                     <option value="Axis Bank">Axis Bank</option>
-                                    <option value="Hybrid Generic">Hybrid Generic (NEW)</option>
+                                    <option value="Hybrid Generic">Generic Table </option>
                                 </select>
                             </div>
                             
@@ -398,8 +404,8 @@
                             <div class="form-group">
                                 <label for="strategy-select">Conversion Mode</label>
                                 <select id="strategy-select" onchange="toggleDateFilter('bank')">
-                                    <option value="Full bank statement">Full bank statement</option>
-                                    <option value="Incomplete statement (Continuation)">Incomplete statement (Continuation)</option>
+                                    <option value="Full bank statement">Include Opening Balance</option>
+                                    <option value="Incomplete statement (Continuation)">Ignore Opening Balance</option>
                                 </select>
                             </div>
                             
@@ -435,11 +441,11 @@
 
                         <div class="form-grid">
                             <div class="form-group">
-                                <label for="bank-debit-ledger">Bank Ledger Name (as written in Tally Prime)</label>
+                                <label for="bank-debit-ledger">Bank Ledger Name (as saved in Tally Prime)</label>
                                 <input type="text" id="bank-debit-ledger" placeholder="e.g. STATE BANK OF INDIA" value="STATE BANK OF INDIA">
                             </div>
                             <div class="form-group">
-                                <label for="bank-credit-ledger">Transaction Ledger Name (as written in Tally Prime)</label>
+                                <label for="bank-credit-ledger">Transaction Ledger Name (as saved in Tally Prime)</label>
                                 <input type="text" id="bank-credit-ledger" placeholder="e.g. Suspense" value="Suspense">
                             </div>
                         </div>
@@ -454,14 +460,20 @@
 
                     <!-- RIGHT COLUMN: QUICK INFO -->
                     <div class="sidebar-info">
-                        <div class="glass-card gradient-border-card">
-                            <h3>🔍 Automatic Safety Checks</h3>
-                            <p>This app does not guess text. It reads the direct text inside the PDF and runs 3 automatic checks to ensure 100% accuracy:</p>
-                            <ul class="benefit-list">
-                                <li><strong>1. Total Amount Check:</strong> Double checks that transaction counts and overall totals match the PDF exactly.</li>
-                                <li><strong>2. Line-by-Line Check:</strong> Inspects dates, amounts, and directions (Deposits/Withdrawals) for every entry.</li>
-                                <li><strong>3. Order Check (No Skips):</strong> Prevents duplicate entries or skipped lines in Tally.</li>
-                            </ul>
+                        <div class="glass-card gradient-border-card" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 250px;">
+                            <div>
+                                <h3>✂️ PDF Section Remover</h3>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 12px; line-height: 1.45;">
+                                    Clean unwanted areas (like header details, address tables, or advertisements) from your PDF before parsing.
+                                </p>
+                                <ul class="benefit-list" style="margin-bottom: 16px; padding-left: 15px;">
+                                    <li style="margin-bottom: 8px;"><strong>Digital PDFs only:</strong> The statement must be a digital PDF (not a scanned image).</li>
+                                    <li style="margin-bottom: 8px;"><strong>True deletion:</strong> Unwanted section data is completely erased from the PDF structure.</li>
+                                </ul>
+                            </div>
+                            <button id="btn-open-section-remover" class="btn btn-secondary btn-block" style="background-color: #374151; color: white; border: 1px solid #4b5563; font-weight: bold; cursor: pointer; padding: 10px 14px; border-radius: 6px;" onclick="openRedactModal()">
+                                Open Section Remover
+                            </button>
                         </div>
                         <div class="glass-card status-msg-box" id="bank-status-info">
                             <p class="neutral-status">Waiting for bank statement file...</p>
@@ -797,137 +809,291 @@
                 </div>
             </section>
 
-            <!-- SECTION 2.5: GSTR-1 OFFLINE CONVERTER -->
+            <!-- SECTION 2.5: GSTR-1 & HSN CONVERTER -->
             <section id="gstr1-tab" class="tab-pane hidden animate-fade-in">
                 <header class="section-header">
-                    <h2>GSTR-1 Offline JSON Converter</h2>
-                    <p>Load your Sales register Excel/CSV spreadsheets and convert them directly to official GSTR-1 JSON files for direct upload to the GST Portal.</p>
+                    <h2>GSTR-1 & HSN Offline JSON Suite</h2>
+                    <p>Process your Sales Register Excel/CSV files to generate official GSTR-1 B2B returns or Table 12 HSN Summary JSON files.</p>
                 </header>
 
-                <div class="grid-2-1">
-                    <!-- LEFT COLUMN: INPUT CONTROLS -->
-                    <div class="glass-card">
-                        <h3>1. Supplier Details & Period</h3>
-                        <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                            <div class="form-group">
-                                <label for="gstr1-supplier-gstin">Supplier GSTIN</label>
-                                <input type="text" id="gstr1-supplier-gstin" placeholder="e.g. 37AAAAA1111A1Z1" maxlength="15" style="text-transform: uppercase;">
+                <!-- GSTR-1 & HSN SUB-TABS SELECTOR -->
+                <div class="tabs-sub" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+                    <button class="btn-subtab active" id="btn-subtab-gstr1-b2b" onclick="switchGstr1SubTab('gstr1-b2b')">
+                        📂 GSTR-1 B2B Invoices
+                    </button>
+                    <button class="btn-subtab" id="btn-subtab-gstr1-hsn" onclick="switchGstr1SubTab('gstr1-hsn')">
+                        📦 HSN Summary (Table 12)
+                    </button>
+                </div>
+
+                <!-- SUB-TAB 1: B2B INVOICES CONVERTER -->
+                <div id="pane-gstr1-b2b" class="gstr1-subtab-pane active">
+                    <div class="grid-2-1">
+                        <!-- LEFT COLUMN: INPUT CONTROLS -->
+                        <div class="glass-card">
+                            <h3>1. Supplier Details & Period (for B2B)</h3>
+                            <div class="form-grid" style="display: grid; grid-template-columns: 1.5fr 1.5fr 1fr; gap: 15px;">
+                                <div class="form-group">
+                                    <label for="gstr1-supplier-gstin">Supplier GSTIN</label>
+                                    <input type="text" id="gstr1-supplier-gstin" placeholder="e.g. 37AAAAA1111A1Z1" maxlength="15" style="text-transform: uppercase;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="gstr1-fp">Financial Period (fp)</label>
+                                    <input type="text" id="gstr1-fp" placeholder="Format: MMYYYY (e.g. 082025)" maxlength="6">
+                                </div>
+                                <div class="form-group">
+                                    <label for="gstr1-header-row">Header Row</label>
+                                    <input type="number" id="gstr1-header-row" placeholder="Default: 4" value="4" min="1">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="gstr1-fp">Financial Period (fp)</label>
-                                <input type="text" id="gstr1-fp" placeholder="Format: MMYYYY (e.g. 082025)" maxlength="6">
+
+                            <div class="divider"></div>
+
+                            <h3>2. Select Sales Register File (.xlsx / .csv)</h3>
+                            <div id="gstr1-dropzone" class="dropzone">
+                                <input type="file" id="gstr1-file-input" accept=".xlsx, .xls, .csv" class="hidden-input" onchange="handleFileSelect('gstr1')">
+                                <div class="dropzone-text">
+                                    <span class="dropzone-icon">📁</span>
+                                    <p class="dropzone-title">Drag & drop your sales register sheet here</p>
+                                    <p class="dropzone-sub">or click to browse your folders</p>
+                                </div>
+                                <div id="gstr1-file-badge" class="file-badge hidden">
+                                    <span class="file-icon">📄</span>
+                                    <span id="gstr1-file-name" class="file-name">sales.xlsx</span>
+                                    <button onclick="clearFile('gstr1')" class="btn-clear">&times;</button>
+                                </div>
+                            </div>
+                            
+                            <div class="actions-bar" style="margin-top: 20px;">
+                                <button id="btn-convert-gstr1" class="btn btn-primary btn-block" onclick="runGstr1Conversion()">
+                                    <span id="gstr1-btn-text">Convert to GSTR-1 JSON </span>
+                                    <span id="gstr1-spinner" class="spinner-small hidden"></span>
+                                </button>
                             </div>
                         </div>
 
-                        <div class="divider"></div>
-
-                        <h3>2. Select Sales Register File (.xlsx / .csv)</h3>
-                        <div id="gstr1-dropzone" class="dropzone">
-                            <input type="file" id="gstr1-file-input" accept=".xlsx, .xls, .csv" class="hidden-input" onchange="handleFileSelect('gstr1')">
-                            <div class="dropzone-text">
-                                <span class="dropzone-icon">📁</span>
-                                <p class="dropzone-title">Drag & drop your sales register sheet here</p>
-                                <p class="dropzone-sub">or click to browse your folders</p>
+                        <!-- RIGHT COLUMN: INFORMATIONAL INFO -->
+                        <div class="sidebar-info">
+                            <div class="glass-card gradient-border-card">
+                                <h3>🔍 Smart GST Validations</h3>
+                                <p>The GSTR-1 offline engine automatically optimizes and formats your sales entries:</p>
+                                <ul class="benefit-list" style="margin-top: 10px;">
+                                    <li><strong>Rate Consolidator:</strong> Groups multi-rate rows under a single invoice number as required by the GST portal.</li>
+                                    <li><strong>RCM Auto-cleaning:</strong> Converts standard spreadsheet entries (Yes/No) to valid portal flags (Y/N).</li>
+                                    <li><strong>POS Zero-Padding:</strong> Formats Place of Supply code prefixes to exactly 2 digits (e.g., "09" or "37").</li>
+                                </ul>
                             </div>
-                            <div id="gstr1-file-badge" class="file-badge hidden">
-                                <span class="file-icon">📄</span>
-                                <span id="gstr1-file-name" class="file-name">sales.xlsx</span>
-                                <button onclick="clearFile('gstr1')" class="btn-clear">&times;</button>
+                            <div class="glass-card status-msg-box" id="gstr1-status-info">
+                                <p class="neutral-status">Waiting for sales register file...</p>
                             </div>
-                        </div>
-                        
-                        <div class="actions-bar" style="margin-top: 20px;">
-                            <button id="btn-convert-gstr1" class="btn btn-primary btn-block" onclick="runGstr1Conversion()">
-                                <span id="gstr1-btn-text">Convert to GSTR-1 JSON </span>
-                                <span id="gstr1-spinner" class="spinner-small hidden"></span>
-                            </button>
                         </div>
                     </div>
 
-                    <!-- RIGHT COLUMN: INFORMATIONAL INFO -->
-                    <div class="sidebar-info">
-                        <div class="glass-card gradient-border-card">
-                            <h3>🔍 Smart GST Validations</h3>
-                            <p>The GSTR-1 offline engine automatically optimizes and formats your sales entries:</p>
-                            <ul class="benefit-list" style="margin-top: 10px;">
-                                <li><strong>Rate Consolidator:</strong> Groups multi-rate rows under a single invoice number as required by the GST portal.</li>
-                                <li><strong>RCM Auto-cleaning:</strong> Converts standard spreadsheet entries (Yes/No) to valid portal flags (Y/N).</li>
-                                <li><strong>POS Zero-Padding:</strong> Formats Place of Supply code prefixes to exactly 2 digits (e.g., "09" or "37").</li>
-                            </ul>
-                        </div>
-                        <div class="glass-card status-msg-box" id="gstr1-status-info">
-                            <p class="neutral-status">Waiting for sales register file...</p>
+                    <!-- BOTTOM AREA: LIVE REGISTER PREVIEW -->
+                    <div id="gstr1-results" class="results-container hidden animate-fade-in">
+                        <div class="glass-card">
+                            <div class="results-header">
+                                <h3> GSTR-1 Conversion Summary</h3>
+                                <span class="badge success" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">READY FOR PORTAL</span>
+                            </div>
+
+                            <div class="metrics-strip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                                <div class="metric-card">
+                                    <span class="metric-label">Recipients (CTIN)</span>
+                                    <span class="metric-value" id="m-gstr1-recipients">0</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Processed Invoices</span>
+                                    <span class="metric-value" id="m-gstr1-invoices">0</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Total Taxable Value</span>
+                                    <span class="metric-value" id="m-gstr1-taxable">₹ 0.00</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Total GST (C+S+I)</span>
+                                    <span class="metric-value text-success" id="m-gstr1-tax">₹ 0.00</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Total Invoice Value</span>
+                                    <span class="metric-value" id="m-gstr1-total">₹ 0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="divider"></div>
+
+                            <!-- EXPORT JSON -->
+                            <div style="max-width: 400px; margin: 0 auto 20px auto; text-align: center;">
+                                <h4 style="margin-bottom: 8px;">Download GSTR-1 JSON File</h4>
+                                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">This JSON file can be uploaded directly to the GST Online Portal under GSTR-1 B2B returns.</p>
+                                <button onclick="triggerDownload('json_gstr1')" class="btn btn-success btn-block" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 500; font-size: 0.95rem;">Download GSTR-1 JSON (.json)</button>
+                            </div>
+
+                            <div class="divider"></div>
+
+                            <!-- LIVE REGISTER TABLE -->
+                            <div class="table-section">
+                                <h4>B2B Invoice Alteration & Audit Register</h4>
+                                <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">Simulates and lists all consolidated B2B invoice aggregates that will be uploaded.</p>
+                                
+                                <div class="table-wrapper" style="max-height: 450px; overflow-y: auto;">
+                                    <table id="gstr1-preview-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Recipient GSTIN</th>
+                                                <th>Invoice No.</th>
+                                                <th>Date</th>
+                                                <th>POS</th>
+                                                <th>Taxable Value</th>
+                                                <th>CGST</th>
+                                                <th>SGST</th>
+                                                <th>IGST</th>
+                                                <th>Invoice Value</th>
+                                                <th>RCM</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Injected dynamically by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- BOTTOM AREA: LIVE REGISTER PREVIEW -->
-                <div id="gstr1-results" class="results-container hidden animate-fade-in">
-                    <div class="glass-card">
-                        <div class="results-header">
-                            <h3> GSTR-1 Conversion Summary</h3>
-                            <span class="badge success" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">READY FOR PORTAL</span>
-                        </div>
-
-                        <div class="metrics-strip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                            <div class="metric-card">
-                                <span class="metric-label">Recipients (CTIN)</span>
-                                <span class="metric-value" id="m-gstr1-recipients">0</span>
+                <!-- SUB-TAB 2: HSN SUMMARY CONVERTER -->
+                <div id="pane-gstr1-hsn" class="gstr1-subtab-pane hidden">
+                    <div class="grid-2-1">
+                        <!-- LEFT COLUMN: INPUT CONTROLS -->
+                        <div class="glass-card">
+                            <h3>1. Supplier Details & Period (for HSN)</h3>
+                            <div class="form-grid" style="display: grid; grid-template-columns: 1.5fr 1.5fr 1fr; gap: 15px;">
+                                <div class="form-group">
+                                    <label for="hsn-supplier-gstin">Supplier GSTIN</label>
+                                    <input type="text" id="hsn-supplier-gstin" placeholder="e.g. 37AAAAA1111A1Z1" maxlength="15" style="text-transform: uppercase;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="hsn-fp">Financial Period (fp)</label>
+                                    <input type="text" id="hsn-fp" placeholder="Format: MMYYYY (e.g. 082025)" maxlength="6">
+                                </div>
+                                <div class="form-group">
+                                    <label for="hsn-header-row">Header Row</label>
+                                    <input type="number" id="hsn-header-row" placeholder="Default: 4" value="4" min="1">
+                                </div>
                             </div>
-                            <div class="metric-card">
-                                <span class="metric-label">Processed Invoices</span>
-                                <span class="metric-value" id="m-gstr1-invoices">0</span>
-                            </div>
-                            <div class="metric-card">
-                                <span class="metric-label">Total Taxable Value</span>
-                                <span class="metric-value" id="m-gstr1-taxable">₹ 0.00</span>
-                            </div>
-                            <div class="metric-card">
-                                <span class="metric-label">Total GST (C+S+I)</span>
-                                <span class="metric-value text-success" id="m-gstr1-tax">₹ 0.00</span>
-                            </div>
-                            <div class="metric-card">
-                                <span class="metric-label">Total Invoice Value</span>
-                                <span class="metric-value" id="m-gstr1-total">₹ 0.00</span>
-                            </div>
-                        </div>
 
-                        <div class="divider"></div>
+                            <div class="divider"></div>
 
-                        <!-- EXPORT JSON -->
-                        <div style="max-width: 400px; margin: 0 auto 20px auto; text-align: center;">
-                            <h4 style="margin-bottom: 8px;">Download GSTR-1 JSON File</h4>
-                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">This JSON file can be uploaded directly to the GST Online Portal under GSTR-1 B2B returns.</p>
-                            <button onclick="triggerDownload('json_gstr1')" class="btn btn-success btn-block" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 500; font-size: 0.95rem;">Download GSTR-1 JSON (.json)</button>
-                        </div>
-
-                        <div class="divider"></div>
-
-                        <!-- LIVE REGISTER TABLE -->
-                        <div class="table-section">
-                            <h4>B2B Invoice Alteration & Audit Register</h4>
-                            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">Simulates and lists all consolidated B2B invoice aggregates that will be uploaded.</p>
+                            <h3>2. Select Sales Register File (.xlsx / .csv)</h3>
+                            <div id="hsn-dropzone" class="dropzone">
+                                <input type="file" id="hsn-file-input" accept=".xlsx, .xls, .csv" class="hidden-input" onchange="handleFileSelect('hsn')">
+                                <div class="dropzone-text">
+                                    <span class="dropzone-icon">📁</span>
+                                    <p class="dropzone-title">Drag & drop your sales register sheet here</p>
+                                    <p class="dropzone-sub">or click to browse your folders</p>
+                                </div>
+                                <div id="hsn-file-badge" class="file-badge hidden">
+                                    <span class="file-icon">📄</span>
+                                    <span id="hsn-file-name" class="file-name">sales.xlsx</span>
+                                    <button onclick="clearFile('hsn')" class="btn-clear">&times;</button>
+                                </div>
+                            </div>
                             
-                            <div class="table-wrapper" style="max-height: 450px; overflow-y: auto;">
-                                <table id="gstr1-preview-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Recipient GSTIN</th>
-                                            <th>Invoice No.</th>
-                                            <th>Date</th>
-                                            <th>POS</th>
-                                            <th>Taxable Value</th>
-                                            <th>CGST</th>
-                                            <th>SGST</th>
-                                            <th>IGST</th>
-                                            <th>Invoice Value</th>
-                                            <th>RCM</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Injected dynamically by JS -->
-                                    </tbody>
-                                </table>
+                            <div class="actions-bar" style="margin-top: 20px;">
+                                <button id="btn-convert-hsn" class="btn btn-primary btn-block" onclick="runHsnConversion()">
+                                    <span id="hsn-btn-text">Convert HSN Summary </span>
+                                    <span id="hsn-spinner" class="spinner-small hidden"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN: INFORMATIONAL INFO -->
+                        <div class="sidebar-info">
+                            <div class="glass-card gradient-border-card">
+                                <h3>📦 Dynamic HSN Extraction</h3>
+                                <p>This module reads the 'hsn' sheet in your Excel and compiles it separately:</p>
+                                <ul class="benefit-list" style="margin-top: 10px;">
+                                    <li><strong>UQC Parser:</strong> Extracts standard 3-letter measurement prefixes from compound UQC strings.</li>
+                                    <li><strong>Leading Zeros:</strong> Maintains strict character representation for HSN codes starting with zero (like `090240`).</li>
+                                    <li><strong>Table 12 Upload:</strong> Produces a standalone JSON file that uploads directly to the online HSN table.</li>
+                                </ul>
+                            </div>
+                            <div class="glass-card status-msg-box" id="hsn-status-info">
+                                <p class="neutral-status">Waiting for sales register file...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTTOM AREA: LIVE HSN REGISTER PREVIEW -->
+                    <div id="hsn-results" class="results-container hidden animate-fade-in">
+                        <div class="glass-card">
+                            <div class="results-header">
+                                <h3> GSTR-1 HSN Summary (Table 12)</h3>
+                                <span class="badge success" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">HSN DATA COMPILED</span>
+                            </div>
+
+                            <div class="metrics-strip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                                <div class="metric-card">
+                                    <span class="metric-label">HSN Codes Count</span>
+                                    <span class="metric-value" id="m-hsn-count">0</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Total Quantity</span>
+                                    <span class="metric-value" id="m-hsn-qty">0.00</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Total Taxable Value</span>
+                                    <span class="metric-value" id="m-hsn-taxable">₹ 0.00</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Total HSN Taxes</span>
+                                    <span class="metric-value text-success" id="m-hsn-tax">₹ 0.00</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Total Value (Gross)</span>
+                                    <span class="metric-value" id="m-hsn-total">₹ 0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="divider"></div>
+
+                            <!-- EXPORT Standalone HSN JSON -->
+                            <div style="max-width: 400px; margin: 0 auto 20px auto; text-align: center;">
+                                <h4 style="margin-bottom: 8px;">Download HSN Table 12 JSON File</h4>
+                                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">This file contains ONLY the HSN summary. Upload it directly in the GSTR-1 preparation desk.</p>
+                                <button onclick="triggerDownload('json_hsn')" class="btn btn-success btn-block" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 500; font-size: 0.95rem;">Download HSN JSON (.json)</button>
+                            </div>
+
+                            <div class="divider"></div>
+
+                            <!-- LIVE REGISTER TABLE -->
+                            <div class="table-section">
+                                <h4>HSN Table 12 Register Preview</h4>
+                                <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">This is the exact HSN summary table that will be imported into Table 12 of GSTR-1.</p>
+                                
+                                <div class="table-wrapper" style="max-height: 450px; overflow-y: auto;">
+                                    <table id="hsn-preview-table">
+                                        <thead>
+                                            <tr>
+                                                <th>HSN Code</th>
+                                                <th>Type</th>
+                                                <th>Description</th>
+                                                <th>UQC</th>
+                                                <th>Total Quantity</th>
+                                                <th>Taxable Value</th>
+                                                <th>CGST</th>
+                                                <th>SGST</th>
+                                                <th>IGST</th>
+                                                <th>Total Value</th>
+                                                <th>Cess</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Injected dynamically by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1101,6 +1267,114 @@
                             <p><strong>Version:</strong> 1.0.0 (Stable Release)</p>
                             <p><strong>Operation Mode:</strong> 100% Client-Side Localhost (No Cloud Dependencies)</p>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 4.5: HELP & SUPPORT DESK -->
+            <!-- SECTION 4.5: HELP & SUPPORT DESK -->
+            <section id="support-tab" class="tab-pane hidden animate-fade-in" style="padding: 10px 0;">
+                <header class="section-header" style="margin-bottom: 20px; padding-bottom: 0;">
+                    <h2 style="font-size: 1.5rem; margin-bottom: 5px;">Help & Support</h2>
+                </header>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1.7fr; gap: 30px; align-items: start;">
+                    <!-- LEFT COLUMN: DIRECT CONTACT INFO -->
+                    <div class="glass-card" style="text-align: left; padding: 25px;">
+                        <h3>Direct Support Channels</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 25px; line-height: 1.5; font-size: 0.92rem;">
+                            If you need any demos, PDF or bank-related doubts, face errors, want to add more bank parsers or more bank support, kindly contact us using the below info or send a request.
+                        </p>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px;">
+                            <div style="display: flex; align-items: center; gap: 15px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                                <span style="font-size: 1.5rem; background: rgba(139, 92, 246, 0.15); color: var(--color-primary); width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">📞</span>
+                                <div>
+                                    <h4 style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Call / WhatsApp</h4>
+                                    <p style="margin: 3px 0 0 0; font-size: 1rem; font-weight: 500; color: #fff;">+91 76719 43264</p>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; gap: 15px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                                <span style="font-size: 1.5rem; background: rgba(139, 92, 246, 0.15); color: var(--color-primary); width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">✉️</span>
+                                <div>
+                                    <h4 style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Support Email</h4>
+                                    <p style="margin: 3px 0 0 0; font-size: 1rem; font-weight: 500; color: #fff;">support.pdf2tally@gmail.com</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-bottom: 0;">
+                            * Standard support timings: Mon-Sun, 10:00 AM - 8:00 PM IST
+                        </p>
+                    </div>
+
+                    <!-- RIGHT COLUMN: SEND A REQUEST FORM -->
+                    <div class="glass-card" style="text-align: left; padding: 25px;">
+                        <h3>Send a Support Request</h3>
+                        <form id="support-request-form" onsubmit="submitSupportRequest(event)">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="support-email">Your Email Address</label>
+                                    <input type="email" id="support-email" placeholder="name@example.com" required style="width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; color: #fff;">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="support-phone">Contact Number</label>
+                                    <input type="text" id="support-phone" placeholder="Enter 10-digit number" required style="width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; color: #fff;">
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label for="support-subject-type">Request Category (Subject)</label>
+                                <select id="support-subject-type" required style="width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; color: #fff;">
+                                    <option value="" disabled selected>-- Select an option --</option>
+                                    <option value="Need an App Demo">Need an App Demo</option>
+                                    <option value="Want Other Bank Support">Want Other Bank Support</option>
+                                    <option value="Facing Errors">Facing Errors</option>
+                                    <option value="Extend Demo">Extend Demo</option>
+                                    <option value="Others">Others</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label for="support-message">Message Details</label>
+                                <textarea id="support-message" placeholder="Describe your request, details of errors faced, or specific parser bank name..." required style="width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; color: #fff; min-height: 220px; resize: vertical;"></textarea>
+                            </div>
+
+                            <!-- Multiple File Attachment Area with Plus Icon -->
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label>Attach Files (PDF, Excel, Images - Max 5MB total)</label>
+                                <div style="background: rgba(0, 0, 0, 0.2); border: 1px dashed var(--border-color); padding: 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 15px;">
+                                        <div style="position: relative; overflow: hidden; display: inline-block; flex-shrink: 0;">
+                                            <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.25); color: var(--color-primary); width: 38px; height: 38px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer;">+</div>
+                                            <input type="file" id="support-attachments" multiple accept=".pdf,.xlsx,.xls,.png,.jpg,.jpeg" onchange="handleSupportFilesSelect(event)" style="position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%;">
+                                        </div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                            <span id="support-files-label">No files selected</span>
+                                        </div>
+                                    </div>
+                                    <!-- Render file pills here -->
+                                    <div id="support-files-list" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto; padding: 2px 0;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Machine Signature Section (Auto-filled) -->
+                            <div class="form-group" style="margin-bottom: 25px;">
+                                <label>Your Machine Fingerprint (Auto-Filled):</label>
+                                <div style="text-align: left; margin-top: 4px;">
+                                    <div id="support-machine-sig" style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-color); padding: 10px 14px; border-radius: 8px; display: inline-block; font-family: monospace; font-size: 0.9rem; color: #a78bfa; font-weight: bold; letter-spacing: 0.5px;">FETCHING-SIG...</div>
+                                </div>
+                            </div>
+
+                            <button type="submit" id="btn-submit-support" class="btn btn-primary btn-block" style="padding: 12px; font-weight: 600;">
+                                <span id="support-btn-text">Submit Support Request</span>
+                                <span id="support-spinner" class="spinner-small hidden" style="margin-left: 10px;"></span>
+                            </button>
+                            
+                            <div id="support-status-message" class="alert alert-info hidden animate-fade-in" style="margin-top: 15px; font-size: 0.85rem; text-align: center;"></div>
+                            <p style="color: var(--text-muted); font-size: 0.75rem; margin-top: 10px; text-align: center; margin-bottom: 0;">* Sending support requests requires active internet connection.</p>
+                        </form>
                     </div>
                 </div>
             </section>
@@ -1326,7 +1600,99 @@
         </div>
     </div>
 
+    <!-- ========================================== -->
+    <!-- PDF SECTION REMOVER MODAL OVERLAY         -->
+    <!-- ========================================== -->
+    <div id="redact-modal" class="modal-overlay hidden" style="display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); z-index: 1000; backdrop-filter: blur(5px);">
+        <div class="glass-card modal-content redact-card" style="max-width: 1000px; width: 95%; height: 90vh; background: rgba(18, 18, 28, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; padding: 20px;">
+            
+            <!-- Modal Header -->
+            <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.25rem; font-weight: bold; background: linear-gradient(135deg, #a78bfa, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">✂️ PDF Section Remover (Editor)</h3>
+                <button onclick="closeRedactModal()" style="background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+            
+            <!-- Toolbar -->
+            <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                
+                <!-- Open file button -->
+                <button onclick="triggerRedactUpload()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 10px; height: auto; background-color: #374151; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;">Upload PDF</button>
+                <input type="file" id="redact-file-input" accept=".pdf" style="display: none;" onchange="handleRedactFileUpload(event)">
+                
+                <div style="width: 1px; height: 18px; background: rgba(255,255,255,0.15); margin: 0 4px;"></div>
+                
+                <!-- Navigation -->
+                <button id="btn-redact-prev" onclick="changeRedactPage(-1)" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 10px; height: auto; background-color: #374151; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;" disabled>◀ Prev</button>
+                <span id="redact-page-label" style="color: white; font-size: 0.8rem; font-weight: bold; margin: 0 4px;">Page 0 / 0</span>
+                <button id="btn-redact-next" onclick="changeRedactPage(1)" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 10px; height: auto; background-color: #374151; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;" disabled>Next ▶</button>
+                
+                <div style="width: 1px; height: 18px; background: rgba(255,255,255,0.15); margin: 0 4px;"></div>
+                
+                <!-- Word Crop Tool -->
+                <button id="btn-redact-tool" onclick="toggleRedactTool()" class="btn" style="font-size: 0.8rem; padding: 6px 10px; height: auto; background-color: #374151; color: #d1d5db; border: 1px solid #4b5563; font-weight: bold; border-radius: 4px; cursor: pointer;">Crop Tool</button>
+                
+                <!-- Remove Selected -->
+                <button id="btn-redact-remove" onclick="removeRedactSelection()" class="btn btn-danger" style="font-size: 0.8rem; padding: 6px 10px; height: auto; background-color: #ef4444; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;" disabled>Remove Selection</button>
+                
+                <!-- Undo -->
+                <button id="btn-redact-undo" onclick="undoRedact()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 10px; height: auto; background-color: #374151; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;" disabled>Undo</button>
+                
+                <!-- Spacer -->
+                <div style="flex-grow: 1;"></div>
+                
+                <!-- Download -->
+                <button id="btn-redact-download" onclick="downloadCleanedPdf()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 10px; height: auto; background-color: #374151; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;" disabled>Download Cleaned PDF</button>
+            </div>
+            
+            <!-- Canvas viewport -->
+            <div id="redact-viewport" style="flex-grow: 1; background: #374151; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 15px; position: relative;">
+                <!-- Wrapper for canvas drawing overlay -->
+                <div id="redact-canvas-container" style="position: relative; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+                    <img id="redact-page-img" style="display: block; max-width: none; user-select: none; -webkit-user-drag: none;">
+                    <canvas id="redact-overlay-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: default;"></canvas>
+                </div>
+                
+                <!-- Loading indicator overlay inside viewport -->
+                <div id="redact-loading" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; border-radius: 8px; z-index: 10;">
+                    <span class="spinner-small" style="width: 32px; height: 32px; border-width: 3px;"></span>
+                </div>
+                
+                <div id="redact-empty-msg" style="position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #9ca3af; text-align: center; pointer-events: none; top: 40%;">
+                    <svg style="width: 48px; height: 48px; fill: none; stroke: currentColor; stroke-width: 1.5;" viewBox="0 0 24 24">
+                        <path d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                    </svg>
+                    <span style="font-weight: bold; font-size: 0.95rem;">No PDF Loaded</span>
+                    <span style="font-size: 0.8rem;">Click "Upload PDF" to begin editing.</span>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- UPDATE AVAILABLE MODAL                    -->
+    <!-- ========================================== -->
+    <div id="update-modal" class="overlay hidden" style="z-index: 10000; display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6);">
+        <div class="glass-card" style="max-width: 450px; width: 100%; padding: 25px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(15px); text-align: center; color: white;">
+            <div style="font-size: 2.5rem; color: #8b5cf6; margin-bottom: 15px;">=====</div>
+            <h2 id="update-title" style="margin: 0 0 10px 0; font-size: 1.4rem; font-weight: bold; letter-spacing: -0.5px;">New Version Available</h2>
+            <p id="update-subtitle" style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 15px;">Version <span id="new-version-number">1.1.0</span> is ready for download.</p>
+            
+            <div id="release-notes-container" style="text-align: left; background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 12px 15px; margin-bottom: 20px; font-size: 0.85rem; max-height: 150px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); line-height: 1.4;">
+                <h4 style="margin: 0 0 8px 0; color: #8b5cf6; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">Release Notes:</h4>
+                <div id="release-notes-content" style="color: #d1d5db; white-space: pre-wrap;">• Added ICICI Support
+• Improved Parsing
+• Bug Fixes</div>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-update-download" onclick="downloadUpdate()" class="btn btn-primary" style="flex: 1; padding: 12px; font-weight: bold; font-size: 0.9rem; border-radius: 6px; background-color: #8b5cf6; border: none; color: white; cursor: pointer;">Download Update</button>
+                <button id="btn-update-later" onclick="closeUpdateModal()" class="btn btn-secondary" style="flex: 1; padding: 12px; font-weight: bold; font-size: 0.9rem; border-radius: 6px; background-color: #374151; color: white; border: none; cursor: pointer;">Later</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MAIN FRONTEND CONTROLLERS -->
-    <script src="/static/js/app.js?v=2.2.3"></script>
+    <script src="/static/js/app.js?v=1.0.0"></script>
 </body>
 </html>
