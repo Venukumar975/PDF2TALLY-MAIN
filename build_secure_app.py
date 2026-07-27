@@ -116,6 +116,9 @@ def build_secure():
     pyinstaller_args = [
         'obf_dist/desktop_run.py',
         '--name=PDF2TALLY',
+        # '--onefile' compiles the entire app and all folders (templates, static, and libraries) 
+        # into a single executable file, preventing users from seeing the raw '_internal' directory.
+        '--onefile',
         '--clean',
         '--noconfirm',
         '--noconsole',
@@ -132,7 +135,8 @@ def build_secure():
 
     PyInstaller.__main__.run(pyinstaller_args)
     print("\n[BUILD] SECURE PRODUCTION BUILD COMPLETED SUCCESSFULLY!")
-    print("[BUILD] Output executable is in: dist/PDF2TALLY/PDF2TALLY.exe")
+    print("[BUILD] Output executable is in: dist/PDF2TALLY.exe")
 
 if __name__ == "__main__":
     build_secure()
+

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supported Formats Guide - PDF2TALLY</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #0b0b14;
+            --card-bg: rgba(18, 18, 29, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-purple: #8b5cf6;
+            --accent-purple-hover: #a78bfa;
+            --accent-glow: rgba(139, 92, 246, 0.15);
+            --accent-green: #10b981;
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            line-height: 1.6;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(139, 92, 246, 0.25);
+            box-shadow: 0 12px 40px 0 rgba(139, 92, 246, 0.1);
+        }
+
+        .section-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .section-title span.badge {
+            font-size: 0.75rem;
+            background: var(--accent-purple);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 968px) {
+            .layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Screenshot Container */
+        .screenshot-box {
+            position: relative;
+            background: #06060a;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .screenshot-box img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: block;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .screenshot-box img:hover {
+            transform: scale(1.02);
+        }
+
+        /* Explanations List */
+        .explanation-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .explanation-item {
+            position: relative;
+            padding-left: 30px;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .explanation-item strong {
+            color: var(--text-main);
+            display: block;
+            margin-bottom: 2px;
+            font-size: 1rem;
+        }
+
+        .explanation-item::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 20px;
+            height: 20px;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        /* Hybrid Navigation / Tabs */
+        .tab-menu {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            background: rgba(139, 92, 246, 0.05);
+            color: var(--text-main);
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .tab-btn.active {
+            background: var(--accent-purple);
+            color: white;
+            border-color: var(--accent-purple);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Warning Badge */
+        .info-bar {
+            background: rgba(139, 92, 246, 0.05);
+            border-left: 4px solid var(--accent-purple);
+            padding: 15px 20px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+
+        .info-bar strong {
+            color: var(--accent-purple-hover);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Supported Bank Formats Guide</h1>
+        <p>A visual guide explaining how our engine reads and maps different bank statement formats.</p>
+    </header>
+
+    <!-- 1. BANK OF BARODA (BOB) -->
+    <div class="glass-card">
+        <h2 class="section-title">
+            <span>Bank of Baroda (BOB)</span>
+            <span class="badge">Native Parser</span>
+        </h2>
+        
+        <div class="layout-grid">
+            <div class="screenshot-box">
+                <img src="static/images/formats/bob.png" alt="Bank of Baroda Format Screenshot">
+            </div>
+            <div>
+                <ul class="explanation-list">
+                    <li class="explanation-item">
+                        <strong>Dual Post-Posting Columns</strong>
+                        The parser automatically tracks and maps <strong>GL. Date</strong> and <strong>Value Date</strong>. Postings use the GL Date for ledger precision.
+                    </li>
+                    <li class="explanation-item">
+                        <strong>Dedicated Instrument Column</strong>
+                        If Cheque/DD/Ref numbers are listed under <em>Instrmnt Number</em>, they are parsed and imported directly into Tally.
+                    </li>
+                    <li class="explanation-item">
+                        <strong>Clean Debit / Credit Split</strong>
+                        Transaction values are extracted from separate <em>Debit Amount</em> and <em>Credit Amount</em> columns, accurately maintaining Cr/Dr indicators in Tally.
+                    </li>
+                    <li class="explanation-item">
+                        <strong>Verification Codes</strong>
+                        Columns containing user IDs (e.g., <em>Entry User Id</em>) are ignored automatically during text cleanup.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. HYBRID PARSER SECTION -->
+    <div class="glass-card">
+        <h2 class="section-title" style="border-bottom: none; margin-bottom: 5px;">
+            <span>Hybrid Column Mapper</span>
+            <span class="badge" style="background: var(--accent-green);">Interactive UI</span>
+        </h2>
+        <div class="info-bar">
+            <strong>Hybrid Mapping Engine:</strong> Standard table layout statement PDFs (like State Bank of India, Axis Bank, and Union Bank of India) can be converted instantly by mapping their header columns in our interactive <strong>Hybrid Parser</strong>.
+        </div>
+
+        <!-- Tab Select Menu -->
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchFormatTab('sbi-tab', this)">State Bank of India (SBI)</button>
+            <button class="tab-btn" onclick="switchFormatTab('axis-tab', this)">Axis Bank</button>
+            <button class="tab-btn" onclick="switchFormatTab('union-tab', this)">Union Bank of India</button>
+        </div>
+
+        <!-- SBI TAB -->
+        <div id="sbi-tab" class="tab-content active">
+            <div class="layout-grid">
+                <div class="screenshot-box">
+                    <img src="static/images/formats/sbi.png" alt="SBI Statement Format Screenshot">
+                </div>
+                <div>
+                    <ul class="explanation-list">
+                        <li class="explanation-item">
+                            <strong>Date Columns mapping</strong>
+                            Map the <em>Txn Date</em> (Column 1) as the primary transaction date for ledger entry.
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Detailed Description</strong>
+                            Map the <em>Description</em> column (Column 3) to capture full transfer descriptors (e.g., <em>BY TRANSFER-UPI/CR/...</em>).
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Ref No. / Cheque Number</strong>
+                            Map the <em>Ref No./Cheque No.</em> column (Column 4) to capture the reference numbers for auditing.
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Debit & Credit Split</strong>
+                            Simply assign <em>Debit</em> (Column 6) and <em>Credit</em> (Column 7) to extract negative and positive flows.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- AXIS TAB -->
+        <div id="axis-tab" class="tab-content">
+            <div class="layout-grid">
+                <div class="screenshot-box">
+                    <img src="static/images/formats/axis.png" alt="Axis Bank Format Screenshot">
+                </div>
+                <div>
+                    <ul class="explanation-list">
+                        <li class="explanation-item">
+                            <strong>Tran Date Mapping</strong>
+                            Assign <em>Tran Date</em> (Column 1) to record the transaction date.
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Transaction Particulars</strong>
+                            Map the <em>Transaction Particulars</em> column (Column 3) to fetch descriptions (e.g., <em>Paytm Pay/Payment</em>).
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Unified Amount Column with DR/CR Indicator</strong>
+                            Map the <em>Amount(INR)</em> (Column 5) and pair it with the <em>DR/CR</em> (Column 6) indicator column. The engine automatically signs the transaction values.
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Chq No & Branch Name</strong>
+                            Easily map reference and branch details if they are required in Tally narration fields.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- UNION BANK TAB -->
+        <div id="union-tab" class="tab-content">
+            <div class="layout-grid">
+                <div class="screenshot-box">
+                    <img src="static/images/formats/union.png" alt="Union Bank Format Screenshot">
+                </div>
+                <div>
+                    <ul class="explanation-list">
+                        <li class="explanation-item">
+                            <strong>Serial Number Column</strong>
+                            The serial identifier <em>Sl</em> is automatically ignored, focusing strictly on transaction data.
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Standard Date Field</strong>
+                            Map the <em>Date</em> column (Column 2) to set voucher dates in Tally.
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Clean Particulars</strong>
+                            Map <em>Particulars</em> (Column 3) to read and parse payee and transaction info (like <em>Zomato payments</em>).
+                        </li>
+                        <li class="explanation-item">
+                            <strong>Withdrawal & Deposit Mapping</strong>
+                            Assign <em>Withdrawal</em> (Column 5) as Debit and <em>Deposit</em> (Column 6) as Credit to capture transaction values.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function switchFormatTab(tabId, btn) {
+        // Hide all tab contents
+        const contents = document.querySelectorAll('.tab-content');
+        contents.forEach(content => content.classList.remove('active'));
+        
+        // Deactivate all tab buttons
+        const buttons = document.querySelectorAll('.tab-btn');
+        buttons.forEach(button => button.classList.remove('active'));
+        
+        // Show selected tab content and activate button
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+    }
+</script>
+</body>
+</html>

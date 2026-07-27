@@ -8,7 +8,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
     </style>
-    <link rel="stylesheet" href="/static/css/style.css?v=2.2.3">
+    <link rel="stylesheet" href="/static/css/style.css?v=2.2.4">
     <style>
         /* Tally selected row golden highlight */
         .review-row.tally-selected {
@@ -957,7 +957,74 @@
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
+                    </div>
+
+                    <!-- B2B FORMAT GUIDE CARD -->
+                    <div class="glass-card" style="margin-top: 25px; padding: 25px;">
+                        <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                            <span>GSTR-1 B2B Excel Sheet Template Layout</span>
+                            <span style="font-size: 0.75rem; background: #3b82f6; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; text-transform: uppercase;">GST B2B</span>
+                        </h3>
+                        
+                        <!-- Stacked Layout: Large Screenshot First -->
+                        <div class="screenshot-box" style="background: #090911; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 15px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                            <img src="/static/images/formats/gstr1.png" alt="GSTR-1 B2B Excel Format Template" style="width: 100%; max-width: 1100px; height: auto; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                        </div>
+                        
+                        <!-- Detail Columns Table Below -->
+                        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                            <h4 style="color: #fff; margin-top: 0; margin-bottom: 15px; font-size: 1rem;">Column Mapping Definitions:</h4>
+                            <table style="width: 100%; font-size: 0.9rem; border-collapse: collapse; color: #d1d5db; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.08); color: #f3f4f6;">
+                                        <th style="padding: 10px; font-weight: 600; width: 25%;">Expected Header Column</th>
+                                        <th style="padding: 10px; font-weight: 600; width: 15%;">Is Required?</th>
+                                        <th style="padding: 10px; font-weight: 600; width: 60%;">Accepted Format & App Processing Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">GSTIN/UIN of Recipient</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The 15-character GSTIN of your customer. The app validates structure.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Invoice Number</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The unique invoice identifier. If an invoice contains multiple items with different tax rates, use the same invoice number on multiple rows; the app will consolidate them into a single invoice.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Invoice date</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">Date formats supported: <code>DD-MM-YYYY</code>, <code>DD/MM/YYYY</code> or standard Excel date cell types.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Invoice Value</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The final total invoice value (base taxable value + taxes).</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Place Of Supply</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">Provide the state code prefix (e.g., <code>37</code> or <code>37-Andhra Pradesh</code>). The app cleanses and auto-pads codes to two-digit format.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Taxable Value</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The base amount of the transaction excluding GST.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Rate</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The applied GST rate percentage (e.g. <code>18</code> or <code>18%</code>).</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Reverse Charge</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">Can be left empty. If empty, the app defaults to "N". You can specify "Yes"/"No" or "Y"/"N".</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1097,72 +1164,580 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- HSN FORMAT GUIDE CARD -->
+                    <div class="glass-card" style="margin-top: 25px; padding: 25px;">
+                        <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                            <span>HSN Summary Excel Sheet Template Layout</span>
+                            <span style="font-size: 0.75rem; background: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; text-transform: uppercase;">GST HSN</span>
+                        </h3>
+                        
+                        <!-- Stacked Layout: Large Screenshot First -->
+                        <div class="screenshot-box" style="background: #090911; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 15px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                            <img src="/static/images/formats/hsn.png" alt="HSN Summary Excel Format Template" style="width: 100%; max-width: 1100px; height: auto; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                        </div>
+                        
+                        <!-- Detail Columns Table Below -->
+                        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                            <h4 style="color: #fff; margin-top: 0; margin-bottom: 15px; font-size: 1rem;">Flexible Header Columns & Mapping Rules:</h4>
+                            <table style="width: 100%; font-size: 0.9rem; border-collapse: collapse; color: #d1d5db; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.08); color: #f3f4f6;">
+                                        <th style="padding: 10px; font-weight: 600; width: 30%;">Accepted Headers (any of these)</th>
+                                        <th style="padding: 10px; font-weight: 600; width: 15%;">Is Required?</th>
+                                        <th style="padding: 10px; font-weight: 600; width: 55%;">Accepted Value & App Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>hsn</code>, <code>hsn code</code>, <code>hsn/sac</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The official HSN code digit. Keeps leading zeros intact automatically.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">B2B / B2C Divider Rows</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">To separate B2B and B2C parts, insert a row in your sheet where the HSN column contains the exact text <strong><code>B2B Supplies</code></strong> or <strong><code>B2C Supplies</code></strong>. All items listed below these divider rows will be auto-sorted into their respective GSTR-1 tables.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>description</code>, <code>desc</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">Product/Service description text.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>uqc</code>, <code>unit</code>, <code>uom</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">Unit measurement codes (e.g. <code>NOS</code>, <code>PCS</code>, <code>KGS</code>). Defaults to <code>OTH</code> (Others) if left empty.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>quantity</code>, <code>qty</code>, <code>total quantity</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">Numerical quantity sum.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>taxable value</code>, <code>taxable amount</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The total base value excluding taxes.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>rate</code>, <code>tax rate</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">GST slab rate percentage (e.g. <code>12</code> or <code>18</code>).</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>igst</code>, <code>cgst</code>, <code>sgst</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">Tax amounts. Can be omitted or left blank; the system calculates taxes automatically using the GSTIN prefix and slab rates.</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>total value</code>, <code>total amt</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">Can be omitted; calculated automatically if absent.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
                 </div>
             </section>
 
             <!-- SECTION 3: SUPPORTED FORMATS -->
             <section id="formats-tab" class="tab-pane hidden animate-fade-in">
+                <style>
+                    #formats-tab .section-sub-header {
+                        font-size: 1.3rem;
+                        font-weight: 700;
+                        color: #a78bfa;
+                        margin: 25px 0 15px 0;
+                        border-bottom: 1px solid rgba(255,255,255,0.06);
+                        padding-bottom: 8px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    #formats-tab .guide-container {
+                        background: rgba(18, 18, 29, 0.6);
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 25px;
+                    }
+                    #formats-tab .layout-grid {
+                        display: grid;
+                        grid-template-columns: 1.15fr 0.85fr;
+                        gap: 20px;
+                        align-items: flex-start;
+                    }
+                    @media (max-width: 900px) {
+                        #formats-tab .layout-grid {
+                            grid-template-columns: 1fr;
+                        }
+                    }
+                    #formats-tab .screenshot-box {
+                        background: #090911;
+                        border: 1px solid rgba(255,255,255,0.06);
+                        border-radius: 8px;
+                        padding: 8px;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        overflow: hidden;
+                    }
+                    #formats-tab .screenshot-box img {
+                        max-width: 100%;
+                        height: auto;
+                        border-radius: 6px;
+                        border: 1px solid rgba(255,255,255,0.04);
+                        transition: transform 0.2s ease;
+                    }
+                    #formats-tab .screenshot-box img:hover {
+                        transform: scale(1.015);
+                    }
+                    #formats-tab .explanation-list {
+                        list-style: none;
+                        padding: 0;
+                        margin: 0;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                    }
+                    #formats-tab .explanation-item {
+                        position: relative;
+                        padding-left: 24px;
+                        font-size: 0.85rem;
+                        color: #9ca3af;
+                        line-height: 1.5;
+                    }
+                    #formats-tab .explanation-item strong {
+                        color: #f3f4f6;
+                        display: block;
+                        font-size: 0.9rem;
+                        margin-bottom: 2px;
+                    }
+                    #formats-tab .explanation-item::before {
+                        content: "✓";
+                        position: absolute;
+                        left: 0;
+                        top: 2px;
+                        width: 16px;
+                        height: 16px;
+                        background: rgba(16, 185, 129, 0.12);
+                        color: #10b981;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 0.65rem;
+                        font-weight: bold;
+                    }
+                    #formats-tab .sub-tab-menu {
+                        display: flex;
+                        gap: 8px;
+                        margin-bottom: 18px;
+                        border-bottom: 1px solid rgba(255,255,255,0.05);
+                        padding-bottom: 10px;
+                        overflow-x: auto;
+                    }
+                    #formats-tab .sub-tab-btn {
+                        background: rgba(255, 255, 255, 0.02);
+                        border: 1px solid rgba(255, 255, 255, 0.06);
+                        color: #9ca3af;
+                        padding: 8px 14px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 0.8rem;
+                        transition: all 0.2s ease;
+                        white-space: nowrap;
+                    }
+                    #formats-tab .sub-tab-btn:hover {
+                        background: rgba(139, 92, 246, 0.04);
+                        color: #f3f4f6;
+                    }
+                    #formats-tab .sub-tab-btn.active {
+                        background: #8b5cf6;
+                        color: #ffffff;
+                        border-color: #8b5cf6;
+                        box-shadow: 0 4px 10px rgba(139, 92, 246, 0.2);
+                    }
+                    #formats-tab .sub-tab-content {
+                        display: none;
+                    }
+                    #formats-tab .sub-tab-content.active {
+                        display: block;
+                        animation: subFadeIn 0.3s ease;
+                    }
+                    @keyframes subFadeIn {
+                        from { opacity: 0; transform: translateY(4px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                </style>
+
                 <header class="section-header">
                     <h2>Supported Formats Guide</h2>
                     <p>Learn which bank statement formats and Excel layouts are supported by the converter engine.</p>
                 </header>
 
+                <!-- SUPPORTED FORMATS MAIN SUB-TABS SELECTOR -->
+                <div class="tabs-sub" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+                    <button class="btn-subtab active" id="btn-formats-bank" onclick="switchFormatsMainTab('bank')">
+                        📂 Bank Formats
+                    </button>
+                    <button class="btn-subtab" id="btn-formats-gst" onclick="switchFormatsMainTab('gst')">
+                        📦 GSTR-1 & HSN Excel
+                    </button>
+                </div>
+
                 <div class="alert alert-danger" style="margin-bottom: 25px; border-left: 5px solid #ef4444; background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px;">
                     <strong>Text-Copyable PDFs ONLY (No Scanned Documents):</strong> Only upload digital PDFs where you can select and copy the text. Scanned images, mobile phone photos, or photocopy PDFs are NOT supported because this app runs offline and does not use visual character guessing (OCR).
                 </div>
 
-                <div class="glass-card" style="margin-bottom: 25px;">
-                    <h3> Bank of Baroda (BOB) Statements</h3>
-                    <p>The app supports standard BOB digital e-statements. The system reads them using these rules:</p>
-                    <ul class="benefit-list" style="margin-left: 20px; margin-top: 10px;">
-                        <li><strong>Date Format:</strong> Must be in the format <code>DD-MM-YYYY</code> (e.g. <code>02-04-2025</code>).</li>
-                        <li><strong>Columns:</strong> The statement must have columns for: Transaction Date, Value Date, Description/Narration, Amount (Withdrawal/Deposit), and Running Balance.</li>
-                        <li><strong>Running Balance:</strong> Running balance must end with a clean <code>Cr</code> or <code>Dr</code> marker.</li>
-                        <li><strong>Opening Balance:</strong> The parser searches for the exact phrase "Opening Balance" to extract the starting balance.</li>
-                    </ul>
-                </div>
-
-                <div class="glass-card" style="margin-bottom: 25px;">
-                    <h3> State Bank of India (SBI) Statements</h3>
-                    <p>The system automatically supports <strong>4 different formats</strong> of digital SBI statements:</p>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
-                        <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
-                            <h4 style="color: #8b5cf6; margin-top: 0;">1. Corporate Tabular Format (Branch Code)</h4>
-                            <p style="font-size: 0.9rem; color: #9ca3af;">Used for corporate accounts. It contains columns: 
-                            <code>[Txn Date] [Value Date] [Description] [Ref No/Cheque No] [Branch Code] [Debit] [Credit] [Balance]</code>.</p>
-                            <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 8px;"><strong>Dates:</strong> <code>DD/MM/YYYY</code> (e.g. <code>15/05/2025</code>).</p>
+                <!-- BANK FORMATS CONTENT WRAPPER -->
+                <div id="formats-bank-content">
+                    <!-- Bank of Baroda Guide -->
+                    <div class="guide-container" style="padding: 25px; margin-bottom: 25px;">
+                        <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                            <span>Bank of Baroda (BOB) Statements</span>
+                            <span style="font-size: 0.75rem; background: #8b5cf6; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; text-transform: uppercase;">Native Parser</span>
+                        </h3>
+                        <p style="font-size: 0.88rem; color: #a78bfa; font-weight: 600; margin-bottom: 18px; display: flex; align-items: center; gap: 6px;">
+                            <svg style="width:1rem; height:1rem; fill:currentColor;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                            This format matches for Native Conversion (zero config needed, app parses automatically).
+                        </p>
+                        
+                        <!-- Large Full-Width Screenshot -->
+                        <div class="screenshot-box" style="background: #090911; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 15px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                            <img src="/static/images/formats/bob.png" alt="Bank of Baroda Statement Format" style="width: 100%; max-width: 1100px; height: auto; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
                         </div>
                         
-                        <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
-                            <h4 style="color: #8b5cf6; margin-top: 0;">2. Standard Numeric Slash Format</h4>
-                            <p style="font-size: 0.9rem; color: #9ca3af;">Standard personal account e-statement format with columns separated by slashes in the dates.</p>
-                            <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 8px;"><strong>Dates:</strong> <code>DD/MM/YYYY</code> (e.g. <code>11/01/2026</code>).</p>
+                        <!-- Explanation details -->
+                        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                            <ul class="explanation-list">
+                                <li class="explanation-item">
+                                    <strong>Natively Parsed and Converted</strong>
+                                    These statements are converted directly without manual column configuration.
+                                </li>
+                                <li class="explanation-item">
+                                    <strong>Dual Posting Dates Supported</strong>
+                                    The engine automatically identifies GL Date and Value Date, setting vouchers to posting dates.
+                                </li>
+                                <li class="explanation-item">
+                                    <strong>Dedicated Instrument Extraction</strong>
+                                    Cheque, DD, or Ref numbers listed under Instrument Number columns are parsed cleanly to Tally references.
+                                </li>
+                                <li class="explanation-item">
+                                    <strong>Clean Debit/Credit Separation</strong>
+                                    Withdrawal and deposit amounts are parsed from separate Debit and Credit columns instantly.
+                                </li>
+                            </ul>
                         </div>
+                    </div>
+
+                    <!-- Generic Table Guide -->
+                    <div class="guide-container" style="padding: 25px;">
+                        <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                            <span>Generic Table Statements</span>
+                            <span style="font-size: 0.75rem; background: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; text-transform: uppercase;">User Guided Conversion</span>
+                        </h3>
+                        <p style="font-size: 0.88rem; color: #34d399; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;">
+                            <svg style="width:1rem; height:1rem; fill:currentColor;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                            For these layout formats, the user must guide the app using the mapping wizard (linking columns for Date, Narration, and Amounts) so the app can properly extract the valid transactional rows.
+                        </p>
                         
-                        <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
-                            <h4 style="color: #8b5cf6; margin-top: 0;">3. Textual Month Tabular Format</h4>
-                            <p style="font-size: 0.9rem; color: #9ca3af;">Standard retail e-statement format containing day, textual abbreviated month, and year.</p>
-                            <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 8px;"><strong>Dates:</strong> <code>D MMM YYYY</code> (e.g. <code>4 Jun 2025</code> or <code>10 May 2025</code>).</p>
+                        <div class="sub-tab-menu" style="margin-bottom: 25px;">
+                            <button class="sub-tab-btn active" onclick="switchSupportedFormatTab('sbi-format', this)">State Bank of India (SBI)</button>
+                            <button class="sub-tab-btn" onclick="switchSupportedFormatTab('axis-format', this)">Axis Bank</button>
+                            <button class="sub-tab-btn" onclick="switchSupportedFormatTab('union-format', this)">Union Bank of India</button>
                         </div>
 
-                        <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
-                            <h4 style="color: #8b5cf6; margin-top: 0;">4. Legacy Wrapped Line Format</h4>
-                            <p style="font-size: 0.9rem; color: #9ca3af;">Older e-statement formats where dates and descriptions wrap across multiple lines of text.</p>
-                            <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 8px;"><strong>Dates:</strong> <code>D MMM YYYY</code> (e.g. <code>9 May 2025</code>).</p>
+                        <!-- SBI -->
+                        <div id="sbi-format" class="sub-tab-content active">
+                            <!-- Large Full-Width Screenshot -->
+                            <div class="screenshot-box" style="background: #090911; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 15px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                                <img src="/static/images/formats/sbi.png" alt="SBI Statement Format" style="width: 100%; max-width: 1100px; height: auto; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                            </div>
+                            
+                            <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                                <ul class="explanation-list">
+                                    <li class="explanation-item">
+                                        <strong>Convertible via Guided Mapping</strong>
+                                        Map header columns to convert this layout successfully into standardized Tally XML.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Date Columns Mapping</strong>
+                                        Assign the Txn Date column to cleanly record posting dates in Tally.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Description Narration Extraction</strong>
+                                        Description fields are automatically extracted to construct neat narration entries.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Ref/Cheque Reference Tracking</strong>
+                                        Map Ref No./Cheque No. to record auditing reference identifiers.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- AXIS -->
+                        <div id="axis-format" class="sub-tab-content">
+                            <!-- Large Full-Width Screenshot -->
+                            <div class="screenshot-box" style="background: #090911; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 15px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                                <img src="/static/images/formats/axis.png" alt="Axis Bank Statement Format" style="width: 100%; max-width: 1100px; height: auto; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                            </div>
+                            
+                            <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                                <ul class="explanation-list">
+                                    <li class="explanation-item">
+                                        <strong>Convertible via Guided Mapping</strong>
+                                        Align Axis statement columns inside the mapping setup to complete the conversion.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Unified Amount and Indicator</strong>
+                                        Map unified amount columns with a DR/CR indicator to resolve negative and positive transactions.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Particulars Descriptors</strong>
+                                        Captures transaction particulars like Paytm/UPI payees to use for ledger names.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Chq No and Branch Support</strong>
+                                        Allows mapping of cheque numbers and branch names to enrich narration text.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- UNION -->
+                        <div id="union-format" class="sub-tab-content">
+                            <!-- Large Full-Width Screenshot -->
+                            <div class="screenshot-box" style="background: #090911; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 15px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                                <img src="/static/images/formats/union.png" alt="Union Bank Statement Format" style="width: 100%; max-width: 1100px; height: auto; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                            </div>
+                            
+                            <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                                <ul class="explanation-list">
+                                    <li class="explanation-item">
+                                        <strong>Convertible via Guided Mapping</strong>
+                                        Simply match headers to parse this structured table format instantly.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Withdrawal & Deposit Mapping</strong>
+                                        Assign columns for Withdrawal (Debit) and Deposit (Credit) values.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Clean Date Mapping</strong>
+                                        Maps transaction dates directly from the Date column to Tally vouchers.
+                                    </li>
+                                    <li class="explanation-item">
+                                        <strong>Payee Narration Identification</strong>
+                                        Converts payee descriptions from the Particulars column into transaction narrations.
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="glass-card">
-                    <h3> Ashramam Cash Receipts Excel</h3>
-                    <p>The spreadsheet must contain clean columns for your receipts batch. The converter expects the following details:</p>
-                    <ul class="benefit-list" style="margin-left: 20px; margin-top: 10px;">
-                        <li><strong>File Types:</strong> Excel Workbooks (<code>.xlsx</code>, <code>.xls</code>) or comma-separated tables (<code>.csv</code>).</li>
-                        <li><strong>Expected Columns:</strong> Receipt Date, Name of Donor, Amount, and Receipt Number.</li>
-                        <li><strong>Automatic Translation:</strong> Names written in Telugu script (like <code>రామారావు</code>) are translated automatically to English script (like <code>Ramarao</code>) using our integrated dictionary.</li>
-                    </ul>
+                <!-- GSTR-1 & HSN CONTENT WRAPPER -->
+                <div id="formats-gst-content" class="hidden">
+                    <!-- EXCEL PREPARATION AND UPLOAD STEP-BY-STEP GUIDE -->
+                    <div class="glass-card" style="margin-bottom: 25px; border-left: 5px solid #3b82f6; background: rgba(59, 130, 246, 0.05); padding: 20px; border-radius: 10px;">
+                        <h3 style="color: #60a5fa; font-size: 1.15rem; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <svg style="width:1.2rem; height:1.2rem; fill:currentColor;" viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                            Excel Preparation & Upload Rules
+                        </h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 0.88rem; color: #d1d5db; line-height: 1.6;">
+                            <div>
+                                <h4 style="color: #f3f4f6; margin-top: 0; margin-bottom: 8px;">1. Sheet Naming & Placement</h4>
+                                <ul style="margin: 0; padding-left: 20px;">
+                                    <li>For GSTR-1 invoices, name the Excel tab sheet <strong><code>b2b</code></strong> (case-insensitive).</li>
+                                    <li>For HSN summaries, name the Excel tab sheet <strong><code>hsn</code></strong> (case-insensitive).</li>
+                                    <li>Columns can be in <strong>any order</strong> (the app matches purely by the header name).</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 style="color: #f3f4f6; margin-top: 0; margin-bottom: 8px;">2. Header Rows & Missing Columns</h4>
+                                <ul style="margin: 0; padding-left: 20px;">
+                                    <li><strong>Header Row:</strong> Place your column names on <strong>Row 4</strong> of the sheet. If they start elsewhere, change the "Header Row" field in the form.</li>
+                                    <li><strong>Empty/Optional Columns:</strong> Columns like <em>Reverse Charge</em>, <em>Cess</em>, <em>IGST</em>, <em>CGST</em>, or <em>SGST</em> can be left empty or omitted. The app will calculate them automatically!</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- B2B FORMAT GUIDE CARD -->
+                    <div class="guide-container" style="margin-bottom: 25px; padding: 25px;">
+                        <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                            <span>GSTR-1 B2B Excel Sheet Template Layout</span>
+                            <span style="font-size: 0.75rem; background: #3b82f6; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; text-transform: uppercase;">GST B2B</span>
+                        </h3>
+                        
+                        <!-- Stacked Layout: Large Screenshot First -->
+                        <div class="screenshot-box" style="background: #090911; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 15px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                            <img src="/static/images/formats/gstr1.png" alt="GSTR-1 B2B Excel Format Template" style="width: 100%; max-width: 1100px; height: auto; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                        </div>
+                        
+                        <!-- Detail Columns Table Below -->
+                        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                            <h4 style="color: #fff; margin-top: 0; margin-bottom: 15px; font-size: 1rem;">Column Mapping Definitions:</h4>
+                            <table style="width: 100%; font-size: 0.9rem; border-collapse: collapse; color: #d1d5db; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.08); color: #f3f4f6;">
+                                        <th style="padding: 10px; font-weight: 600; width: 25%;">Expected Header Column</th>
+                                        <th style="padding: 10px; font-weight: 600; width: 15%;">Is Required?</th>
+                                        <th style="padding: 10px; font-weight: 600; width: 60%;">Accepted Format & App Processing Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">GSTIN/UIN of Recipient</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The 15-character GSTIN of your customer. The app validates structure.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Invoice Number</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The unique invoice identifier. If an invoice contains multiple items with different tax rates, use the same invoice number on multiple rows; the app will consolidate them into a single invoice.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Invoice date</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">Date formats supported: <code>DD-MM-YYYY</code>, <code>DD/MM/YYYY</code> or standard Excel date cell types.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Invoice Value</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The final total invoice value (base taxable value + taxes).</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Place Of Supply</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">Provide the state code prefix (e.g., <code>37</code> or <code>37-Andhra Pradesh</code>). The app cleanses and auto-pads codes to two-digit format.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Taxable Value</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The base amount of the transaction excluding GST.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Rate</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The applied GST rate percentage (e.g. <code>18</code> or <code>18%</code>).</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">Reverse Charge</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">Can be left empty. If empty, the app defaults to "N". You can specify "Yes"/"No" or "Y"/"N".</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- HSN FORMAT GUIDE CARD -->
+                    <div class="guide-container" style="margin-bottom: 10px; padding: 25px;">
+                        <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                            <span>HSN Summary Excel Sheet Template Layout</span>
+                            <span style="font-size: 0.75rem; background: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; text-transform: uppercase;">GST HSN</span>
+                        </h3>
+                        
+                        <!-- Stacked Layout: Large Screenshot First -->
+                        <div class="screenshot-box" style="background: #090911; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 15px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                            <img src="/static/images/formats/hsn.png" alt="HSN Summary Excel Format Template" style="width: 100%; max-width: 1100px; height: auto; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                        </div>
+                        
+                        <!-- Detail Columns Table Below -->
+                        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                            <h4 style="color: #fff; margin-top: 0; margin-bottom: 15px; font-size: 1rem;">Flexible Header Columns & Mapping Rules:</h4>
+                            <table style="width: 100%; font-size: 0.9rem; border-collapse: collapse; color: #d1d5db; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid rgba(255,255,255,0.08); color: #f3f4f6;">
+                                        <th style="padding: 10px; font-weight: 600; width: 30%;">Accepted Headers (any of these)</th>
+                                        <th style="padding: 10px; font-weight: 600; width: 15%;">Is Required?</th>
+                                        <th style="padding: 10px; font-weight: 600; width: 55%;">Accepted Value & App Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>hsn</code>, <code>hsn code</code>, <code>hsn/sac</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The official HSN code digit. Keeps leading zeros intact automatically.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;">B2B / B2C Divider Rows</td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">To separate B2B and B2C parts, insert a row in your sheet where the HSN column contains the exact text <strong><code>B2B Supplies</code></strong> or <strong><code>B2C Supplies</code></strong>. All items listed below these divider rows will be auto-sorted into their respective GSTR-1 tables.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>description</code>, <code>desc</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">Product/Service description text.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>uqc</code>, <code>unit</code>, <code>uom</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">Unit measurement codes (e.g. <code>NOS</code>, <code>PCS</code>, <code>KGS</code>). Defaults to <code>OTH</code> (Others) if left empty.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>quantity</code>, <code>qty</code>, <code>total quantity</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">Numerical quantity sum.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>taxable value</code>, <code>taxable amount</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">The total base value excluding taxes.</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>rate</code>, <code>tax rate</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #ef4444; font-weight: bold;">REQUIRED</span></td>
+                                        <td style="padding: 12px 10px;">GST slab rate percentage (e.g. <code>12</code> or <code>18</code>).</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>igst</code>, <code>cgst</code>, <code>sgst</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">Tax amounts. Can be omitted or left blank; the system calculates taxes automatically using the GSTIN prefix and slab rates.</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 12px 10px; color: #a78bfa; font-weight: 600;"><code>total value</code>, <code>total amt</code></td>
+                                        <td style="padding: 12px 10px;"><span style="color: #10b981; font-weight: bold;">OPTIONAL</span></td>
+                                        <td style="padding: 12px 10px;">Can be omitted; calculated automatically if absent.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
+
+                <script>
+                    function switchSupportedFormatTab(tabId, btn) {
+                        const container = btn.closest('.guide-container');
+                        const contents = container.querySelectorAll('.sub-tab-content');
+                        contents.forEach(content => content.classList.remove('active'));
+                        
+                        const buttons = container.querySelectorAll('.sub-tab-btn');
+                        buttons.forEach(button => button.classList.remove('active'));
+                        
+                        container.querySelector('#' + tabId).classList.add('active');
+                        btn.classList.add('active');
+                    }
+
+                    function switchFormatsMainTab(type) {
+                        document.querySelectorAll("#formats-tab .btn-subtab").forEach(btn => btn.classList.remove("active"));
+                        
+                        if (type === 'bank') {
+                            document.getElementById("btn-formats-bank").classList.add("active");
+                            document.getElementById("formats-bank-content").classList.remove("hidden");
+                            document.getElementById("formats-gst-content").classList.add("hidden");
+                        } else {
+                            document.getElementById("btn-formats-gst").classList.add("active");
+                            document.getElementById("formats-bank-content").classList.add("hidden");
+                            document.getElementById("formats-gst-content").classList.remove("hidden");
+                        }
+                    }
+                </script>
             </section>
 
             <!-- SECTION 4: LEXICON MANAGER -->
@@ -1693,6 +2268,6 @@
     </div>
 
     <!-- MAIN FRONTEND CONTROLLERS -->
-    <script src="/static/js/app.js?v=1.0.0"></script>
+    <script src="/static/js/app.js?v=1.0.1"></script>
 </body>
 </html>

@@ -34,7 +34,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "dist\PDF2TALLY\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copy only the single standalone executable (the build contains all assets embedded inside)
+Source: "dist\PDF2TALLY.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+[InstallDelete]
+; Clean up the legacy '_internal' folder from older versions during an upgrade/reinstall
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
