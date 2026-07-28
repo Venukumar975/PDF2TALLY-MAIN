@@ -167,3 +167,193 @@ def api_tally_company_ledgers(company_name):
         })
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@routes_bp.route("/api/tally/vouchers", methods=["POST"])
+def api_tally_vouchers():
+    try:
+        data = request.get_json() or {}
+        company_name = data.get("company_name", "").strip()
+        bank_name = data.get("bank_name", "").strip().upper()
+        from_date = data.get("from_date", "").strip()
+        to_date = data.get("to_date", "").strip()
+        
+        if not company_name:
+            return jsonify({"success": False, "message": "Company Name is required."}), 400
+        if not from_date or not to_date:
+            return jsonify({"success": False, "message": "From and To dates are required."}), 400
+            
+        tally_url = "http://localhost:9000"
+        
+        # Convert YYYY-MM-DD to YYYYMMDD
+        from_date_tally = from_date.replace("-", "")
+        to_date_tally = to_date.replace("-", "")
+        
+        def clean_tally_xml(content_bytes):
+            text = content_bytes.decode("utf-8", errors="ignore")
+            def repl(match):
+                ent = match.group(0)
+                try:
+                    if ent.startswith("&#x"):
+                        v = int(ent[3:-1], 16)
+                    else:
+                        v = int(ent[2:-1])
+                    if v < 32 and v not in (9, 10, 13):
+                        return ""
+                except Exception:
+                    pass
+                return ent
+            cleaned = re.sub(r'&#x?[0-9a-fA-F]+;', repl, text)
+            return cleaned.encode("utf-8", errors="ignore")
+
+        xml_request = f"""<ENVELOPE>
+            <HEADER>
+                <VERSION>1</VERSION>
+                <TALLYREQUEST>Export Data</TALLYREQUEST>
+                <TYPE>Collection</TYPE>
+                <ID>VoucherDuplicateCheckCollection</ID>
+                <SVCURRENTCOMPANY>{company_name}</SVCURRENTCOMPANY>
+            </HEADER>
+            <BODY>
+                <DESC>
+                    <STATICVARIABLES>
+                        <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+                        <SVFROMDATE TYPE="Date">{from_date_tally}</SVFROMDATE>
+                        <SVTODATE TYPE="Date">{to_date_tally}</SVTODATE>
+                    </STATICVARIABLES>
+                    <TDL>
+                        <TDLMESSAGE>
+                            <COLLECTION NAME="VoucherDuplicateCheckCollection" ISMODIFY="No">
+                                <TYPE>Voucher</TYPE>
+                                <FETCH>DATE, VOUCHERNUMBER, VOUCHERTYPENAME, NARRATION, ALLLEDGERENTRIES</FETCH>
+                            </COLLECTION>
+                        </TDLMESSAGE>
+                    </TDL>
+                </DESC>
+            </BODY>
+        </ENVELOPE>"""
+
+        r = requests.post(tally_url, data=xml_request, timeout=12)
+        if r.status_code != 200:
+            return jsonify({"success": False, "message": f"Tally server responded with status {r.status_code}."}), 400
+            
+        root = ET.fromstring(clean_tally_xml(r.content))
+        vouchers = root.findall(".//VOUCHER")
+        
+        parsed_vouchers = []
+        for vch in vouchers:
+            vch_no = vch.findtext("VOUCHERNUMBER", "").strip()
+            date_val = vch.findtext("DATE", "").strip()
+            vch_type = vch.findtext("VOUCHERTYPENAME", "").strip()
+            narration = vch.findtext("NARRATION", "").strip()
+            
+            # Skip invalid/empty vouchers
+            if not vch_no and not date_val:
+                continue
+                
+            entries = vch.findall(".//ALLLEDGERENTRIES.LIST") + vch.findall(".//LEDGERENTRIES.LIST")
+            
+            # Find the bank entry matching our filter or a general pattern
+            bank_entry = None
+            party_entries = []
+            has_requested_bank = False
+            
+            for ent_el in entries:
+                ledger_name = ent_el.findtext("LEDGERNAME", "").strip()
+                amount_str = ent_el.findtext("AMOUNT", "0").strip()
+                is_pos = ent_el.findtext("ISDEEMEDPOSITIVE", "Yes").strip()
+                
+                try:
+                    amt = abs(float(amount_str))
+                except ValueError:
+                    amt = 0.0
+                    
+                is_bank_pattern = bool(re.search(r'bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb', ledger_name, re.I))
+                
+                is_target_bank = False
+                if bank_name:
+                    is_target_bank = (ledger_name.upper() == bank_name)
+                    if is_target_bank:
+                        has_requested_bank = True
+                
+                if (is_target_bank or is_bank_pattern) and not bank_entry:
+                    bank_entry = {
+                        "ledger": ledger_name,
+                        "amount": amt,
+                        "is_deemed_positive": is_pos
+                    }
+                else:
+                    party_entries.append({
+                        "ledger": ledger_name,
+                        "amount": amt,
+                        "is_deemed_positive": is_pos
+                    })
+                    
+            if bank_name and not has_requested_bank:
+                continue
+                
+            if not bank_entry and entries:
+                first_el = entries[0]
+                ledger_name = first_el.findtext("LEDGERNAME", "").strip()
+                amount_str = first_el.findtext("AMOUNT", "0").strip()
+                is_pos = first_el.findtext("ISDEEMEDPOSITIVE", "Yes").strip()
+                try:
+                    amt = abs(float(amount_str))
+                except ValueError:
+                    amt = 0.0
+                bank_entry = {
+                    "ledger": ledger_name,
+                    "amount": amt,
+                    "is_deemed_positive": is_pos
+                }
+                party_entries = []
+                for ent_el in entries[1:]:
+                    l_name = ent_el.findtext("LEDGERNAME", "").strip()
+                    a_str = ent_el.findtext("AMOUNT", "0").strip()
+                    i_pos = ent_el.findtext("ISDEEMEDPOSITIVE", "Yes").strip()
+                    try:
+                        a_val = abs(float(a_str))
+                    except ValueError:
+                        a_val = 0.0
+                    party_entries.append({
+                        "ledger": l_name,
+                        "amount": a_val,
+                        "is_deemed_positive": i_pos
+                    })
+            
+            if not bank_entry:
+                continue
+                
+            if len(party_entries) == 1:
+                particulars = party_entries[0]["ledger"]
+            elif len(party_entries) > 1:
+                particulars = ", ".join([p["ledger"] for p in party_entries])
+            else:
+                particulars = "Suspense"
+                
+            txn_type = "DEBIT" if bank_entry["is_deemed_positive"] == "Yes" else "CREDIT"
+            txn_amount = bank_entry["amount"]
+            
+            parsed_vouchers.append({
+                "vch_no": vch_no,
+                "date": date_val,
+                "vch_type": vch_type,
+                "amount": txn_amount,
+                "type": txn_type,
+                "narration": narration,
+                "particulars": particulars
+            })
+            
+        return jsonify({
+            "success": True,
+            "company_name": company_name,
+            "vouchers": parsed_vouchers
+        })
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "success": False, 
+            "message": f"Could not connect to Tally Prime. Ensure it is running and local server port 9000 is enabled. Error: {str(e)}"
+        }), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Tally query failed: {str(e)}"}), 500
