@@ -163,35 +163,39 @@
         </div>
     </div>
     
-    <div id="dup-status-message" style="display: none; margin-top: 5px; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;"></div>
+    <!-- Combined Results Row -->
+    <div id="dup-results-container" class="hidden" style="display: flex; gap: 15px; border-top: 1px solid #cbd5e0; padding-top: 10px; margin-top: 5px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <!-- Left side: Status Message -->
+        <div id="dup-status-message" style="display: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; flex: 1; min-width: 250px;"></div>
 
-    <!-- Duplicate Summary Card Row -->
-    <div id="dup-summary-section" class="hidden" style="display: flex; gap: 15px; border-top: 1px solid #cbd5e0; padding-top: 10px; margin-top: 5px; flex-wrap: wrap;">
-        <div style="background: #e2e8f0; border: 1px solid #cbd5e0;">
-            <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">Imported XML</span>
-            <strong id="dup-stat-imported" style="font-size: 1.1rem; color: #0f172a;">0</strong>
-        </div>
-        <div style="background: #d1fae5; border: 1px solid #a7f3d0;">
-            <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold;">Duplicates</span>
-            <strong id="dup-stat-duplicate" style="font-size: 1.1rem; color: #047857;">0</strong>
-        </div>
-        <div style="background: #f1f5f9; border: 1px solid #e2e8f0;">
-            <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">New Vouchers</span>
-            <strong id="dup-stat-new" style="font-size: 1.1rem; color: #334155;">0</strong>
-        </div>
-        
-        <div style="border-left: 1px solid #cbd5e0; margin: 0 5px;"></div>
-        
-        <div style="background: #f8fafc; border: 1px solid #cbd5e0; display: flex; flex-direction: column; min-width: 110px;">
-            <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">Opening Balance</span>
-            <strong id="dup-bal-opening" style="font-size: 1rem; color: #0f172a;">₹0.00</strong>
-        </div>
-        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; display: flex; flex-direction: column; min-width: 130px;">
-            <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold;">Dup Closing Bal</span>
-            <strong id="dup-bal-closing" style="font-size: 1rem; color: #047857;">₹0.00</strong>
-        </div>
-        <div style="display: flex; align-items: center; font-size: 0.72rem; color: #475569; max-width: 280px; line-height: 1.3; font-weight: 500;">
-            💡 Compare this balance with Tally to verify duplicate detection.
+        <!-- Right side: Duplicate Summary Card Row -->
+        <div id="dup-summary-section" class="hidden" style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div style="background: #e2e8f0; border: 1px solid #cbd5e0;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">Imported XML</span>
+                <strong id="dup-stat-imported" style="font-size: 1.1rem; color: #0f172a;">0</strong>
+            </div>
+            <div style="background: #d1fae5; border: 1px solid #a7f3d0;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold;">Duplicates</span>
+                <strong id="dup-stat-duplicate" style="font-size: 1.1rem; color: #047857;">0</strong>
+            </div>
+            <div style="background: #f1f5f9; border: 1px solid #e2e8f0;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">New Vouchers</span>
+                <strong id="dup-stat-new" style="font-size: 1.1rem; color: #334155;">0</strong>
+            </div>
+            
+            <div style="border-left: 1px solid #cbd5e0; margin: 0 5px;"></div>
+            
+            <div style="background: #f8fafc; border: 1px solid #cbd5e0; display: flex; flex-direction: column; min-width: 110px;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">Opening Balance</span>
+                <strong id="dup-bal-opening" style="font-size: 1rem; color: #0f172a;">₹0.00</strong>
+            </div>
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; display: flex; flex-direction: column; min-width: 130px;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold;">Dup Closing Bal</span>
+                <strong id="dup-bal-closing" style="font-size: 1rem; color: #047857;">₹0.00</strong>
+            </div>
+            <div style="display: flex; align-items: center; font-size: 0.72rem; color: #475569; max-width: 280px; line-height: 1.3; font-weight: 500;">
+                💡 Compare this balance with Tally to verify duplicate detection.
+            </div>
         </div>
     </div>
 </div>

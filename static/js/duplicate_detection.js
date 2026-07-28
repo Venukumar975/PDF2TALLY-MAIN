@@ -101,6 +101,14 @@ function toggleDuplicateDetectionPanel() {
         // Show sidebar filter card if detection has results
         const filterCard = document.getElementById("dup-filter-card");
         if (filterCard) filterCard.classList.remove("hidden");
+
+        // Restore results container visibility if it contains active data/messages
+        const resultsContainer = document.getElementById("dup-results-container");
+        const statusMsg = document.getElementById("dup-status-message");
+        const summarySec = document.getElementById("dup-summary-section");
+        if (resultsContainer && ((statusMsg && statusMsg.style.display !== "none" && statusMsg.innerHTML !== "") || (summarySec && !summarySec.classList.contains("hidden")))) {
+            resultsContainer.classList.remove("hidden");
+        }
     } else {
         // Hide panel
         dupPanel.classList.add("hidden");
@@ -108,6 +116,9 @@ function toggleDuplicateDetectionPanel() {
         
         const summarySec = document.getElementById("dup-summary-section");
         if (summarySec) summarySec.classList.add("hidden");
+
+        const resultsContainer = document.getElementById("dup-results-container");
+        if (resultsContainer) resultsContainer.classList.add("hidden");
         
         colHeaders.forEach(h => {
             const el = document.getElementById(h);
@@ -237,6 +248,8 @@ window.loadReviewXML = function(xmlText, fileName) {
     if (summarySec) summarySec.classList.add("hidden");
     const statusMsg = document.getElementById("dup-status-message");
     if (statusMsg) statusMsg.style.display = "none";
+    const resultsContainer = document.getElementById("dup-results-container");
+    if (resultsContainer) resultsContainer.classList.add("hidden");
     
     reviewState.tallyVouchers = [];
     
@@ -487,6 +500,9 @@ async function importTallyVouchers() {
         return;
     }
     
+    const resultsContainer = document.getElementById("dup-results-container");
+    if (resultsContainer) resultsContainer.classList.remove("hidden");
+
     if (statusMsg) {
         statusMsg.style.display = "block";
         statusMsg.style.background = "#ebf8ff";
@@ -680,6 +696,9 @@ function detectDuplicates() {
     
     document.getElementById("dup-bal-opening").textContent = formatCurrency(opBal);
     document.getElementById("dup-bal-closing").textContent = formatCurrency(cumulativeDupBal);
+    
+    const resultsContainer = document.getElementById("dup-results-container");
+    if (resultsContainer) resultsContainer.classList.remove("hidden");
     
     const summarySec = document.getElementById("dup-summary-section");
     if (summarySec) summarySec.classList.remove("hidden");
