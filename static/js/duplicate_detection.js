@@ -487,8 +487,8 @@ async function importTallyVouchers() {
         alert("Please enter a Tally Company Name.");
         return;
     }
-    if (!fromDate || !toDate) {
-        alert("Please select From and To dates.");
+    if (!bankName) {
+        alert("Please enter a Bank Ledger Name.");
         return;
     }
     
@@ -566,6 +566,18 @@ async function importTallyVouchers() {
 }
 
 function detectDuplicates() {
+    const companyName = document.getElementById("dup-company-name").value.trim();
+    const bankName = document.getElementById("dup-bank-name").value.trim();
+
+    if (!companyName) {
+        alert("Please enter a Tally Company Name.");
+        return;
+    }
+    if (!bankName) {
+        alert("Please enter a Bank Ledger Name.");
+        return;
+    }
+
     if (!reviewState.tallyVouchers || reviewState.tallyVouchers.length === 0) {
         alert("Please import Tally data first by clicking 'Import Tally Data'.");
         return;

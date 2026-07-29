@@ -56,7 +56,7 @@ def api_tally_sync():
         </BODY>
     </ENVELOPE>"""
     try:
-        r = requests.post(tally_url, data=ledger_xml, timeout=8)
+        r = requests.post(tally_url, data=ledger_xml, timeout=600)
         if r.status_code != 200:
             return jsonify({"success": False, "message": f"Tally server responded with error code {r.status_code}."}), 400
         
@@ -268,15 +268,9 @@ def api_tally_vouchers():
                 except ValueError:
                     amt = 0.0
                     
-                is_bank_pattern = bool(re.search(r'bank|sbi|bob|axis|cash|hdfc|icici|tmb|idbi|pnb', ledger_name, re.I))
-                
-                is_target_bank = False
-                if bank_name:
-                    is_target_bank = (ledger_name.upper() == bank_name)
-                    if is_target_bank:
-                        has_requested_bank = True
-                
-                if (is_target_bank or is_bank_pattern) and not bank_entry:
+                # Strictly match the entered bank ledger name
+                if ledger_name.upper() == bank_name:
+                    has_requested_bank = True
                     bank_entry = {
                         "ledger": ledger_name,
                         "amount": amt,
@@ -288,40 +282,9 @@ def api_tally_vouchers():
                         "amount": amt,
                         "is_deemed_positive": is_pos
                     })
-                    
-            if bank_name and not has_requested_bank:
-                continue
-                
-            if not bank_entry and entries:
-                first_el = entries[0]
-                ledger_name = first_el.findtext("LEDGERNAME", "").strip()
-                amount_str = first_el.findtext("AMOUNT", "0").strip()
-                is_pos = first_el.findtext("ISDEEMEDPOSITIVE", "Yes").strip()
-                try:
-                    amt = abs(float(amount_str))
-                except ValueError:
-                    amt = 0.0
-                bank_entry = {
-                    "ledger": ledger_name,
-                    "amount": amt,
-                    "is_deemed_positive": is_pos
-                }
-                party_entries = []
-                for ent_el in entries[1:]:
-                    l_name = ent_el.findtext("LEDGERNAME", "").strip()
-                    a_str = ent_el.findtext("AMOUNT", "0").strip()
-                    i_pos = ent_el.findtext("ISDEEMEDPOSITIVE", "Yes").strip()
-                    try:
-                        a_val = abs(float(a_str))
-                    except ValueError:
-                        a_val = 0.0
-                    party_entries.append({
-                        "ledger": l_name,
-                        "amount": a_val,
-                        "is_deemed_positive": i_pos
-                    })
             
-            if not bank_entry:
+            # If the voucher does not contain the bank ledger, skip it
+            if not bank_entry or not has_requested_bank:
                 continue
                 
             if len(party_entries) == 1:
