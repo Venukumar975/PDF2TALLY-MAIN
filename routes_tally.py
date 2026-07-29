@@ -357,3 +357,63 @@ def api_tally_vouchers():
         }), 400
     except Exception as e:
         return jsonify({"success": False, "message": f"Tally query failed: {str(e)}"}), 500
+
+
+@routes_bp.route("/api/tally/duplicate-history", methods=["GET"])
+def api_tally_duplicate_history():
+    try:
+        user_dir = os.path.join(os.environ.get('LOCALAPPDATA'), 'PDF2TALLY')
+        history_path = os.path.join(user_dir, "duplicate_history.json")
+        if not os.path.exists(history_path):
+            return jsonify({"success": True, "companies": [], "bank_ledgers": []})
+        with open(history_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return jsonify({
+            "success": True,
+            "companies": data.get("companies", []),
+            "bank_ledgers": data.get("bank_ledgers", [])
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@routes_bp.route("/api/tally/duplicate-history", methods=["POST"])
+def api_tally_save_duplicate_history():
+    try:
+        req_data = request.get_json() or {}
+        company = req_data.get("company_name", "").strip()
+        bank = req_data.get("bank_name", "").strip()
+        
+        user_dir = os.path.join(os.environ.get('LOCALAPPDATA'), 'PDF2TALLY')
+        os.makedirs(user_dir, exist_ok=True)
+        history_path = os.path.join(user_dir, "duplicate_history.json")
+        
+        history = {"companies": [], "bank_ledgers": []}
+        if os.path.exists(history_path):
+            try:
+                with open(history_path, "r", encoding="utf-8") as f:
+                    history = json.load(f)
+            except Exception:
+                pass
+                
+        if "companies" not in history:
+            history["companies"] = []
+        if "bank_ledgers" not in history:
+            history["bank_ledgers"] = []
+            
+        updated = False
+        if company and company not in history["companies"]:
+            history["companies"].append(company)
+            updated = True
+        if bank and bank not in history["bank_ledgers"]:
+            history["bank_ledgers"].append(bank)
+            updated = True
+            
+        if updated:
+            with open(history_path, "w", encoding="utf-8") as f:
+                json.dump(history, f, indent=4)
+                
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+

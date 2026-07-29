@@ -1890,7 +1890,7 @@ function navigateWizardDirect(step) {
     if (step === 3) {
         // Collect mapping and validate Date & Narration are mapped before proceeding
         const colCount = hybridWizardState.headers.length;
-        const tempMap = { date: -1, narration: -1, debit: -1, credit: -1, balance: -1 };
+        const tempMap = { date: -1, narration: -1, narration_2: -1, debit: -1, credit: -1, balance: -1 };
         
         for (let i = 0; i < colCount; i++) {
             const selectEl = document.getElementById(`mapping-col-${i}`);
@@ -1954,7 +1954,7 @@ function navigateWizardDirect(step) {
         summaryUl.innerHTML = "";
         
         const map = hybridWizardState.currentMapping;
-        const labels = { date: "Date", narration: "Narration", debit: "Debit (Withdrawal)", credit: "Credit (Deposit)", balance: "Balance" };
+        const labels = { date: "Date", narration: "Narration", narration_2: "Secondary Narration", debit: "Debit (Withdrawal)", credit: "Credit (Deposit)", balance: "Balance" };
         
         Object.keys(labels).forEach(key => {
             const colIdx = map[key];
@@ -2030,6 +2030,7 @@ function buildWizardStep2Mapping() {
             { val: "ignore", label: "Ignore / Skip Column" },
             { val: "date", label: "Date" },
             { val: "narration", label: "Narration / Description" },
+            { val: "narration_2", label: "Secondary Narration (Optional)" },
             { val: "debit", label: "Debit (Withdrawals)" },
             { val: "credit", label: "Credit (Deposits)" },
             { val: "balance", label: "Running Balance" }

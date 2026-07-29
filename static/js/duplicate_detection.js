@@ -15,23 +15,14 @@ document.addEventListener("DOMContentLoaded", () => {
         tableContainer.insertBefore(dupPanel, tableContainer.firstChild);
     }
     
-    // Inject sidebar filter card below the main stats box
-    const totalBtn = document.getElementById("btn-stats-total");
-    if (totalBtn) {
-        const statsBox = totalBtn.parentNode;
-        if (statsBox && statsBox.parentNode) {
-            const dupFilterCard = document.getElementById("dup-filter-card");
-            if (dupFilterCard) {
-                statsBox.parentNode.insertBefore(dupFilterCard, statsBox.nextSibling);
-            }
-        }
-    }
-    
     // Inject match details modal to body
     const matchModal = document.getElementById("review-modal-match-details");
     if (matchModal) {
         document.body.appendChild(matchModal);
     }
+    
+    // Load duplicate autocomplete history
+    loadDuplicateHistory();
     
     // Inject new table columns in header dynamically (Status, Matched Tally, Conf)
     const headerRow = document.getElementById("review-table-header");
@@ -100,7 +91,9 @@ function toggleDuplicateDetectionPanel() {
         
         // Show sidebar filter card if detection has results
         const filterCard = document.getElementById("dup-filter-card");
-        if (filterCard) filterCard.classList.remove("hidden");
+        if (filterCard && reviewState.tallyVouchers && reviewState.tallyVouchers.length > 0) {
+            filterCard.classList.remove("hidden");
+        }
 
         // Restore results container visibility if it contains active data/messages
         const resultsContainer = document.getElementById("dup-results-container");
@@ -108,6 +101,11 @@ function toggleDuplicateDetectionPanel() {
         const summarySec = document.getElementById("dup-summary-section");
         if (resultsContainer && ((statusMsg && statusMsg.style.display !== "none" && statusMsg.innerHTML !== "") || (summarySec && !summarySec.classList.contains("hidden")))) {
             resultsContainer.classList.remove("hidden");
+        }
+
+        const compareTip = document.getElementById("dup-compare-tip");
+        if (compareTip && ((statusMsg && statusMsg.style.display !== "none" && statusMsg.innerHTML !== "") || (summarySec && !summarySec.classList.contains("hidden")))) {
+            compareTip.classList.remove("hidden");
         }
     } else {
         // Hide panel
@@ -119,6 +117,9 @@ function toggleDuplicateDetectionPanel() {
 
         const resultsContainer = document.getElementById("dup-results-container");
         if (resultsContainer) resultsContainer.classList.add("hidden");
+
+        const compareTip = document.getElementById("dup-compare-tip");
+        if (compareTip) compareTip.classList.add("hidden");
         
         colHeaders.forEach(h => {
             const el = document.getElementById(h);
@@ -208,7 +209,7 @@ window.updateReviewStats = function() {
     } else if (currentStatus === "suspense") {
         if (btnSuspense) btnSuspense.classList.add("active-suspense");
     } else if (currentStatus === "duplicate") {
-        if (btnDupOnly) btnDupOnly.classList.add("active-modified");
+        if (btnDupOnly) btnDupOnly.classList.add("active-dup");
     } else if (currentStatus === "new") {
         if (btnNewOnly) btnNewOnly.classList.add("active-suspense");
     }
@@ -250,28 +251,19 @@ window.loadReviewXML = function(xmlText, fileName) {
     if (statusMsg) statusMsg.style.display = "none";
     const resultsContainer = document.getElementById("dup-results-container");
     if (resultsContainer) resultsContainer.classList.add("hidden");
+    const compareTip = document.getElementById("dup-compare-tip");
+    if (compareTip) compareTip.classList.add("hidden");
+    const opInput = document.getElementById("dup-bal-opening-input");
+    if (opInput) opInput.value = "0.00";
     
     reviewState.tallyVouchers = [];
     
-    // Set default company name input if available in dropdown
-    const companySelect = document.getElementById("review-company-select");
+    // Leave company and bank inputs empty
     const companyInput = document.getElementById("dup-company-name");
-    if (companyInput && companySelect) {
-        companyInput.value = companySelect.value || "";
-    }
+    if (companyInput) companyInput.value = "";
     
-    // Identify bank ledger from input bankName
     const bankInput = document.getElementById("dup-bank-name");
-    if (bankInput) {
-        const bankName = reviewState.originalFileName || "";
-        let defaultBank = "BANK OF BARODA";
-        if (bankName.toLowerCase().includes("sbi") || bankName.toLowerCase().includes("state")) {
-            defaultBank = "STATE BANK OF INDIA";
-        } else if (bankName.toLowerCase().includes("axis")) {
-            defaultBank = "AXIS BANK";
-        }
-        bankInput.value = defaultBank;
-    }
+    if (bankInput) bankInput.value = "";
 
     // Prefill dates
     if (reviewState.vouchers && reviewState.vouchers.length > 0) {
@@ -398,8 +390,8 @@ window.onReviewTableScroll = function() {
         if (!isSelected) {
             if (vch.duplicateStatus === "Duplicate") {
                 rowStyle = document.body.classList.contains("night-theme") ? 
-                    "background-color: #14532d !important; color: #bbf7d0;" : 
-                    "background-color: #d1fae5 !important; color: #065f46;";
+                    "background-color: #451a03 !important; color: #fde68a;" : 
+                    "background-color: #fffbeb !important; color: #b45309; border-top: 1px solid #fde047; border-bottom: 1px solid #fde047;";
             }
         }
         
@@ -541,6 +533,20 @@ async function importTallyVouchers() {
                 
                 statusMsg.innerHTML = `✓ Company Imported Successfully: <b>${result.company_name}</b><br/>Number of vouchers imported: <b>${reviewState.tallyVouchers.length}</b><br/>Date Range: <b>${fromFormatted} to ${toFormatted}</b>`;
             }
+            
+            // Save successful company and bank name to history
+            fetch("/api/tally/duplicate-history", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    company_name: companyName,
+                    bank_name: bankName
+                })
+            }).then(() => {
+                loadDuplicateHistory();
+            }).catch(err => console.error("Failed to save duplicate history:", err));
         } else {
             if (statusMsg) {
                 statusMsg.style.background = "#fef2f2";
@@ -574,9 +580,9 @@ function detectDuplicates() {
         }
     }
     
-    const matchVchType = document.getElementById("dup-cond-vchtype").checked;
-    const matchNarration = document.getElementById("dup-cond-narration").checked;
-    const matchParticulars = document.getElementById("dup-cond-particulars").checked;
+    const matchVchType = false;
+    const matchNarration = false;
+    const matchParticulars = false;
     
     const usedTallyNos = new Set();
     
@@ -685,17 +691,19 @@ function detectDuplicates() {
     document.getElementById("dup-stat-new").textContent = newCount;
     
     // Calculate opening/closing balances based on duplicates
-    const opBal = reviewState.openingBalance || 0.00;
-    let cumulativeDupBal = opBal;
-    
-    reviewState.vouchers.forEach(vch => {
-        if (vch.duplicateStatus === "Duplicate") {
-            cumulativeDupBal += (vch.debit || 0.0) - (vch.credit || 0.0);
+    const opInput = document.getElementById("dup-bal-opening-input");
+    if (opInput) {
+        if (reviewState.manualOpeningBalance !== null) {
+            opInput.value = reviewState.manualOpeningBalance.toFixed(2);
+        } else {
+            opInput.value = (reviewState.openingBalance || 0.00).toFixed(2);
         }
-    });
+    }
     
-    document.getElementById("dup-bal-opening").textContent = formatCurrency(opBal);
-    document.getElementById("dup-bal-closing").textContent = formatCurrency(cumulativeDupBal);
+    updateDupBalances();
+    
+    const compareTip = document.getElementById("dup-compare-tip");
+    if (compareTip) compareTip.classList.remove("hidden");
     
     const resultsContainer = document.getElementById("dup-results-container");
     if (resultsContainer) resultsContainer.classList.remove("hidden");
@@ -741,9 +749,9 @@ function openMatchDetailsDialog(vchId) {
         reasonsHtml += `<li style="color: #16a34a; font-weight: bold;">✓ ${r}</li>`;
     });
     
-    const matchVchType = document.getElementById("dup-cond-vchtype").checked;
-    const matchNarration = document.getElementById("dup-cond-narration").checked;
-    const matchParticulars = document.getElementById("dup-cond-particulars").checked;
+    const matchVchType = false;
+    const matchNarration = false;
+    const matchParticulars = false;
     
     if (tallyVch.vch_type.toLowerCase() !== impVch.vchType.toLowerCase() && matchVchType) {
         reasonsHtml += `<li style="color: #ef4444; font-weight: bold;">✗ Voucher Type different (${impVch.vchType} vs ${tallyVch.vch_type})</li>`;
@@ -758,3 +766,62 @@ function openMatchDetailsDialog(vchId) {
     document.getElementById("match-reasons-list").innerHTML = reasonsHtml;
     document.getElementById("review-modal-match-details").classList.remove("hidden");
 }
+
+function updateDupBalances() {
+    const opInput = document.getElementById("dup-bal-opening-input");
+    const opBalVal = opInput ? (parseFloat(opInput.value) || 0.00) : 0.00;
+    
+    reviewState.manualOpeningBalance = opBalVal;
+    
+    let dupTotalDebit = 0.00;
+    let dupTotalCredit = 0.00;
+    
+    reviewState.vouchers.forEach(vch => {
+        if (vch.duplicateStatus === "Duplicate") {
+            dupTotalDebit += (vch.debit || 0.0);
+            dupTotalCredit += (vch.credit || 0.0);
+        }
+    });
+    
+    const closingBal = opBalVal + dupTotalDebit - dupTotalCredit;
+    
+    const dupStatDebit = document.getElementById("dup-stat-debit");
+    const dupStatCredit = document.getElementById("dup-stat-credit");
+    const dupBalClosing = document.getElementById("dup-bal-closing");
+    
+    if (dupStatDebit) dupStatDebit.textContent = formatCurrency(dupTotalDebit);
+    if (dupStatCredit) dupStatCredit.textContent = formatCurrency(dupTotalCredit);
+    if (dupBalClosing) dupBalClosing.textContent = formatCurrency(closingBal);
+}
+window.updateDupBalances = updateDupBalances;
+
+async function loadDuplicateHistory() {
+    try {
+        const response = await fetch("/api/tally/duplicate-history");
+        const data = await response.json();
+        if (data.success) {
+            const companyDatalist = document.getElementById("dup-company-history-list");
+            const bankDatalist = document.getElementById("dup-bank-history-list");
+            
+            if (companyDatalist && data.companies) {
+                companyDatalist.innerHTML = "";
+                data.companies.forEach(company => {
+                    const option = document.createElement("option");
+                    option.value = company;
+                    companyDatalist.appendChild(option);
+                });
+            }
+            if (bankDatalist && data.bank_ledgers) {
+                bankDatalist.innerHTML = "";
+                data.bank_ledgers.forEach(bank => {
+                    const option = document.createElement("option");
+                    option.value = bank;
+                    bankDatalist.appendChild(option);
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Failed to load duplicate check autocomplete history:", err);
+    }
+}
+window.loadDuplicateHistory = loadDuplicateHistory;

@@ -615,7 +615,10 @@ function handleGlobalKeydown(e) {
     }
     
     // Tally Shortcuts
-    if (e.key === "F2") {
+    if (e.key === "F1") {
+        e.preventDefault();
+        openHelpModal();
+    } else if (e.key === "F2") {
         e.preventDefault();
         openPeriodModal();
     } else if (e.key === "F4") {
@@ -738,7 +741,7 @@ function closeReviewModal(modalKey) {
 }
 
 function closeActiveModal() {
-    const modals = ["period", "ledger", "narration", "replace", "monthly", "advanced", "exit-confirm", "sync"];
+    const modals = ["help", "period", "ledger", "narration", "replace", "monthly", "advanced", "exit-confirm", "sync"];
     let closedAny = false;
     modals.forEach(m => {
         const el = document.getElementById(`review-modal-${m}`);
@@ -748,6 +751,17 @@ function closeActiveModal() {
         }
     });
     return closedAny;
+}
+
+function openHelpModal() {
+    const modal = document.getElementById("review-modal-help");
+    if (modal) {
+        modal.classList.remove("hidden");
+    }
+}
+
+function closeHelpModal() {
+    closeReviewModal("help");
 }
 
 function confirmActiveModal() {

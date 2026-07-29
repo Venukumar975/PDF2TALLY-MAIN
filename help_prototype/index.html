@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Desk - User Manual</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --canvas-bg: #f8fafc; /* Soothing soft gray-blue canvas background */
+            --paper-bg: #ffffff;
+            --text-primary: #1e293b; /* Softer dark slate text */
+            --text-secondary: #475569; /* Softer paragraph text */
+            --text-muted: #64748b;
+            --border-color: #cbd5e1;
+            --primary: #4f46e5;
+            --primary-bg: #e0e7ff;
+            --success: #10b981;
+            --success-bg: #d1fae5;
+            --info-blue: #0284c7;
+            --info-blue-bg: #e0f2fe;
+            --warning-bg: #fffbeb; /* Soothing soft amber warning box background */
+            --warning-border: #fef08a;
+            --warning-text: #b45309; /* Softer amber text */
+            --badge-bg: #f8fafc;
+            --badge-border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans Telugu', sans-serif;
+            background-color: var(--canvas-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            font-size: 1.05rem; /* Increased base font size */
+        }
+
+        /* Top Bar - Floating above document */
+        .controls-bar {
+            width: 100%;
+            max-width: 860px; /* Wider canvas */
+            background: var(--paper-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px 24px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .controls-title {
+            font-size: 1.05rem; /* Larger */
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Language Toggle buttons */
+        .lang-switch {
+            display: flex;
+            background: #ffffff;
+            padding: 4px;
+            border-radius: 6px;
+            border: 2px solid #0f172a; /* Solid black box around language toggler */
+        }
+
+        .lang-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 16px;
+            font-size: 0.85rem; /* Larger */
+            font-weight: 700;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .lang-btn.active {
+            background: var(--paper-bg);
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* PDF Document Layout */
+        .pdf-container {
+            width: 100%;
+            max-width: 860px; /* Wider canvas */
+            background: var(--paper-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Cover Header / Document Title Page */
+        .pdf-header {
+            padding: 50px 60px 30px 60px;
+            border-bottom: 2px solid var(--text-primary);
+            background: #fafafb;
+        }
+
+        .pdf-header h1 {
+            font-size: 2.1rem; /* Larger */
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+        }
+
+        .pdf-header p {
+            font-size: 1.05rem; /* Larger */
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
+        /* Table of Contents / Index */
+        .pdf-toc {
+            padding: 24px 60px;
+            background: #f8fafc;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .toc-title {
+            font-size: 0.95rem; /* Larger */
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .toc-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .toc-list a {
+            font-size: 0.95rem; /* Larger */
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .toc-list a:hover {
+            text-decoration: underline;
+        }
+
+        /* PDF Pages / Sections wrapper */
+        .pdf-content {
+            padding: 40px 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 50px;
+        }
+
+        .pdf-section {
+            border-bottom: 2px solid #0f172a; /* Solid black line separator after every section */
+            padding-bottom: 45px;
+        }
+
+        .pdf-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .pdf-section h2 {
+            font-size: 1.45rem; /* Larger */
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pdf-section .section-intro {
+            font-size: 1.02rem; /* Larger */
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* Realistic App Buttons Mocks in Document */
+        .mock-btn-box {
+            margin: 18px 0 24px 0;
+            padding: 14px 20px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .mock-lbl {
+            font-size: 0.8rem; /* Larger */
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .mock-folder {
+            font-size: 1.5rem; /* Larger */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mock-sync {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            font-size: 12px; /* Larger */
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.15);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        .mock-import {
+            background: #0284c7;
+            color: #ffffff;
+            font-size: 12px; /* Larger */
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            box-shadow: 0 2px 4px rgba(2, 132, 199, 0.15);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        /* Step List Formats */
+        .pdf-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .pdf-step-row {
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            padding: 14px 18px;
+            border-radius: 6px;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .pdf-step-num {
+            background: #f1f5f9;
+            color: var(--text-primary);
+            width: 24px; /* Larger */
+            height: 24px; /* Larger */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.82rem; /* Larger */
+            font-weight: 800;
+            flex-shrink: 0;
+            margin-top: 2px;
+            border: 1px solid var(--border-color);
+        }
+
+        .pdf-step-text {
+            font-size: 0.98rem; /* Larger font size */
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .pdf-step-text strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Alert Warning Callouts */
+        .pdf-callout {
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            padding: 14px 20px;
+            border-radius: 6px;
+            font-size: 0.96rem; /* Larger font size */
+            line-height: 1.6;
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            color: var(--warning-text);
+        }
+
+        .callout-icon {
+            font-size: 1.15rem; /* Larger */
+            flex-shrink: 0;
+        }
+
+        .pdf-badge {
+            background: var(--badge-bg);
+            color: var(--text-primary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem; /* Larger */
+            font-weight: bold;
+            font-family: monospace;
+            border: 1px solid var(--badge-border);
+        }
+
+        /* Highlight helper note styles */
+        .esc-highlight {
+            background-color: #fef3c7; 
+            border-left: 4px solid #f59e0b; 
+            padding: 8px 12px; 
+            border-radius: 0 4px 4px 0; 
+            font-size: 0.95rem; 
+            font-weight: 600; 
+            margin-top: 10px; 
+            color: #b45309;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Floating Controls -->
+    <div class="controls-bar">
+        <div class="controls-title">
+            📄 <span id="ctrl-title">Review Desk User Manual</span>
+        </div>
+        
+        <!-- Language Switcher -->
+        <div class="lang-switch">
+            <button class="lang-btn active" onclick="switchLanguage('en')">English</button>
+            <button class="lang-btn" onclick="switchLanguage('te')">తెలుగు</button>
+        </div>
+    </div>
+
+    <!-- PDF Document container -->
+    <div class="pdf-container">
+        
+        <!-- Page Title Header -->
+        <div class="pdf-header">
+            <h1 id="doc-title">Review Desk - User Manual</h1>
+            <p id="doc-subtitle">A simple guide to configuration, ledger mapping, and duplicate auditing</p>
+        </div>
+
+        <!-- Table of Contents Index -->
+        <div class="pdf-toc">
+            <div class="toc-title" id="toc-lbl">Sections:</div>
+            <div class="toc-list">
+                <a href="#xml-sec" id="toc-s1">1. Import XML</a>
+                <a href="#sync-sec" id="toc-s2">2. Linking Tally</a>
+                <a href="#get-sec" id="toc-s3">3. Get Tally Data</a>
+                <a href="#dup-sec" id="toc-s4">4. Audit Duplicates</a>
+                <a href="#desk-sec" id="toc-s5">5. Desk Buttons</a>
+                <a href="#short-sec" id="toc-s6">6. Selection & Shortcuts</a>
+            </div>
+        </div>
+
+        <!-- Document Content -->
+        <div class="pdf-content">
+
+            <!-- Section 1: Import XML -->
+            <div class="pdf-section" id="xml-sec">
+                <h2 id="xml-h">1. Import Generated XML File</h2>
+                <p class="section-intro" id="xml-intro">Use the folder icon in the center of the Review Desk screen (shown when the desk opens before loading files) to import your generated bank statement XML file for auditing.</p>
+                
+                <div class="mock-btn-box">
+                    <span class="mock-lbl" id="mock-lbl-0">App Icon:</span>
+                    <span class="mock-folder">📁</span>
+                </div>
+
+                <div class="pdf-steps">
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">1</div>
+                        <div class="pdf-step-text" id="xml-s1">Click the <strong>📁 Folder Icon</strong> in the center of the Review Desk screen to browse for your file, or drag and drop your XML file directly onto the workspace.</div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">2</div>
+                        <div class="pdf-step-text" id="xml-s2">Select the bank statement XML file that you created using the converter app.</div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">3</div>
+                        <div class="pdf-step-text" id="xml-s3">All transactions from the file will immediately load into the grid, allowing you to edit names, filter entries, and check for duplicates.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Sync Tally -->
+            <div class="pdf-section" id="sync-sec">
+                <h2 id="sync-h">2. Linking and Syncing Tally Ledgers</h2>
+                <p class="section-intro" id="sync-intro">Save time and prevent errors by copying the exact ledger account names directly from Tally Prime.</p>
+                
+                <div class="mock-btn-box">
+                    <span class="mock-lbl" id="mock-lbl-1">App Button:</span>
+                    <button class="mock-sync">
+                        🔄 <span id="mock-sync-txt">Sync Tally</span>
+                    </button>
+                </div>
+
+                <div class="pdf-steps">
+                    <div class="pdf-step-row" style="background-color: #f8fafc; border-left: 3px solid var(--primary); margin-bottom: 8px;">
+                        <div class="pdf-step-num" style="background: var(--primary-bg); color: var(--primary);">!</div>
+                        <div class="pdf-step-text" id="sync-s1"><strong>Why this is important:</strong> When changing ledger accounts, you must type the exact spelling as saved in Tally Prime. If there is a spelling mistake, Tally will throw errors and reject the transactions during import.</div>
+                    </div>
+                    
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">1</div>
+                        <div class="pdf-step-text" id="sync-s2">Open Tally Prime, go to <strong>Help (F1) ➔ Settings ➔ Connectivity</strong>.</div>
+                    </div>
+                    
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">2</div>
+                        <div class="pdf-step-text" id="sync-s3">Click on the first option in the list: <strong>Client/Server configuration</strong>.</div>
+                    </div>
+
+                    <!-- Visual screenshots for Tally Prime configuration placed between Step 2 and Step 3 -->
+                    <div style="margin: 18px 0; display: flex; gap: 20px; flex-wrap: wrap; width: 100%;">
+                        <div style="flex: 1; min-width: 300px;">
+                            <p style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;" id="lbl-img-1">Tally Settings Submenu: Select Client/Server Configuration</p>
+                            <img src="media__1785257136122.png" style="width: 100%; border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);" alt="Tally Connectivity Settings List">
+                        </div>
+                        <div style="flex: 1; min-width: 300px;">
+                            <p style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;" id="lbl-img-2">ODBC Server Configuration: Set to Both, Yes, Port 9000</p>
+                            <img src="media__1785257153846.png" style="width: 100%; border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);" alt="Tally ODBC port configuration">
+                        </div>
+                    </div>
+                    
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">3</div>
+                        <div class="pdf-step-text" id="sync-s4">Set the settings exactly like this:
+                            <br>• Set <em>TallyPrime acts as</em> to <strong>Both</strong>
+                            <br>• Set <em>Enable ODBC</em> to <strong>Yes</strong>
+                            <br>• Set <em>Port</em> to <strong>9000</strong>
+                            <br>Press <strong>Ctrl + A</strong> to save, and restart Tally Prime. *(This is a one-time configuration)*
+                        </div>
+                    </div>
+                    
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">4</div>
+                        <div class="pdf-step-text" id="sync-s5">Make sure your active target company is loaded in Tally Prime, and you are on the <strong>Gateway of Tally</strong> screen. Then click the green <strong>Sync Tally</strong> button to copy the ledger names.</div>
+                    </div>
+                </div>
+
+                <div class="pdf-callout" style="background: #eef2ff; border-color: #c7d2fe; color: #3730a3;">
+                    <span class="callout-icon">ℹ️</span>
+                    <div class="alert-text">
+                        <span id="sync-note"><strong>Gateway of Tally Requirement:</strong> For every new Sync operation, Tally Prime must be running in the background and you must remain in the <strong>Gateway of Tally</strong> view of the target company on Tally.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Get Tally Data -->
+            <div class="pdf-section" id="get-sec">
+                <h2 id="get-h">3. Get Tally Data (Duplicate Check Mode)</h2>
+                <p class="section-intro" id="get-intro">Import your Tally ledger records into the app's temporary memory to scan for duplicate vouchers.</p>
+                
+                <div class="mock-btn-box">
+                    <span class="mock-lbl" id="mock-lbl-2">App Button:</span>
+                    <button class="mock-import">
+                        📥 <span id="mock-import-txt">Import Tally Data</span>
+                    </button>
+                </div>
+
+                <div class="pdf-steps">
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">1</div>
+                        <div class="pdf-step-text" id="get-s1">In Tally Prime, make sure the target company is loaded and you are on the <strong>Gateway of Tally</strong> screen.</div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">2</div>
+                        <div class="pdf-step-text" id="get-s2">In our app's Duplicate Check panel, type the exact <strong>Tally Company Name</strong> and <strong>Bank Ledger Name</strong> as they appear in Tally, then select the date period.</div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">3</div>
+                        <div class="pdf-step-text" id="get-s3">Click the <strong>Import Tally Data</strong> button. This fetches the vouchers for that period and stores them silently in the app's memory.</div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">4</div>
+                        <div class="pdf-step-text" id="get-s4"><strong>Note:</strong> This button will **not** display Tally vouchers on your screen. It loads the vouchers into memory behind the scenes to perform the duplicate check in the next step.</div>
+                    </div>
+                </div>
+
+                <div class="pdf-callout" style="background: #eef2ff; border-color: #c7d2fe; color: #3730a3;">
+                    <span class="callout-icon">ℹ️</span>
+                    <div class="alert-text">
+                        <span id="get-note"><strong>Gateway of Tally Warning:</strong> To import Tally data successfully, Tally Prime must be running in the background and your view must be on the <strong>Gateway of Tally</strong> screen of the respective company.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Audit Duplicates -->
+            <div class="pdf-section" id="dup-sec">
+                <h2 id="dup-h">4. Detect Duplicate Transactions</h2>
+                <p class="section-intro" id="dup-intro">Identify and flag entries in your bank statement that are already posted in Tally Prime.</p>
+                
+                <div class="mock-btn-box">
+                    <span class="mock-lbl" id="mock-lbl-3">App Button:</span>
+                    <button style="background:#10b981; color:white; font-size:12px; font-weight:700; padding:6px 12px; border-radius:4px; border:none; box-shadow:0 2px 4px rgba(16,185,129,0.15); display:inline-flex; align-items:center; gap:6px; pointer-events:none;">
+                        🛡️ <span id="mock-dup-txt">Detect Duplicates</span>
+                    </button>
+                </div>
+
+                <div class="pdf-steps">
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">1</div>
+                        <div class="pdf-step-text" id="dup-s1">Make sure you have clicked <strong>Import Tally Data</strong> first to load Tally's history for the selected period.</div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">2</div>
+                        <div class="pdf-step-text" id="dup-s2">Click the <strong>Detect Duplicates</strong> button.</div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">3</div>
+                        <div class="pdf-step-text" id="dup-s3">The app will compare your statement entries against Tally's memory records and flag matched rows.</div>
+                    </div>
+                </div>
+
+                <div class="pdf-callout">
+                    <span class="callout-icon">⚠️</span>
+                    <div class="alert-text">
+                        <span id="dup-note"><strong>Important Audit Detail:</strong> The Duplicate Check results panel calculates the **Debit, Credit, and Closing Balance for duplicate vouchers only**. It does not calculate these balances for new, unique vouchers.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5: Desk Buttons -->
+            <div class="pdf-section" id="desk-sec">
+                <h2 id="desk-h">5. Review Desk Helper Buttons</h2>
+                <p class="section-intro" id="desk-intro">Use these utility buttons in the right sidebar panel to filter, group, and edit your entries quickly.</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 32px;">
+                    
+                    <!-- F8 Duplicate Check -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            <img src="media__1785258287824.png" style="height: 42px; border: 1px solid #cbd5e1; border-radius: 4px;" alt="F8 Button">
+                            <span style="font-weight: 700; font-size: 1.15rem;" id="lbl-f8-title">F8 Duplicate Check Button</span>
+                        </div>
+                        <p style="font-size: 1rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;" id="cat-d0">
+                            Opens or closes the Duplicate Check configuration panel to scan bank transactions against Tally history.
+                        </p>
+                        
+                        <!-- Detailed Explanation of Fields -->
+                        <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 20px; border-radius: 6px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 16px;">
+                            <img src="media__1785258603611.png" style="width: 100%; max-width: 740px; border-radius: 4px; display: block; margin: 0 auto 20px auto;" alt="Tally Duplicate Check Settings Input Form">
+                            
+                            <div style="display: flex; flex-direction: column; gap: 16px; text-align: left; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                                <div style="font-size: 0.98rem; line-height: 1.6; color: var(--text-secondary);">
+                                    <strong style="color: var(--text-primary);" id="fld-lbl-1">Tally Company Name:</strong> 
+                                    <span id="fld-desc-1">Enter the exact name of the active company as saved in Tally Prime (e.g., "Tally Test"). Make sure Tally Prime is running and this company is open on the Gateway of Tally screen.</span>
+                                </div>
+                                <div style="font-size: 0.98rem; line-height: 1.6; color: var(--text-secondary);">
+                                    <strong style="color: var(--text-primary);" id="fld-lbl-2">Bank Ledger Name:</strong> 
+                                    <span id="fld-desc-2">Select the exact Bank Account ledger name from the dropdown as it is configured in Tally Prime (e.g., "BANK OF BARODA").</span>
+                                </div>
+                                <div style="font-size: 0.98rem; line-height: 1.6; color: var(--text-secondary);">
+                                    <strong style="color: var(--text-primary);" id="fld-lbl-3">From Date / To Date:</strong> 
+                                    <span id="fld-desc-3">Select the date period for which you want to cross-reference transactions from Tally to verify duplicates.</span>
+                                </div>
+                                <div style="font-size: 0.98rem; line-height: 1.6; color: var(--text-secondary); background: #f8fafc; padding: 14px; border-left: 4px solid var(--primary); border-radius: 0 4px 4px 0;">
+                                    <strong style="color: var(--text-primary);" id="fld-lbl-4">Date Match Tolerance (తేదీ సరిపోలిక మార్జిన్):</strong> 
+                                    <span id="fld-desc-4">
+                                        Sometimes transactions are recorded on slightly different dates in Tally compared to when they clear in the bank statement. You can choose a buffer window:
+                                        <br>• <strong>Exact:</strong> The voucher date in Tally and bank statement transaction date must match exactly on the same calendar day.
+                                        <br>• <strong>±1 Day:</strong> Checks for duplicate entries posted 1 day before or 1 day after the statement date.
+                                        <br>• <strong>±2 Days / ±3 Days:</strong> Checks within a 2 or 3-day window. Extremely useful for weekend transactions or bank holidays where clearance takes a few extra days.
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Escape / Toggle Closing Note -->
+                        <div class="esc-highlight" id="esc-f8">
+                            ⚠️ <strong>How to Exit:</strong> Click the F8 Duplicate Check button again on the right panel to exit duplicate check mode and return to normal review mode.
+                        </div>
+                    </div>
+
+                    <!-- F2 Period -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            <img src="media__1785258299247.png" style="height: 42px; border: 1px solid #cbd5e1; border-radius: 4px;" alt="F2 Button">
+                            <span style="font-weight: 700; font-size: 1.15rem;" id="lbl-f2-title">F2 Period Button</span>
+                        </div>
+                        <p style="font-size: 1rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;" id="cat-d1">
+                            Filters the table to view transactions within a specific starting and ending date range.
+                        </p>
+                        <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 16px; border-radius: 6px; text-align: center; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 16px;">
+                            <img src="media__1785258308411.png" style="width: 100%; max-width: 420px; border-radius: 4px;" alt="Change Period Modal Dialog">
+                        </div>
+                        
+                        <!-- Escape / Toggle Closing Note -->
+                        <div class="esc-highlight" id="esc-f2">
+                            ⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to close the period selector modal.
+                        </div>
+                    </div>
+
+                    <!-- 5 Show / Hide Narration -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            <img src="media__1785258997233.png" style="height: 42px; border: 1px solid #cbd5e1; border-radius: 4px;" alt="5 Button">
+                            <span style="font-weight: 700; font-size: 1.15rem;" id="lbl-narr-title">5 Show / Hide Narration Button</span>
+                        </div>
+                        <p style="font-size: 1rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;" id="cat-d2">
+                            Toggles narration visibility. Click this button to show transaction narrations, or click it again to hide them and save screen space.
+                        </p>
+                        
+                        <!-- Escape / Toggle Closing Note -->
+                        <div class="esc-highlight" id="esc-narr">
+                            🔄 <strong>How to Exit:</strong> This is a toggle button. Click it again to undo and restore the narration visibility state.
+                        </div>
+                    </div>
+
+                    <!-- 6 Narration Filter -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            <img src="media__1785259017486.png" style="height: 42px; border: 1px solid #cbd5e1; border-radius: 4px;" alt="6 Button">
+                            <span style="font-weight: 700; font-size: 1.15rem;" id="lbl-narr-filter-title">6 Narration Filter Button</span>
+                        </div>
+                        <p style="font-size: 1rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;" id="cat-d3">
+                            Type a name or keyword (like "Zomato", "Salary", or "Rent") to filter the table. The app will immediately show only the transactions that contain that word in their narrations. This makes it extremely easy to filter, select, and replace multiple ledger accounts at once!
+                        </p>
+                        
+                        <!-- Escape / Toggle Closing Note -->
+                        <div class="esc-highlight" id="esc-narr-filt">
+                            ⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to clear the search filter and close the search input box.
+                        </div>
+                    </div>
+
+                    <!-- Y Replace Ledger -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            <img src="media__1785259080643.png" style="height: 42px; border: 1px solid #cbd5e1; border-radius: 4px;" alt="Y Button">
+                            <span style="font-weight: 700; font-size: 1.15rem;" id="lbl-replace-title">Y Replace Ledger Button</span>
+                        </div>
+                        <p style="font-size: 1rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;" id="cat-d4">
+                            After selecting multiple vouchers (using Shift + Arrow, Ctrl + Click, or Easy Select Mode), click this button to bulk replace and overwrite their suspense ledger accounts with the correct Tally ledger name.
+                        </p>
+                        
+                        <!-- Escape / Toggle Closing Note -->
+                        <div class="esc-highlight" id="esc-replace">
+                            ⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to dismiss and close the Replace Ledger dialog.
+                        </div>
+                    </div>
+
+                    <!-- M Monthly Analysis -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px;">
+                        <div style="font-weight: 700; font-size: 1.15rem; margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                            <span class="pdf-badge" style="font-size: 0.95rem; padding: 4px 8px;">M Monthly Analysis</span>
+                        </div>
+                        <p style="font-size: 1rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;" id="cat-d5">
+                            Renders a month-by-month graphical cashflow visualizer of inflows and outflows. It also displays the final closing balance of each month so you can easily cross-check and reconcile it against your physical bank statement PDFs or Tally Prime records.
+                        </p>
+                        
+                        <!-- Escape / Toggle Closing Note -->
+                        <div class="esc-highlight" id="esc-monthly">
+                            ⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to close the monthly analysis chart overlay.
+                        </div>
+                    </div>
+
+                    <!-- A Advanced Filter -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            <img src="media__1785259544502.png" style="height: 42px; border: 1px solid #cbd5e1; border-radius: 4px;" alt="A Button">
+                            <span style="font-weight: 700; font-size: 1.15rem;" id="lbl-adv-title">A Advanced Filter Button</span>
+                        </div>
+                        <p style="font-size: 1rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px;" id="cat-d6">
+                            This is an advanced version of the narration filter. Instead of manually guessing and typing names or phone numbers, this feature automatically scans all transaction narrations in your statement and lists the most frequently occurring keywords, names, or phone numbers along with their frequency counts (i.e., how many times that keyword is present across all narrations).
+                            <br><br>
+                            When you click on any keyword in this list (like "sbin" or "hemant"), the app automatically filters the statement table to show only those vouchers containing that keyword (just like the narration filter) so you can replace multiple vouchers at once. You can also search for custom phrases or adjust the minimum frequency filter inside this modal.
+                        </p>
+                        <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 16px; border-radius: 6px; text-align: center; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 16px;">
+                            <img src="media__1785259566124.png" style="width: 100%; max-width: 460px; border-radius: 4px; display: block; margin: 0 auto;" alt="Advanced Narration Analysis Dialog">
+                        </div>
+                        
+                        <!-- Escape / Toggle Closing Note -->
+                        <div class="esc-highlight" id="esc-adv">
+                            ⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to close the Advanced Narration Analysis window.
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Section 6: Shortcuts & Multi-Select -->
+            <div class="pdf-section" id="short-sec">
+                <h2 id="short-h">6. Keyboard Shortcuts & Selecting Multiple Rows</h2>
+                <p class="section-intro" id="short-intro">Speed up your workflow by selecting multiple transactions at once, deleting unwanted rows, and saving your modifications instantly.</p>
+                
+                <div class="pdf-steps">
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">🖱️</div>
+                        <div class="pdf-step-text" id="short-s1"><strong>How to Select Multiple Rows:</strong>
+                            <br>• <strong>Easy Select Mode (Ticked):</strong> Tick the <em>"Easy Select Mode"</em> checkbox in the right sidebar. Once enabled, you can simply click directly on multiple transaction rows one-by-one to select them (no need to hold any keyboard keys).
+                            <br>• <strong>Shift + Arrow Down / Up:</strong> Hold the <span class="pdf-badge">Shift</span> key and press arrow keys to select multiple consecutive rows.
+                            <br>• <strong>Ctrl + Click:</strong> Hold the <span class="pdf-badge">Ctrl</span> key and click on individual rows to select multiple non-consecutive rows.
+                        </div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">❌</div>
+                        <div class="pdf-step-text" id="short-s2"><strong>How to Delete Vouchers:</strong>
+                            <br>1. Select one or more rows (using Easy Select Mode, Shift + Arrows, or Ctrl + Click).
+                            <br>2. Click the red <strong>Delete Vouchers</strong> button at the bottom-right of the screen, or press the <span class="pdf-badge">Delete</span> key on your keyboard.
+                        </div>
+                    </div>
+                    <div class="pdf-step-row">
+                        <div class="pdf-step-num">💾</div>
+                        <div class="pdf-step-text" id="short-s3"><strong>How to Save Changes:</strong>
+                            <br>• After making any modifications (like editing ledger accounts or deleting rows), click the green <strong>Save (Ctrl+S)</strong> button at the bottom-right, or press <span class="pdf-badge">Ctrl + S</span> on your keyboard.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pdf-callout" style="background: #f8fafc; border-color: #cbd5e1; color: var(--text-secondary);">
+                    <span class="callout-icon">💡</span>
+                    <div class="alert-text">
+                        <span id="short-summary"><strong>Review Desk Shortcut Reference:</strong>
+                            <br>• <span class="pdf-badge">Ctrl + S</span>: Save edits 
+                            <br>• <span class="pdf-badge">F2</span>: Period select
+                            <br>• <span class="pdf-badge">F5</span> / <span class="pdf-badge">5</span>: Show/hide narration
+                            <br>• <span class="pdf-badge">F6</span> / <span class="pdf-badge">6</span>: Narration search filter
+                            <br>• <span class="pdf-badge">F8</span>: Toggle Duplicate Check panel
+                            <br>• <span class="pdf-badge">Y</span>: Bulk Replace Ledger
+                            <br>• <span class="pdf-badge">M</span>: Monthly Analysis chart
+                            <br>• <span class="pdf-badge">A</span>: Advanced Filter modal
+                            <br>• <span class="pdf-badge">Delete</span>: Delete selected vouchers
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Script for language toggle -->
+    <script>
+        const dictionary = {
+            en: {
+                "ctrl-title": "Review Desk User Manual",
+                "doc-title": "Review Desk - User Manual",
+                "doc-subtitle": "A simple guide to configuration, ledger mapping, and duplicate auditing",
+                "toc-lbl": "Sections:",
+                "toc-s1": "1. Import XML",
+                "toc-s2": "2. Linking Tally",
+                "toc-s3": "3. Get Tally Data",
+                "toc-s4": "4. Audit Duplicates",
+                "toc-s5": "5. Desk Buttons",
+                "toc-s6": "6. Selection & Shortcuts",
+                
+                // Section 0
+                "xml-h": "1. Import Generated XML File",
+                "xml-intro": "Use the folder icon in the center of the Review Desk screen (shown when the desk opens before loading files) to import your generated bank statement XML file for auditing.",
+                "mock-lbl-0": "App Icon:",
+                "xml-s1": "Click the <strong>📁 Folder Icon</strong> in the center of the Review Desk screen to browse for your file, or drag and drop your XML file directly onto the workspace.",
+                "xml-s2": "Select the bank statement XML file that you created using the converter app.",
+                "xml-s3": "All transactions from the file will immediately load into the grid, allowing you to edit names, filter entries, and check for duplicates.",
+                
+                // Section 1
+                "sync-h": "2. Linking and Syncing Tally Ledgers",
+                "sync-intro": "Save time and prevent errors by copying the exact ledger account names directly from Tally Prime.",
+                "mock-lbl-1": "App Button:",
+                "mock-sync-txt": "Sync Tally",
+                "sync-s1": "<strong>Why this is important:</strong> When changing ledger accounts, you must type the exact spelling as saved in Tally Prime. If there is a spelling mistake, Tally will throw errors and reject the transactions during import.",
+                "sync-s2": "Open Tally Prime, go to <strong>Help (F1) ➔ Settings ➔ Connectivity</strong>.",
+                "sync-s3": "Click on the first option in the list: <strong>Client/Server configuration</strong>.",
+                "sync-s4": "Set the settings exactly like this:<br>• Set <em>TallyPrime acts as</em> to <strong>Both</strong><br>• Set <em>Enable ODBC</em> to <strong>Yes</strong><br>• Set <em>Port</em> to <strong>9000</strong><br>Press <strong>Ctrl + A</strong> to save, and restart Tally Prime. *(This is a one-time configuration)*",
+                "sync-s5": "Make sure your active target company is loaded in Tally Prime, and you are on the <strong>Gateway of Tally</strong> screen. Then click the green <strong>Sync Tally</strong> button to copy the ledger names.",
+                "sync-note": "<strong>Gateway of Tally Requirement:</strong> For every new Sync operation, Tally Prime must be running in the background and you must remain in the <strong>Gateway of Tally</strong> view of the target company on Tally.",
+                "lbl-img-1": "Tally Settings Submenu: Select Client/Server Configuration",
+                "lbl-img-2": "ODBC Server Configuration: Set to Both, Yes, Port 9000",
+                
+                // Section 2
+                "get-h": "3. Get Tally Data (Duplicate Check Mode)",
+                "get-intro": "Import your Tally ledger records into the app's temporary memory to scan for duplicate vouchers.",
+                "mock-lbl-2": "App Button:",
+                "mock-import-txt": "Import Tally Data",
+                "get-s1": "In Tally Prime, make sure the target company is loaded and you are on the <strong>Gateway of Tally</strong> screen.",
+                "get-s2": "In our app's Duplicate Check panel, type the exact <strong>Tally Company Name</strong> and <strong>Bank Ledger Name</strong> as they appear in Tally, then select the date period.",
+                "get-s3": "Click the <strong>Import Tally Data</strong> button. This fetches the vouchers for that period and stores them silently in the app's memory.",
+                "get-s4": "<strong>Note:</strong> This button will **not** display Tally vouchers on your screen. It loads the vouchers into memory behind the scenes to perform the duplicate check in the next step.",
+                "get-note": "<strong>Gateway of Tally Warning:</strong> To import Tally data successfully, Tally Prime must be running in the background and your view must be on the <strong>Gateway of Tally</strong> screen of the respective company.",
+                
+                // Section 3
+                "dup-h": "4. Detect Duplicate Transactions",
+                "dup-intro": "Identify and flag entries in your bank statement that are already posted in Tally Prime.",
+                "mock-lbl-3": "App Button:",
+                "mock-dup-txt": "Detect Duplicates",
+                "dup-s1": "Make sure you have clicked <strong>Import Tally Data</strong> first to load Tally's history for the selected period.",
+                "dup-s2": "Click the <strong>Detect Duplicates</strong> button.",
+                "dup-s3": "The app will compare your statement entries against Tally's memory records and flag matched rows.",
+                "dup-note": "<strong>Important Audit Detail:</strong> The Duplicate Check results panel calculates the **Debit, Credit, and Closing Balance for duplicate vouchers only**. It does not calculate these balances for new, unique vouchers.",
+                
+                // Section 4
+                "desk-h": "5. Review Desk Helper Buttons",
+                "desk-intro": "Use these utility buttons in the right sidebar panel to filter, group, and edit your entries quickly.",
+                "lbl-f8-title": "F8 Duplicate Check Button",
+                "lbl-f2-title": "F2 Period Button",
+                "lbl-narr-title": "5 Show / Hide Narration Button",
+                "lbl-narr-filter-title": "6 Narration Filter Button",
+                "lbl-replace-title": "Y Replace Ledger Button",
+                "lbl-adv-title": "A Advanced Filter Button",
+                "cat-d0": "Opens or closes the Duplicate Check configuration panel to scan bank transactions against Tally history.",
+                "fld-lbl-1": "Tally Company Name:",
+                "fld-desc-1": "Enter the exact name of the active company as saved in Tally Prime (e.g., 'Tally Test'). Make sure Tally Prime is running and this company is open on the Gateway of Tally screen.",
+                "fld-lbl-2": "Bank Ledger Name:",
+                "fld-desc-2": "Select the exact Bank Account ledger name from the dropdown as configured in Tally Prime (e.g., 'BANK OF BARODA').",
+                "fld-lbl-3": "From Date / To Date:",
+                "fld-desc-3": "Select the date period for which you want to cross-reference transactions from Tally to verify duplicates.",
+                "fld-lbl-4": "Date Match Tolerance (Date Clearance Margin):",
+                "fld-desc-4": "Sometimes transactions are recorded on slightly different dates in Tally compared to when they clear in the bank statement. You can choose a buffer window:<br>• <strong>Exact:</strong> The voucher date in Tally and bank statement transaction date must match exactly on the same calendar day.<br>• <strong>±1 Day:</strong> Checks for duplicate entries posted 1 day before or 1 day after the statement date. Useful because bank clearing dates can differ from the date the voucher is entered in Tally.<br>• <strong>±2 Days / ±3 Days:</strong> Checks within a 2 or 3-day window. Extremely useful for weekend transactions or bank holidays where a cheque or transfer might clear 2-3 days after you enter it in Tally.",
+                "cat-d1": "Filters the table to view transactions within a specific starting and ending date range.",
+                "cat-d2": "Toggles narration visibility. Click this button to show transaction narrations, or click it again to hide them and save screen space.",
+                "cat-d3": "Type a name or keyword (like 'Zomato', 'Salary', or 'Rent') to filter the table. The app will immediately show only the transactions that contain that word in their narrations. This makes it extremely easy to filter, select, and replace multiple ledger accounts at once!",
+                "cat-d4": "After selecting multiple vouchers (using Shift + Arrow, Ctrl + Click, or Easy Select Mode), click this button to bulk replace and overwrite their suspense ledger accounts with the correct Tally ledger name.",
+                "cat-d5": "Renders a month-by-month graphical cashflow visualizer of inflows and outflows. It also displays the final closing balance of each month so you can easily cross-check and reconcile it against your physical bank statement PDFs or Tally Prime records.",
+                "cat-d6": "This is an advanced version of the narration filter. Instead of manually guessing and typing names or phone numbers, this feature automatically scans all transaction narrations in your statement and lists the most frequently occurring keywords, names, or phone numbers along with their frequency counts (i.e., how many times that keyword is present across all narrations).<br><br>When you click on any keyword in this list (like 'sbin' or 'hemant'), the app automatically filters the statement table to show only those vouchers containing that keyword (just like the narration filter) so you can replace multiple vouchers at once. You can also search for custom phrases or adjust the minimum frequency filter inside this modal.",
+                "esc-f8": "⚠️ <strong>How to Exit:</strong> Click the F8 Duplicate Check button again on the right panel to exit duplicate check mode and return to normal review mode.",
+                "esc-f2": "⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to close the period selector modal.",
+                "esc-narr": "🔄 <strong>How to Exit:</strong> This is a toggle button. Click it again to undo and restore the narration visibility state.",
+                "esc-narr-filt": "⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to clear the search filter and close the search input box.",
+                "esc-replace": "⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to dismiss and close the Replace Ledger dialog.",
+                "esc-monthly": "⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to close the monthly analysis chart overlay.",
+                "esc-adv": "⌨️ <strong>How to Exit:</strong> Press the <strong>Esc</strong> key on your keyboard to close the Advanced Narration Analysis window.",
+
+                // Section 5
+                "short-h": "6. Keyboard Shortcuts & Selecting Multiple Rows",
+                "short-intro": "Speed up your workflow by selecting multiple transactions at once, deleting unwanted rows, and saving your modifications instantly.",
+                "short-s1": "<strong>How to Select Multiple Rows:</strong><br>• <strong>Easy Select Mode (Ticked):</strong> Tick the <em>\"Easy Select Mode\"</em> checkbox in the right sidebar. Once enabled, you can simply click directly on multiple transaction rows one-by-one to select them (no need to hold any keyboard keys).<br>• <strong>Shift + Arrow Down / Up:</strong> Hold the <span class=\"pdf-badge\">Shift</span> key and press arrow keys to select multiple consecutive rows.<br>• <strong>Ctrl + Click:</strong> Hold the <span class=\"pdf-badge\">Ctrl</span> key and click on individual rows to select multiple separate rows.",
+                "short-s2": "<strong>How to Delete Vouchers:</strong><br>1. Select one or more rows (using Easy Select Mode, Shift + Arrows, or Ctrl + Click).<br>2. Click the red <strong>Delete Vouchers</strong> button at the bottom-right of the screen, or press the <span class=\"pdf-badge\">Delete</span> key on your keyboard.",
+                "short-s3": "<strong>How to Save Changes:</strong><br>• After making any modifications (like editing ledger accounts or deleting rows), click the green <strong>Save (Ctrl+S)</strong> button at the bottom-right, or press <span class=\"pdf-badge\">Ctrl + S</span> on your keyboard.",
+                "short-summary": "<strong>Review Desk Shortcut Reference:</strong><br>• <span class=\"pdf-badge\">Ctrl + S</span>: Save edits<br>• <span class=\"pdf-badge\">F2</span>: Period select<br>• <span class=\"pdf-badge\">F5</span> / <span class=\"pdf-badge\">5</span>: Show/hide narration<br>• <span class=\"pdf-badge\">F6</span> / <span class=\"pdf-badge\">6</span>: Narration search filter<br>• <span class=\"pdf-badge\">F8</span>: Toggle Duplicate Check panel<br>• <span class=\"pdf-badge\">Y</span>: Bulk Replace Ledger<br>• <span class=\"pdf-badge\">M</span>: Monthly Analysis chart<br>• <span class=\"pdf-badge\">A</span>: Advanced Filter modal<br>• <span class=\"pdf-badge\">Delete</span>: Delete selected vouchers"
+            },
+            te: {
+                "ctrl-title": "రివ్యూ డెస్క్ యూజర్ మాన్యువల్",
+                "doc-title": "రివ్యూ డెస్క్ - యూజర్ మాన్యువల్",
+                "doc-subtitle": "టాలీ కాన్ఫిగరేషన్, లెడ్జర్ మ్యాపింగ్ మరియు డూప్లికేట్లు తనిఖీ చేయడానికి సులువైన గైడ్",
+                "toc-lbl": "విభాగాలు:",
+                "toc-s1": "1. XML ఇంపోర్ట్",
+                "toc-s2": "2. టాలీ లింక్ చేయడం",
+                "toc-s3": "3. టాలీ డేటా లోడ్",
+                "toc-s4": "4. డూప్లికేట్ తనిఖీ",
+                "toc-s5": "5. డెస్క్ బటన్లు",
+                "toc-s6": "6. షార్ట్‌కట్‌లు & ఎంపిక",
+                
+                // Section 0
+                "xml-h": "1. జనరేట్ చేసిన XML ఫైల్‌ను లోడ్ చేయండి",
+                "xml-intro": "రివ్యూ డెస్క్ ఓపెన్ చేసినప్పుడు స్క్రీన్ మధ్యలో కనిపించే ఫోల్డర్ ఐకాన్ ఉపయోగించి మీ బ్యాంక్ స్టేట్‌మెంట్ XML ఫైల్‌ను ఇంపోర్ట్ చేయండి.",
+                "mock-lbl-0": "యాప్ ఐకాన్:",
+                "xml-s1": "రివ్యూ డెస్క్ మధ్యలో ఉన్న <strong>📁 ఫోల్డర్ ఐకాన్</strong> ని క్లిక్ చేసి ఫైల్‌ను సెలెక్ట్ చేసుకోండి, లేదా మీ XML ఫైల్‌ను నేరుగా డెస్క్ పై డ్రాప్ చేయండి.",
+                "xml-s2": "మీరు తయారుచేసుకున్న బ్యాంక్ స్టేట్‌మెంట్ XML ఫైల్‌ను ఎంచుకోండి.",
+                "xml-s3": "ఫైల్ లోని లావాదేవీలన్నీ వెంటనే పట్టిక లోకి లోడ్ అవుతాయి. ఇక్కడి నుండి మీరు ఖాతాల పేర్లు మార్చడం, ఫిల్టర్ చేయడం మరియు డూప్లికేట్ తనిఖీ చేయవచ్చు.",
+                
+                // Section 1
+                "sync-h": "2. టాలీ లెడ్జర్‌ల లింక్ మరియు సింక్ ప్రక్రియ",
+                "sync-intro": "టాలీలో ఉన్న అసలైన ఖాతా పేర్లను నేరుగా కాపీ చేసుకోవడం ద్వారా స్పెల్లింగ్ తప్పులను నిరోధించండి.",
+                "mock-lbl-1": "యాప్ బటన్:",
+                "mock-sync-txt": "Sync Tally",
+                "sync-s1": "<strong>ఇది ఎందుకు ముఖ్యం:</strong> లావాదేవీల ఖాతా (Ledger) పేర్లు మార్చేటప్పుడు, టాలీ ప్రైమ్ లో ఎలా ఉందో అలాగే ఖచ్చితంగా రాయాలి. ఒక చిన్న స్పెల్లింగ్ తప్పు ఉన్నా కూడా టాలీ డేటాను రిజెక్ట్ చేస్తుంది.",
+                "sync-s2": "టాలీ ప్రైమ్ ఓపెన్ చేసి, పైన ఉన్న <strong>Help (F1) ➔ Settings ➔ Connectivity</strong> ఆప్షన్స్ లోకి వెళ్ళండి.",
+                "sync-s3": "లిస్టు లో ఉన్న మొదటి ఆప్షన్ <strong>Client/Server configuration</strong> పై క్లిక్ చేయండి.",
+                "sync-s4": "అక్కడ సెట్టింగ్స్ ను ఈ క్రింది విధంగా సెట్ చేయండి:<br>• <em>TallyPrime acts as:</em> <strong>Both</strong> కి మార్చండి<br>• <em>Enable ODBC:</em> <strong>Yes</strong> కి మార్చండి<br>• <em>Port:</em> <strong>9000</strong> కి మార్చండి<br>మార్పులను సేవ్ చేయడానికి <strong>Ctrl + A</strong> నొక్కి, టాలీ ప్రైమ్ ను రీస్టార్ట్ చేయండి. *(ఇది కేవలం ఒక్కసారి మాత్రమే చేయవలసిన కాన్ఫిగరేషన్)*",
+                "sync-s5": "టాలీ ప్రైమ్ లో మీ యాక్టివ్ కంపెనీ ఓపెన్ అయి ఉండాలి మరియు స్క్రీన్ <strong>Gateway of Tally</strong> లో ఉండాలి. తర్వాత ఆకుపచ్చ రంగు <strong>Sync Tally</strong> బటన్ ని క్లిక్ చేసి లెడ్జర్ పేర్లను కాపీ చేయండి.",
+                "sync-note": "<strong>టాలీ స్క్రీన్ గమనిక:</strong> కొత్తగా సింక్ చేసే ప్రతిసారీ టాలీ బ్యాక్‌గ్రౌండ్ లో రన్ అవుతూ, టాలీ లో మీ వ్యూ <strong>Gateway of Tally</strong> హోమ్ స్క్రీన్ పైనే ఉండాలి.",
+                "lbl-img-1": "టాలీ కనెక్టివిటీ సెట్టింగుల మెనూ: క్లయింట్/సర్వర్ కాన్ఫిగరేషన్ ఎంచుకోండి",
+                "lbl-img-2": "ODBC సర్వర్ సెట్టింగులు: Both, Yes, మరియు Port 9000 సెట్ చేయండి",
+                
+                // Section 2
+                "get-h": "3. టాలీ డేటాను తెచ్చుకోవడం (Import Tally Data)",
+                "get-intro": "డూప్లికేట్ ఎంట్రీలను గుర్తించడానికి, టాలీలో ఇప్పటికే ఉన్న ఎంట్రీల రికార్డులను యాప్ తాత్కాలిక మెమరీ లోకి లోడ్ చేయండి.",
+                "mock-lbl-2": "యాప్ బటన్:",
+                "mock-import-txt": "Import Tally Data",
+                "get-s1": "టాలీ ప్రైమ్ బ్యాక్‌గ్రౌండ్ లో రన్ అవుతుండాలి మరియు మీ స్క్రీన్ <strong>Gateway of Tally</strong> పై ఉండాలి.",
+                "get-s2": "డూప్లికేట్ చెక్ ప్యానెల్ లో మీ ఖచ్చితమైన **టాలీ కంపెనీ పేరు** మరియు **బ్యాంక్ లెడ్జర్ పేరు** టైప్ చేసి, తేదీల వ్యవధిని ఎంచుకోండి.",
+                "get-s3": "<strong>Import Tally Data</strong> బటన్‌ను క్లిక్ చేయండి. ఇది ఆ తేదీల పరిధిలోని టాలీ ఎంట్రీలను యాప్ లోకి లోడ్ చేస్తుంది.",
+                "get-s4": "<strong>గమనిక:</strong> ఈ బటన్ క్లిక్ చేసినప్పుడు స్క్రీన్ పై ఎలాంటి వోచర్లు లేదా పట్టికలు కనిపించవు. ఇది డూప్లికేట్లను గుర్తించడానికి వీలుగా బ్యాక్‌గ్రౌండ్ లో డేటాను మాత్రమే రీడ్ చేస్తుంది.",
+                "get-note": "<strong>టాలీ రన్నింగ్ గమనిక:</strong> టాలీ డేటా సక్సెస్ ఫుల్ గా ఇంపోర్ట్ కావడానికి టాలీ ఓపెన్ అయి ఉండాలి మరియు ఆయా కంపెనీ యొక్క <strong>Gateway of Tally</strong> స్క్రీన్ లోనే ఉండాలి.",
+                
+                // Section 3
+                "dup-h": "4. డూప్లికేట్ (డబుల్ ఎంట్రీ) తనిఖీ",
+                "dup-intro": "బ్యాంక్ స్టేట్‌మెంట్‌లోని లావాదేవీలు ఇప్పటికే టాలీలో వేసి ఉన్నాయో లేదో సరిపోల్చి చూసుకోండి.",
+                "mock-lbl-3": "యాప్ బటన్:",
+                "mock-dup-txt": "Detect Duplicates",
+                "dup-s1": "మొదట, టాలీ డేటాను లోడ్ చేయడానికి స్టెప్ 2 లోని <strong>Import Tally Data</strong> ని క్లిక్ చేశారని నిర్ధారించుకోండి.",
+                "dup-s2": "<strong>Detect Duplicates</strong> బటన్ పై క్లిక్ చేయండి.",
+                "dup-s3": "సిస్టమ్ మీ బ్యాంక్ ఎంట్రీలను టాలీ డేటాతో పోల్చి చూసి, ఇప్పటికే టాలీలో ఉన్న ఎంట్రీలను పట్టిక లో గుర్తిస్తుంది.",
+                "dup-note": "<strong>ముఖ్యమైన ఆడిట్ సమాచారం:</strong> డూప్లికేట్ తనిఖీ ప్యానెల్ కేవలం **డూప్లికేట్ ఎంట్రీలకు సంబంధించిన డెబిట్, క్రెడిట్ మరియు క్లోజింగ్ బ్యాలెన్స్ వివరాలను మాత్రమే** లెక్కిస్తుంది. కొత్త వోచర్లకు ఈ బ్యాలెన్స్ వివరాలు చూపించవు.",
+                
+                // Section 4
+                "desk-h": "5. రివ్యూ డెస్క్ సహాయక బటన్లు",
+                "desk-intro": "లావాదేవీలను వడపోసి, ఒకేసారి లెడ్జర్లను సవరించడానికి కుడి వైపున ఉన్న ఈ బటన్లను ఉపయోగించండి.",
+                "lbl-f8-title": "F8 డూప్లికేట్ చెక్ బటన్",
+                "lbl-f2-title": "F2 పీరియడ్ బటన్",
+                "lbl-narr-title": "5 నరేషన్ చూపించు / దాచు బటన్",
+                "lbl-narr-filter-title": "6 నరేషన్ ఫిల్టర్ బటన్",
+                "lbl-replace-title": "Y లెడ్జర్ మార్పిడి బటన్",
+                "lbl-adv-title": "A అడ్వాన్స్డ్ ఫిల్టర్ బటన్",
+                "cat-d0": "బ్యాంక్ లావాదేవీలను టాలీ హిస్టరీతో స్కాన్ చేయడానికి డూప్లికేట్ చెక్ కాన్ఫిగరేషన్ ప్యానెల్‌ను ఓపెన్ లేదా క్లోజ్ చేస్తుంది.",
+                "fld-lbl-1": "టాలీ కంపెనీ పేరు (Tally Company Name):",
+                "fld-desc-1": "టాలీ ప్రైమ్ లో సేవ్ చేయబడిన కంపెనీ పేరును ఇక్కడ ఖచ్చితంగా టైప్ చేయండి (ఉదా: 'Tally Test'). టాలీ ప్రైమ్ రన్ అవుతూ, అందులో ఈ కంపెనీ ఓపెన్ అయి, వ్యూ 'Gateway of Tally' స్క్రీన్ లో ఉండాలని నిర్ధారించుకోండి.",
+                "fld-lbl-2": "బ్యాంక్ లెడ్జర్ పేరు (Bank Ledger Name):",
+                "fld-desc-2": "టాలీ లో సేవ్ చేసి ఉన్న మీ బ్యాంక్ ఖాతా లెడ్జర్ పేరును డ్రాప్‌డౌన్ నుండి సెలెక్ట్ చేసుకోండి (ఉదా: 'BANK OF BARODA').",
+                "fld-lbl-3": "తేదీ పరిధి (From Date / To Date):",
+                "fld-desc-3": "డూప్లికేట్ చెక్ చేయడానికి, టాలీ నుండి ఏ తేదీల పరిధిలోని లావాదేవీలను పోల్చి చూడాలో ఆ వ్యవధిని ఎంచుకోండి.",
+                "fld-lbl-4": "తేదీ సరిపోలిక మార్జిన్ (Date Match Tolerance):",
+                "fld-desc-4": "బ్యాంక్ స్టేట్‌మెంట్‌లోని లావాదేవీల తేదీ మరియు టాలీ లో పోస్ట్ చేసిన వోచర్ల తేదీలలో స్వల్ప వ్యత్యాసం ఉండే అవకాశం ఉంటుంది (ఉదా: వీకెండ్ లేదా బ్యాంకు సెలవులు). దానిని సులభంగా సరిపోల్చడానికి క్రింది మార్జిన్లని వాడుకోవచ్చు:<br>• <strong>Exact:</strong> టాలీ వోచర్ తేదీ మరియు బ్యాంక్ స్టేట్‌మెంట్ లావాదేవీ తేదీ ఒకే రోజున ఉంటేనే డూప్లికేట్‌గా గుర్తిస్తుంది.<br>• <strong>±1 Day:</strong> ఒక రోజు ముందూ లేదా వెనుక పోస్ట్ అయి ఉన్నా కూడా గుర్తించి సరిపోలుస్తుంది.<br>• <strong>±2 Days / ±3 Days:</strong> రెండు లేదా మూడు రోజుల ముందూ-వెనుక వ్యవధి లో ఉన్నవాటిని తనిఖీ చేస్తుంది. ఇది వీకెండ్ లావాదేవీల క్లియరెన్స్ వ్యత్యాసాన్ని సులభంగా పసిగట్టడానికి సహాయపడుతుంది.",
+                "cat-d1": "ఎంచుకున్న ప్రారంభ మరియు ముగింపు తేదీల వ్యవధిలోని లావాదేవీలను మాత్రమే చూపిస్తుంది.",
+                "cat-d2": "నరేషన్లను (లావాదేవీల వివరణలను) స్క్రీన్ పై చూపించడానికి లేదా దాచడానికి ఉపయోగపడుతుంది.",
+                "cat-d3": "సెర్చ్ బాక్స్ లో ఏదైనా పేరు లేదా పదం (ఉదా: Zomato, Salary) టైప్ చేస్తే, ఆ పేరు నరేషన్ వివరణలో ఉన్న లావాదేవీలను మాత్రమే చూపిస్తుంది. దీని ద్వారా ఒకే రకమైన లావాదేవీలను సులభంగా ఫిల్టర్ చేసి, ఒకేసారి వాటి లెడ్జర్ పేర్లను మార్చడానికి ఇది ఉపయోగపడుతుంది.",
+                "cat-d4": "మల్టీ-సెలెక్ట్ విధానం (Shift + Arrows, Ctrl + Click లేదా Easy Select Mode) ద్వారా లావాదేవీలను ఎంచుకున్న తర్వాత, ఈ బటన్‌ను క్లిక్ చేసి వాటన్నిటి 'Suspense' ఖాతా స్థానంలో సరైన టాలీ లెడ్జర్ పేరును ఒకేసారి మార్చుకోవచ్చు.",
+                "cat-d5": "నెలవారీగా జమ అయిన నగదు మరియు ఖర్చుల సారాంశాన్ని గ్రాఫ్ ద్వారా సులభంగా చూపిస్తుంది. ఇది ప్రతి నెల యొక్క ఫైనల్ క్లోజింగ్ బ్యాలెన్స్ ను కూడా చూపిస్తుంది, దీని ద్వారా మీరు మీ బ్యాంక్ స్టేట్‌మెంట్ PDF లేదా టాలీ ప్రైమ్ రికార్డులతో సరిపోల్చి చూసుకోవచ్చు.",
+                "cat-d6": "ఇది నరేషన్ ఫిల్టర్ యొక్క అడ్వాన్స్డ్ వెర్షన్. బ్యాంక్ స్టేట్‌మెంట్‌లోని ఫోన్ నంబర్లు లేదా కస్టమర్ల పేర్లను మీరు వెతికి టైప్ చేయాల్సిన అవసరం లేకుండా, ఈ ఫీచర్ ఆటోమేటిక్‌గా అన్ని లావాదేవీల నరేషన్లను స్కాన్ చేసి, పదే పదే వచ్చే పేర్లు, ఫోన్ నంబర్లు మరియు అవి ఎన్నిసార్లు వచ్చాయో (ఫ్రీక్వెన్సీ కౌంట్) చూపిస్తుంది.<br><br>లిస్టు లోని ఏదైనా పదం (ఉదా: 'sbin' లేదా 'hemant') పై క్లిక్ చేస్తే, యాప్ వెంటనే ఆ పదం ఉన్న వోచర్లను మాత్రమే ఫిల్టర్ చేసి చూపిస్తుంది. దీనివల్ల ఒకేసారి బల్క్ లెడ్జర్ రీప్లేస్ చేయడం చాలా సులభం అవుతుంది. మీరు ఈ విండో లో కస్టమ్ నరేషన్ సెర్చ్ చేయవచ్చు లేదా కనీస ఫ్రీక్వెన్సీ పరిమితిని మార్చుకోవచ్చు.",
+                "esc-f8": "⚠️ <strong>నిష్క్రమించే విధానం:</strong> డూప్లికేట్ చెక్ మోడ్ నుండి నిష్క్రమించి సాధారణ రివ్యూ మోడ్‌కి తిరిగి రావడానికి కుడి ప్యానెల్‌లోని F8 Duplicate Check బటన్‌ను మరొకసారి క్లిక్ చేయండి.",
+                "esc-f2": "⌨️ <strong>నిష్క్రమించే విధానం:</strong> తేదీ వ్యవధి ఎంపిక విండోను క్లోజ్ చేయడానికి మీ కీబోర్డులోని <strong>Esc</strong> కీని ప్రెస్ చేయండి.",
+                "esc-narr": "🔄 <strong>నిష్క్రమించే విధానం:</strong> ఇది ఒక టోగుల్ బటన్. నరేషన్స్ కాలమ్‌ను మళ్ళీ చూపించడానికి దీనిని మరొకసారి క్లిక్ చేయండి.",
+                "esc-narr-filt": "⌨️ <strong>నిష్క్రమించే విధానం:</strong> నరేషన్ సెర్చ్ ఫిల్టర్ తీసివేసి క్లోజ్ చేయడానికి మీ కీబోర్డులోని <strong>Esc</strong> కీని ప్రెస్ చేయండి.",
+                "esc-replace": "⌨️ <strong>నిష్క్రమించే విధానం:</strong> లెడ్జర్ మార్పిడి విండోను క్లోజ్ చేయడానికి మీ కీబోర్డులోని <strong>Esc</strong> కీని ప్రెస్ చేయండి.",
+                "esc-monthly": "⌨️ <strong>నిష్క్రమించే విధానం:</strong> నెలవారీ విశ్లేషణ చార్ట్ స్క్రీన్‌ను క్లోజ్ చేయడానికి మీ కీబోర్డులోని <strong>Esc</strong> కీని ప్రెస్ చేయండి.",
+                "esc-adv": "⌨️ <strong>నిష్క్రమించే విధానం:</strong> అడ్వాన్స్డ్ నరేషన్ అనాలిసిస్ విండోను క్లోజ్ చేయడానికి మీ కీబోర్డులోని <strong>Esc</strong> కీని ప్రెస్ చేయండి.",
+
+                // Section 5
+                "short-h": "6. కీబోర్డ్ షార్ట్‌కట్‌లు & మల్టీ-సెలెక్ట్ విధానం",
+                "short-intro": "ఒకేసారి ఎక్కువ ఎంట్రీలను సెలెక్ట్ చేయడం, వద్దనుకున్న వాటిని తొలగించడం, మరియు మార్పులను వెంటనే సేవ్ చేయడం ద్వారా మీ పనిని మరింత సులభతరం చేసుకోండి.",
+                "short-s1": "<strong>ఒకేసారి ఎక్కువ రోస్ ఎలా సెలెక్ట్ చేయాలి (Multi-Select):</strong><br>• <strong>Easy Select Mode (టిక్ చేయండి):</strong> కుడి వైపు ప్యానెల్ లోని <em>\"Easy Select Mode\"</em> బాక్స్ ని టిక్ చేయండి. ఇది ఆన్ చేసిన తర్వాత, మీరు కీబోర్డ్ లో ఏ కీస్ పట్టుకోనవసరం లేకుండా, కేవలం కావాల్సిన లావాదేవీలపై వరుసగా క్లిక్ చేసుకుంటూ వెళ్తే అవి సెలెక్ట్ అయిపోతాయి.<br>• <strong>Shift + Arrow Down / Up:</strong> కీబోర్డ్ లోని <span class=\"pdf-badge\">Shift</span> కీ ని పట్టుకుని యారో కీస్ ఉపయోగించడం ద్వారా వరుసగా ఉన్న రోస్ ని సెలెక్ట్ చేయవచ్చు.<br>• <strong>Ctrl + Click:</strong> కీబోర్డ్ లోని <span class=\"pdf-badge\">Ctrl</span> కీ ని పట్టుకుని, కావలసిన విడివిడి రోస్ పై క్లిక్ చేయడం ద్వారా సెలెక్ట్ చేయవచ్చు.",
+                "short-s2": "<strong>వోచర్లు డిలీట్ చేయడం ఎలా:</strong><br>1. పైన పేర్కొన్న విధంగా ఒకటి లేదా అంతకంటే ఎక్కువ రోస్ ని సెలెక్ట్ చేయండి (Easy Select Mode, Shift + Arrows, లేదా Ctrl + Click ఉపయోగించి).<br>2. కుడి వైపు క్రింద ఉన్న ఎరుపు రంగు <strong>Delete Vouchers</strong> బటన్ క్లిక్ చేయండి, లేదా కీబోర్డ్ లోని <span class=\"pdf-badge\">Delete</span> కీ ని ప్రెస్ చేయండి.",
+                "short-s3": "<strong>మార్పులను సేవ్ చేయడం ఎలా:</strong><br>• ఏదైనా సవరణలు లేదా డిలీట్ చేసిన తర్వాత, కుడి వైపు క్రింద ఉన్న ఆకుపచ్చ రంగు <strong>Save (Ctrl+S)</strong> బటన్ ని క్లిక్ చేయండి, లేదా కీబోర్డ్ లో <span class=\"custom-badge\">Ctrl + S</span> ప్రెస్ చేయండి.",
+                "short-summary": "<strong>రివ్యూ డెస్క్ షార్ట్‌కట్ కీస్ సమాచారం:</strong><br>• <span class=\"pdf-badge\">Ctrl + S</span>: మార్పులను సేవ్ చేయండి<br>• <span class=\"pdf-badge\">F2</span>: పీరియడ్ సెలెక్ట్<br>• <span class=\"pdf-badge\">F5</span> / <span class=\"pdf-badge\">5</span>: నరేషన్ చూపించడం/దాచడం<br>• <span class=\"pdf-badge\">F6</span> / <span class=\"pdf-badge\">6</span>: నరేషన్ సెర్చ్ ఫిల్టర్<br>• <span class=\"pdf-badge\">F8</span>: డూప్లికేట్ చెక్ ప్యానెల్ ఓపెన్/క్లోజ్ చేయండి<br>• <span class=\"pdf-badge\">Y</span>: బల్క్ లెడ్జర్ రీప్లేస్<br>• <span class=\"pdf-badge\">M</span>: నెలవారీ విశ్లేషణ చార్ట్<br>• <span class=\"pdf-badge\">A</span>: అడ్వాన్స్డ్ ఫిల్టర్ విండో<br>• <span class=\"pdf-badge\">Delete</span>: సెలెక్ట్ చేసిన వోచర్లు డిలీట్ చేయండి"
+            }
+        };
+
+        function switchLanguage(lang) {
+            const btns = document.querySelectorAll('.lang-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            
+            const activeBtn = Array.from(btns).find(btn => btn.textContent.toLowerCase().includes(lang === 'te' ? 'తెలుగు' : 'english'));
+            if (activeBtn) activeBtn.classList.add('active');
+
+            const current = dictionary[lang];
+            Object.keys(current).forEach(key => {
+                const el = document.getElementById(key);
+                if (el) {
+                    el.innerHTML = current[key];
+                }
+            });
+        }
+
+        // Initialize with English
+        switchLanguage('en');
+    </script>
+</body>
+</html>

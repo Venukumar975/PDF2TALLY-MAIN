@@ -46,16 +46,22 @@ def extract_and_preview_tables(file_path) -> dict:
     """
     try:
         with pdfplumber.open(file_path) as pdf:
-            # Look for the first page that contains a table
+            # Look for the first page that contains a valid table
             target_table = None
             for page_num, page in enumerate(pdf.pages):
                 tables = page.extract_tables()
                 if tables:
-                    # Ignore empty tables
                     for t in tables:
-                        if t and len(t) > 1: # Header + at least one row
-                            target_table = t
-                            break
+                        # Ensure table has at least header + 1 row, and at least 5 columns
+                        if t and len(t) > 1 and len(t[0]) >= 5:
+                            # Verify the table actually contains text data (is not entirely blank)
+                            has_text = any(
+                                any(str(cell).strip() for cell in row if cell is not None)
+                                for row in t
+                            )
+                            if has_text:
+                                target_table = t
+                                break
                 if target_table:
                     break
             
@@ -181,6 +187,7 @@ def parse_hybrid_transactions(file_path, mapping, boundary_date=None) -> list:
     """
     date_idx = int(mapping.get("date", -1))
     narr_idx = int(mapping.get("narration", -1))
+    narr_idx_2 = int(mapping.get("narration_2", -1))
     debit_idx = int(mapping.get("debit", -1))
     credit_idx = int(mapping.get("credit", -1))
     balance_idx = int(mapping.get("balance", -1))
@@ -190,6 +197,10 @@ def parse_hybrid_transactions(file_path, mapping, boundary_date=None) -> list:
         return []
         
     transactions = []
+    
+    # Calculate the maximum active column index dynamically
+    active_indices = [idx for idx in [date_idx, narr_idx, narr_idx_2, debit_idx, credit_idx, balance_idx] if idx != -1]
+    max_idx = max(active_indices) if active_indices else -1
     
     try:
         with pdfplumber.open(file_path) as pdf:
@@ -216,7 +227,7 @@ def parse_hybrid_transactions(file_path, mapping, boundary_date=None) -> list:
                             continue
                         
                         # Validate row length matches mapping requirements
-                        if len(cleaned_row) <= max(date_idx, narr_idx, debit_idx, credit_idx, balance_idx):
+                        if len(cleaned_row) <= max_idx:
                             continue
                             
                         raw_date = cleaned_row[date_idx]
@@ -246,6 +257,10 @@ def parse_hybrid_transactions(file_path, mapping, boundary_date=None) -> list:
                                     continue
                                     
                             narration = cleaned_row[narr_idx]
+                            if narr_idx_2 != -1 and len(cleaned_row) > narr_idx_2:
+                                secondary_val = cleaned_row[narr_idx_2]
+                                if secondary_val:
+                                    narration += " | " + secondary_val
                             
                             # Handle single-column amounts with indicator labels
                             # e.g., if Debit and Credit are mapped to the same index
@@ -283,9 +298,17 @@ def parse_hybrid_transactions(file_path, mapping, boundary_date=None) -> list:
                             })
                         else:
                             # Continuation row (no date) -> append narration to previous transaction if not noise
-                            if transactions and cleaned_row[narr_idx]:
-                                extra_narration = cleaned_row[narr_idx]
-                                if extra_narration.lower() not in {"narration", "description", "particulars", "remarks", "details"}:
+                            if transactions:
+                                extra_narration = ""
+                                if len(cleaned_row) > narr_idx and cleaned_row[narr_idx]:
+                                    extra_narration = cleaned_row[narr_idx]
+                                if narr_idx_2 != -1 and len(cleaned_row) > narr_idx_2 and cleaned_row[narr_idx_2]:
+                                    if extra_narration:
+                                        extra_narration += " | " + cleaned_row[narr_idx_2]
+                                    else:
+                                        extra_narration = cleaned_row[narr_idx_2]
+                                        
+                                if extra_narration and extra_narration.lower() not in {"narration", "description", "particulars", "remarks", "details"}:
                                     transactions[-1]["narration"] += " " + extra_narration
                         
         return transactions

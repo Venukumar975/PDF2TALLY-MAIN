@@ -26,6 +26,7 @@ def build_secure():
         "-r",
         "desktop_run.py", "app_flask.py", "routes.py", "routes_tally.py", "licensing.py",
         "routes_base.py", "routes_licensing.py", "routes_bank.py", "routes_gstr1.py", "routes_hybrid.py", "routes_download.py",
+        "routes_redact.py",
         "services", "parsers", "strategies", "slicers"
     ]
     
@@ -54,7 +55,8 @@ def build_secure():
         "email.mime.multipart",
         "email.mime.text",
         "email.mime.base",
-        "email.encoders"
+        "email.encoders",
+        "fitz"
     ]
 
     # Map package names to import names
@@ -63,7 +65,9 @@ def build_secure():
         "pdfminer.six": "pdfminer",
         "gitpython": "git",
         "python-dateutil": "dateutil",
-        "python-multipart": "multipart"
+        "python-multipart": "multipart",
+        "pymupdf": "fitz",
+        "pywin32-ctypes": "pywin32_ctypes"
     }
 
     if os.path.exists("requirements.txt"):

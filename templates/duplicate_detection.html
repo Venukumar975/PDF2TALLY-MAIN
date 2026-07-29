@@ -55,11 +55,17 @@
         color: #38bdf8 !important;
     }
     body.night-theme #duplicate-detection-panel input[type="text"],
-    body.night-theme #duplicate-detection-panel input[type="date"] {
+    body.night-theme #duplicate-detection-panel input[type="date"],
+    body.night-theme #duplicate-detection-panel input[type="number"] {
         background-color: #0f172a !important;
         color: #ffffff !important;
         border-color: #38bdf8 !important;
         outline-color: #38bdf8 !important;
+    }
+    body.night-theme #dup-compare-tip {
+        background-color: #451a03 !important;
+        border-color: #78350f !important;
+        color: #fde68a !important;
     }
     body.night-theme #duplicate-detection-panel input[type="radio"],
     body.night-theme #duplicate-detection-panel input[type="checkbox"] {
@@ -76,17 +82,35 @@
         color: #ffffff !important;
     }
     body.night-theme #dup-filter-card {
-        background-color: #1e293b !important;
-        border-color: #000000 !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
         color: #f1f5f9 !important;
     }
-    body.night-theme #dup-filter-card div {
-        color: #e2e8f0 !important;
-        border-bottom-color: #475569 !important;
+    body.night-theme #dup-filter-card span {
+        color: #38bdf8 !important;
     }
-    body.night-theme #btn-stats-dup-only {
-        background-color: #064e3b !important;
-        border-color: #10b981 !important;
+    body.night-theme #dup-filter-card button {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+        color: #cbd5e0 !important;
+    }
+    body.night-theme #dup-filter-card button:hover {
+        background-color: #1e293b !important;
+        border-color: #475569 !important;
+    }
+    #btn-stats-dup-only.active-dup {
+        background-color: #fef3c7 !important;
+        border: 2px solid #d97706 !important;
+        color: #b45309 !important;
+        font-weight: bold;
+        box-shadow: 0 4px 8px rgba(217, 119, 6, 0.12) !important;
+    }
+    body.night-theme #btn-stats-dup-only.active-dup {
+        background-color: #78350f !important;
+        border: 2px solid #d97706 !important;
+        color: #fde68a !important;
+        font-weight: bold;
     }
     body.night-theme #btn-stats-new-only {
         background-color: #334155 !important;
@@ -109,11 +133,13 @@
     <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
         <div style="display: flex; flex-direction: column; gap: 4px;">
             <label style="font-weight: bold; color: #002d5a;">Tally Company Name:</label>
-            <input type="text" id="dup-company-name" placeholder="Exact Tally Company Name">
+            <input type="text" id="dup-company-name" list="dup-company-history-list" placeholder="Exact Tally Company Name">
+            <datalist id="dup-company-history-list"></datalist>
         </div>
         <div style="display: flex; flex-direction: column; gap: 4px;">
             <label style="font-weight: bold; color: #002d5a;">Bank Ledger Name:</label>
-            <input type="text" id="dup-bank-name" placeholder="e.g. BANK OF BARODA">
+            <input type="text" id="dup-bank-name" list="dup-bank-history-list" placeholder="e.g. BANK OF BARODA">
+            <datalist id="dup-bank-history-list"></datalist>
         </div>
         <div style="display: flex; flex-direction: column; gap: 4px;">
             <label style="font-weight: bold; color: #002d5a;">From Date:</label>
@@ -141,25 +167,25 @@
                 </label>
             </div>
         </div>
-        
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <span style="font-weight: bold; color: #002d5a;">Match Conditions:</span>
-            <div style="display: flex; gap: 10px; align-items: center; height: 28px;">
-                <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
-                    <input type="checkbox" id="dup-cond-vchtype" style="width: auto; margin: 0;"> Vch Type
-                </label>
-                <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
-                    <input type="checkbox" id="dup-cond-narration" style="width: auto; margin: 0;"> Narration
-                </label>
-                <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
-                    <input type="checkbox" id="dup-cond-particulars" style="width: auto; margin: 0;"> Particulars
-                </label>
+
+        <!-- Duplicate Filters Group -->
+        <div id="dup-filter-card" class="hidden" style="background: #f0f4f8; border: 2px solid #000000; box-shadow: 2px 2px 0px #000000; border-radius: 4px; padding: 4px 8px; margin-left: 20px; user-select: none; display: flex; flex-direction: column; gap: 2px; align-self: flex-end; margin-bottom: 2px;">
+            <div style="font-weight: bold; color: #002d5a; font-size: 0.72rem; border-bottom: 1px solid #cbd5e0; padding-bottom: 2px; margin-bottom: 2px;">Duplicate Filters</div>
+            <div style="display: flex; gap: 6px; align-items: center; height: 26px;">
+                <button id="btn-stats-dup-all" class="stats-interactive-row active-all" onclick="toggleStatsFilter('all')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">All Vouchers</button>
+                <button id="btn-stats-dup-only" class="stats-interactive-row" onclick="toggleStatsFilter('duplicate')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; color: #b45309; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">Duplicates</button>
+                <button id="btn-stats-new-only" class="stats-interactive-row" onclick="toggleStatsFilter('new')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; color: #4b5563; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">New Vouchers</button>
             </div>
         </div>
         
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; align-items: center; width: 100%; margin-top: 5px;">
             <button onclick="importTallyVouchers()" style="background: #002d5a; color: white; border: none; border-radius: 4px; padding: 5px 12px; font-weight: bold; cursor: pointer; font-size: 0.8rem; transition: background 0.15s; height: 28px;" onmouseover="this.style.background='#004488'" onmouseout="this.style.background='#002d5a'">Import Tally Data</button>
             <button onclick="detectDuplicates()" style="background: #27ae60; color: white; border: none; border-radius: 4px; padding: 5px 12px; font-weight: bold; cursor: pointer; font-size: 0.8rem; transition: background 0.15s; height: 28px;" onmouseover="this.style.background='#2ecc71'" onmouseout="this.style.background='#27ae60'">Detect Duplicates</button>
+            
+            <!-- Tip text placed right next to the buttons -->
+            <div id="dup-compare-tip" class="hidden" style="display: inline-flex; align-items: center; font-size: 0.72rem; color: #475569; font-weight: 600; padding: 6px 12px; background: #fffbeb; border: 1px solid #fde047; border-radius: 4px; max-width: 320px; line-height: 1.35; margin-left: 15px;">
+                💡 Compare this balance with Tally to verify duplicate detection.
+            </div>
         </div>
     </div>
     
@@ -169,52 +195,43 @@
         <div id="dup-status-message" style="display: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; flex: 1; min-width: 250px;"></div>
 
         <!-- Right side: Duplicate Summary Card Row -->
-        <div id="dup-summary-section" class="hidden" style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div id="dup-summary-section" class="hidden" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <div style="background: #f8fafc; border: 1px solid #cbd5e0; display: flex; flex-direction: column; min-width: 110px; padding: 4px 8px;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold; margin-bottom: 2px;">Opening Balance</span>
+                <input type="number" id="dup-bal-opening-input" step="0.01" value="0.00" style="font-size: 0.88rem; font-weight: bold; color: #0f172a; border: 1px solid #cbd5e0; border-radius: 4px; padding: 2px 4px; width: 95px; background: #ffffff; text-align: right;" oninput="updateDupBalances()">
+            </div>
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold;">Dup Total Debit</span>
+                <strong id="dup-stat-debit" style="font-size: 1.1rem; color: #047857;">₹0.00</strong>
+            </div>
+            <div style="background: #fef2f2; border: 1px solid #fecaca;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #991b1b; font-weight: bold;">Dup Total Credit</span>
+                <strong id="dup-stat-credit" style="font-size: 1.1rem; color: #b91c1c;">₹0.00</strong>
+            </div>
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; display: flex; flex-direction: column; min-width: 120px;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold;">Dup Closing Bal</span>
+                <strong id="dup-bal-closing" style="font-size: 1.1rem; color: #047857;">₹0.00</strong>
+            </div>
+
+            <div style="border-left: 1px solid #cbd5e0; height: 35px; margin: 0 4px;"></div>
+
             <div style="background: #e2e8f0; border: 1px solid #cbd5e0;">
                 <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">Imported XML</span>
                 <strong id="dup-stat-imported" style="font-size: 1.1rem; color: #0f172a;">0</strong>
             </div>
-            <div style="background: #d1fae5; border: 1px solid #a7f3d0;">
-                <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold;">Duplicates</span>
-                <strong id="dup-stat-duplicate" style="font-size: 1.1rem; color: #047857;">0</strong>
+            <div style="background: #fef3c7; border: 1px solid #fde047;">
+                <span style="font-size: 0.65rem; text-transform: uppercase; color: #92400e; font-weight: bold;">Duplicates</span>
+                <strong id="dup-stat-duplicate" style="font-size: 1.1rem; color: #92400e;">0</strong>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #e2e8f0;">
                 <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">New Vouchers</span>
                 <strong id="dup-stat-new" style="font-size: 1.1rem; color: #334155;">0</strong>
             </div>
-            
-            <div style="border-left: 1px solid #cbd5e0; margin: 0 5px;"></div>
-            
-            <div style="background: #f8fafc; border: 1px solid #cbd5e0; display: flex; flex-direction: column; min-width: 110px;">
-                <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold;">Opening Balance</span>
-                <strong id="dup-bal-opening" style="font-size: 1rem; color: #0f172a;">₹0.00</strong>
-            </div>
-            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; display: flex; flex-direction: column; min-width: 130px;">
-                <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold;">Dup Closing Bal</span>
-                <strong id="dup-bal-closing" style="font-size: 1rem; color: #047857;">₹0.00</strong>
-            </div>
-            <div style="display: flex; align-items: center; font-size: 0.72rem; color: #475569; max-width: 280px; line-height: 1.3; font-weight: 500;">
-                💡 Compare this balance with Tally to verify duplicate detection.
-            </div>
         </div>
     </div>
 </div>
 
-<!-- 2. DUPLICATE SIDEBAR FILTERS -->
-<div id="dup-filter-card" class="hidden" style="background: #f0f4f8; border: 2px solid #000000; box-shadow: 2px 2px 0px #000000; border-radius: 4px; padding: 4px; margin-bottom: 6px; font-size: 0.72rem; color: #2d3748; line-height: 1.3; user-select: none;">
-    <div style="font-weight: bold; color: #002d5a; margin-bottom: 4px; border-bottom: 1px solid #cbd5e0; padding: 2px 6px;">Duplicate Filters</div>
-    <div id="btn-stats-dup-all" class="stats-interactive-row active-all" onclick="toggleStatsFilter('all')">
-        <span style="font-weight: 500;">All Vouchers</span>
-    </div>
-    <div id="btn-stats-dup-only" class="stats-interactive-row" onclick="toggleStatsFilter('duplicate')">
-        <span style="color: #10b981; font-weight: 500;">Duplicates</span>
-    </div>
-    <div id="btn-stats-new-only" class="stats-interactive-row" onclick="toggleStatsFilter('new')">
-        <span style="color: #4b5563; font-weight: 500;">New Vouchers</span>
-    </div>
-</div>
-
-<!-- 3. MATCH DETAILS DIALOG -->
+<!-- 2. MATCH DETAILS DIALOG -->
 <div id="review-modal-match-details" class="tally-modal-overlay hidden" style="z-index: 1500;">
     <div class="tally-modal-card" style="width: 500px; max-width: 95%;">
         <div class="tally-modal-header" style="background: #002d5a; display: flex; justify-content: space-between; align-items: center;">

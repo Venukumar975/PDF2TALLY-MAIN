@@ -609,9 +609,9 @@
                     <div class="tally-btn-label">Period</div>
                 </button>
                 
-                <button class="tally-btn-key" onclick="openLedgerFilterModal()">
-                    <div class="tally-btn-shortcut">F4</div>
-                    <div class="tally-btn-label">Ledger</div>
+                <button class="tally-btn-key" onclick="openHelpModal()">
+                    <div class="tally-btn-shortcut">F1</div>
+                    <div class="tally-btn-label" style="font-weight: 900 !important; text-decoration: underline;">Help</div>
                 </button>
                 
                 <button class="tally-btn-key" id="btn-tally-toggle-narration" onclick="toggleReviewNarrationFromBtn()">
@@ -873,6 +873,19 @@
             <div class="tally-modal-footer">
                 <button class="btn btn-secondary" onclick="closeReviewModal('sync')" style="font-size: 0.78rem; padding: 6px 12px; height: 32px; color: #000000 !important;">Close</button>
                 <button class="btn btn-primary" id="btn-tally-sync-submit" onclick="submitTallySync()" style="background: #002d5a; color: white !important; border-color: #002d5a; font-size: 0.78rem; padding: 6px 12px; height: 32px;">Start Sync</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 8. HELP MANUAL MODAL -->
+    <div id="review-modal-help" class="tally-modal-overlay hidden" style="z-index: 1500; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px);">
+        <div class="tally-modal-card" style="width: 960px; max-width: 95%; height: 90vh; display: flex; flex-direction: column; border: 2px solid #000000; box-shadow: 6px 6px 0px #000000;">
+            <div class="tally-modal-header" style="background: #002d5a; color: #ffffff; display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 2px solid #000000; font-family: 'Inter', sans-serif;">
+                <span style="font-weight: bold; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">Review Desk - User Manual</span>
+                <button onclick="closeHelpModal()" style="background: none; border: none; color: #ffffff; font-size: 1.5rem; font-weight: bold; cursor: pointer; line-height: 1; padding: 2px 8px;">&times;</button>
+            </div>
+            <div class="tally-modal-body" style="flex: 1; padding: 0; background: #ffffff; overflow: hidden; display: flex; flex-direction: column; min-height: 0;">
+                <iframe src="/static/help/index.html" style="width: 100%; height: 100%; border: none; display: block; flex: 1;"></iframe>
             </div>
         </div>
     </div>
