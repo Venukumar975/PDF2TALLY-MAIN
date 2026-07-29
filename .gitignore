@@ -1,0 +1,48 @@
+# Python bytecode and cash artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual Environments (Heavy local dependencies)
+venv/
+.venv/
+env/
+ENV/
+python/
+
+# Private environment variable matrices
+.env
+.env.*
+backend/secrets.json
+
+# Local data input/output drop zones
+uploads/
+temp_uploads/
+outputs/
+
+*.txt
+# Local spreadsheet and data file footprints
+*.xlsx
+*.xml
+*.json
+
+
+build/
+dist/
+logs/
+
+# Prevent compiled executables
+*.exe
+
+# Developer scratch scripts
+scratch/
+
+# Compiled obfuscation output
+obf_dist/
+
+# Prevent any PDF files from being tracked
+*.pdf
+
+# Allow tracking of requirements.txt
+!requirements.txt
