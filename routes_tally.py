@@ -233,7 +233,7 @@ def api_tally_vouchers():
             </BODY>
         </ENVELOPE>"""
 
-        r = requests.post(tally_url, data=xml_request, timeout=12)
+        r = requests.post(tally_url, data=xml_request, timeout=600)
         if r.status_code != 200:
             return jsonify({"success": False, "message": f"Tally server responded with status {r.status_code}."}), 400
             
