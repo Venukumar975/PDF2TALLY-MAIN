@@ -277,8 +277,8 @@ def _add_voucher(request_data, transaction, index, bank_ledger, suspense_ledger,
     ET.SubElement(voucher, "PERSISTEDVIEW").text = "Accounting Voucher View"
 
     if transaction["type"] == "CREDIT":
-        _add_ledger_entry(voucher, bank_ledger, amount, is_debit=False, is_party_ledger=False)
         _add_ledger_entry(voucher, suspense_ledger, amount, is_debit=True, is_party_ledger=True)
+        _add_ledger_entry(voucher, bank_ledger, amount, is_debit=False, is_party_ledger=False)
     else:
         _add_ledger_entry(voucher, suspense_ledger, amount, is_debit=False, is_party_ledger=True)
         _add_ledger_entry(voucher, bank_ledger, amount, is_debit=True, is_party_ledger=False)
