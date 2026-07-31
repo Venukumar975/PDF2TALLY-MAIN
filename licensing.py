@@ -87,15 +87,7 @@ from threading import RLock
 _cache_lock = RLock()
 _sync_in_progress = False
 
-def _bg_sync_thread():
-    global _sync_in_progress
-    try:
-        # Non-blocking query to keep the client synced with cloud status updates
-        sync_with_cloud(retry_duration=5)
-    except Exception:
-        pass
-    finally:
-        _sync_in_progress = False
+# Background sync thread removed to support offline usage after activation
 
 _license_cache = {
     "activated": False,
@@ -470,16 +462,7 @@ def check_activation(force_refresh=False) -> dict:
     if not is_synced or force_refresh:
         return sync_with_cloud(retry_duration=5)
 
-    # Silent background refresh if more than 60 seconds elapsed since last successful sync
-    if _license_cache.get("activated", False):
-        last_sync_elapsed = now_monotonic - _license_cache.get("last_sync_monotonic", 0.0)
-        global _sync_in_progress
-        if last_sync_elapsed > 60 and not _sync_in_progress:
-            _sync_in_progress = True
-            import threading
-            t = threading.Thread(target=_bg_sync_thread)
-            t.daemon = True
-            t.start()
+
         
     with _cache_lock:
         if _license_cache["admin_token"] is not None:
