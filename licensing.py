@@ -87,7 +87,10 @@ from threading import RLock
 _cache_lock = RLock()
 _sync_in_progress = False
 
-# Background sync thread removed to support offline usage after activation
+# Monotonic baseline: CPU ticks when this app session started (float)
+_session_start_monotonic = None
+# Time baseline: Server Unix Epoch time recorded at startup login (float)
+_session_start_offline_time = None
 
 _license_cache = {
     "activated": False,
@@ -98,7 +101,9 @@ _license_cache = {
     "days_remaining": 0.0,
     "signature": None,
     "last_sync_monotonic": 0.0,
-    "last_sync_real": 0.0,
+    "last_login_time": None,
+    "Actual_offline_time": None,
+    "expiry_unix": -1.0,
     "admin_token": None,
     "admin_email": None,
     "error_type": None,
@@ -136,14 +141,17 @@ def save_local_license(cache_data, update_memory=True):
                 "activated": cache_data.get("activated"),
                 "role": cache_data.get("role", "USER"),
                 "expiry_date": cache_data.get("expiry_date"),
-                "seconds_remaining": cache_data.get("seconds_remaining"),
-                "last_sync_real": cache_data.get("last_sync_real"),
-                "last_seen_time": cache_data.get("last_seen_time", time.time()),
+                "last_login_time": cache_data.get("last_login_time"),
+                "Actual_offline_time": cache_data.get("Actual_offline_time"),
+                "expiry_unix": cache_data.get("expiry_unix"),
                 "license_id": cache_data.get("license_id"),
                 "license_key": cache_data.get("license_key")
             }
-            # Compute signature including license_id and license_key
-            sign_str = f"{data_to_sign['signature']}|{data_to_sign['activated']}|{data_to_sign['role']}|{data_to_sign['expiry_date']}|{data_to_sign['seconds_remaining']}|{data_to_sign['last_sync_real']}|{data_to_sign['last_seen_time']}|{data_to_sign['license_id'] or ''}|{data_to_sign['license_key'] or ''}|{SECRET_SALT}"
+            # Compute signature including epoch floats (formatted to 3 decimal places)
+            last_login = float(data_to_sign.get('last_login_time') or 0.0)
+            actual_offline = float(data_to_sign.get('Actual_offline_time') or 0.0)
+            expiry_unix = float(data_to_sign.get('expiry_unix') or -1.0)
+            sign_str = f"{data_to_sign['signature']}|{data_to_sign['activated']}|{data_to_sign['role']}|{data_to_sign['expiry_date']}|{last_login:.3f}|{actual_offline:.3f}|{expiry_unix:.3f}|{data_to_sign['license_id'] or ''}|{data_to_sign['license_key'] or ''}|{SECRET_SALT}"
             h = hashlib.sha256(sign_str.encode()).hexdigest()
             data_to_sign["sha256"] = h
             
@@ -184,13 +192,18 @@ def save_local_license(cache_data, update_memory=True):
                     "role": data_to_sign["role"],
                     "message": "License active" if data_to_sign["activated"] else "License inactive",
                     "expiry_date": data_to_sign["expiry_date"],
-                    "seconds_remaining": data_to_sign["seconds_remaining"],
+                    "last_login_time": data_to_sign["last_login_time"],
+                    "Actual_offline_time": data_to_sign["Actual_offline_time"],
+                    "expiry_unix": data_to_sign["expiry_unix"],
                     "signature": data_to_sign["signature"],
                     "last_sync_monotonic": time.monotonic(),
-                    "last_sync_real": data_to_sign["last_sync_real"],
                     "license_key": data_to_sign["license_key"],
                     "error_type": None
                 })
+                
+                global _session_start_monotonic, _session_start_offline_time
+                _session_start_monotonic = time.monotonic()
+                _session_start_offline_time = float(data_to_sign["Actual_offline_time"] or 0.0)
         except Exception:
             logger.error("System settings file write error.")
 
@@ -212,13 +225,16 @@ def load_local_license() -> dict:
                 logger.error("License integrity verification failed.Performing REAUTHENTICATION.")
                 return None
                 
-            required_keys = ["signature", "activated", "role", "expiry_date", "seconds_remaining", "last_sync_real", "last_seen_time", "sha256"]
+            required_keys = ["signature", "activated", "role", "expiry_date", "last_login_time", "Actual_offline_time", "expiry_unix", "sha256"]
             if not all(k in data for k in required_keys):
                 logger.warning("License settings file is incomplete.")
                 return None
                 
-            # Verify signature
-            sign_str = f"{data['signature']}|{data['activated']}|{data['role']}|{data['expiry_date']}|{data['seconds_remaining']}|{data['last_sync_real']}|{data['last_seen_time']}|{data.get('license_id') or ''}|{data.get('license_key') or ''}|{SECRET_SALT}"
+            # Verify signature using epoch floats (formatted to 3 decimal places)
+            last_login = float(data.get('last_login_time') or 0.0)
+            actual_offline = float(data.get('Actual_offline_time') or 0.0)
+            expiry_unix = float(data.get('expiry_unix') or -1.0)
+            sign_str = f"{data['signature']}|{data['activated']}|{data['role']}|{data['expiry_date']}|{last_login:.3f}|{actual_offline:.3f}|{expiry_unix:.3f}|{data.get('license_id') or ''}|{data.get('license_key') or ''}|{SECRET_SALT}"
             h = hashlib.sha256(sign_str.encode()).hexdigest()
             if h != data["sha256"]:
                 logger.warning("License integrity verification failed.")
@@ -229,17 +245,18 @@ def load_local_license() -> dict:
             logger.error("License validation required.")
             return None
 
-OBFUSCATED_BACKEND_URL = "aHR0cHM6Ly9sM2pmaWtmb2diZm90NG5kZHRmbmRnMzVlcTBldXdnai5sYW1iZGEtdXJsLmV1LW5vcnRoLTEub24uYXdz"
+# Base64 encoded Render backend URL (for login/restore/support)
+OBFUSCATED_RENDER_URL = "aHR0cHM6Ly9wZGYydGFsbHktYmFja2VuZC5vbnJlbmRlci5jb20="
 
 def get_cloud_backend_url():
     url = os.environ.get("PDF2TALLY_CLOUD_URL")
     if url:
         return url.strip().rstrip("/")
     try:
-        decoded = base64.b64decode(OBFUSCATED_BACKEND_URL.encode()).decode("utf-8")
+        decoded = base64.b64decode(OBFUSCATED_RENDER_URL.encode()).decode("utf-8")
         return decoded.strip().rstrip("/")
     except Exception:
-        return "https://l3jfikfogbfot4nddtfndg35eq0euwgj.lambda-url.eu-north-1.on.aws"
+        return "https://pdf2tally-backend.onrender.com"
 
 def sync_with_cloud(retry_duration=5) -> dict:
     """
@@ -292,10 +309,17 @@ def sync_with_cloud(retry_duration=5) -> dict:
                         "seconds_remaining": res_data.get("seconds_remaining", -1),
                         "signature": sig,
                         "last_sync_monotonic": time.monotonic(),
-                        "last_sync_real": time.time(),
+                        "last_login_time": res_data.get("server_time"),
+                        "Actual_offline_time": res_data.get("server_time"),
+                        "expiry_unix": res_data.get("expiry_unix"),
                         "error_type": None,
                         "license_key": cache_data.get("license_key") if cache_data else None
                     })
+                    
+                    # Reset monotonic session baseline on successful sync
+                    global _session_start_monotonic, _session_start_offline_time
+                    _session_start_monotonic = time.monotonic()
+                    _session_start_offline_time = _license_cache["Actual_offline_time"]
                     
                     # Save to local persistent cache
                     save_local_license({
@@ -303,9 +327,9 @@ def sync_with_cloud(retry_duration=5) -> dict:
                         "activated": is_active_cloud,
                         "role": "USER",
                         "expiry_date": _license_cache["expiry_date"],
-                        "seconds_remaining": _license_cache["seconds_remaining"],
-                        "last_sync_real": _license_cache["last_sync_real"],
-                        "last_seen_time": _license_cache["last_sync_real"],
+                        "last_login_time": _license_cache["last_login_time"],
+                        "Actual_offline_time": _license_cache["Actual_offline_time"],
+                        "expiry_unix": _license_cache["expiry_unix"],
                         "license_id": license_id,
                         "license_key": cache_data.get("license_key") if cache_data else None
                     })
@@ -325,7 +349,9 @@ def sync_with_cloud(retry_duration=5) -> dict:
                         "message": msg,
                         "signature": sig,
                         "last_sync_monotonic": time.monotonic(),
-                        "last_sync_real": time.time(),
+                        "last_login_time": None,
+                        "Actual_offline_time": None,
+                        "expiry_unix": -1.0,
                         "error_type": "invalid",
                         "license_key": cache_data.get("license_key") if cache_data else None
                     })
@@ -375,6 +401,7 @@ def check_activation(force_refresh=False) -> dict:
     sig = get_machine_signature()
     
     global _last_disk_read_time, _boot_sync_done, _lic_failure_count
+    global _session_start_monotonic, _session_start_offline_time
     now_monotonic = time.monotonic()
     
     with _cache_lock:
@@ -387,33 +414,26 @@ def check_activation(force_refresh=False) -> dict:
         cache_data = load_local_license()
         if cache_data:
             _lic_failure_count = 0
-            current_time = time.time()
             
-            # Clock rollback check
-            if current_time < cache_data.get("last_seen_time", 0.0) - 60:
-                with _cache_lock:
-                    _license_cache.update({
-                        "activated": False,
-                        "role": "USER",
-                        "message": "System clock manipulation detected.",
-                        "expiry_date": "-",
-                        "seconds_remaining": 0,
-                        "signature": sig,
-                        "last_sync_monotonic": 0,
-                        "last_sync_real": 0,
-                        "error_type": "tampered",
-                        "license_key": None
-                    })
-                return _license_cache.copy()
+            # Establish monotonic session time baseline on first call of app run
+            if _session_start_monotonic is None or _session_start_offline_time is None:
+                _session_start_monotonic = time.monotonic()
+                _session_start_offline_time = float(cache_data.get("Actual_offline_time") or cache_data.get("last_login_time") or 0.0)
 
-            last_seen = max(current_time, cache_data.get("last_seen_time", 0.0))
-            elapsed = last_seen - cache_data["last_sync_real"]
-            seconds_remaining = cache_data["seconds_remaining"]
+            # Calculate elapsed time and progressive offline Unix Epoch timestamp
+            elapsed = time.monotonic() - _session_start_monotonic
+            current_offline_time = _session_start_offline_time + elapsed
+            expiry_unix = float(cache_data.get("expiry_unix") or -1.0)
             
-            if seconds_remaining == -1 or seconds_remaining - elapsed > 0:
-                is_active = cache_data.get("activated", False)
-            else:
+            if expiry_unix != -1.0 and current_offline_time >= expiry_unix:
                 is_active = False
+            else:
+                is_active = cache_data.get("activated", False)
+
+            # Calculate remaining seconds for memory status reporting
+            remaining_seconds = -1
+            if expiry_unix != -1.0:
+                remaining_seconds = max(0, int(expiry_unix - current_offline_time))
 
             with _cache_lock:
                 _license_cache.update({
@@ -421,15 +441,18 @@ def check_activation(force_refresh=False) -> dict:
                     "role": cache_data.get("role", "USER"),
                     "message": "License active" if is_active else "License expired.",
                     "expiry_date": cache_data.get("expiry_date", "-"),
-                    "seconds_remaining": seconds_remaining - elapsed if seconds_remaining != -1 else -1,
+                    "seconds_remaining": remaining_seconds,
                     "signature": sig,
                     "last_sync_monotonic": now_monotonic,
-                    "last_sync_real": cache_data["last_sync_real"],
+                    "last_login_time": cache_data.get("last_login_time"),
+                    "Actual_offline_time": current_offline_time,
+                    "expiry_unix": expiry_unix,
                     "error_type": None,
                     "license_key": cache_data.get("license_key")
                 })
             
-            cache_data["last_seen_time"] = last_seen
+            cache_data["Actual_offline_time"] = current_offline_time
+            cache_data["activated"] = is_active
             save_local_license(cache_data, update_memory=False)
             is_mem_synced = True
         else:
@@ -473,14 +496,22 @@ def check_activation(force_refresh=False) -> dict:
             res["days_remaining"] = 0.0
             return res
             
-        seconds_remaining = _license_cache["seconds_remaining"]
-        if seconds_remaining == -1:
+        expiry_unix = _license_cache.get("expiry_unix", -1.0)
+        
+        # Calculate current session-running offline time progress
+        if _session_start_monotonic is None or _session_start_offline_time is None:
+            _session_start_monotonic = time.monotonic()
+            _session_start_offline_time = _license_cache.get("Actual_offline_time") or _license_cache.get("last_login_time") or 0.0
+            
+        elapsed = time.monotonic() - _session_start_monotonic
+        current_offline_time = _session_start_offline_time + elapsed
+        
+        if expiry_unix == -1.0:
             days_remaining = 99999
             status_msg = "License active (Lifetime)"
             activated = True
         else:
-            elapsed = time.monotonic() - _license_cache["last_sync_monotonic"]
-            remaining = seconds_remaining - elapsed
+            remaining = expiry_unix - current_offline_time
             
             if remaining <= 0:
                 activated = False
@@ -502,8 +533,16 @@ def check_activation(force_refresh=False) -> dict:
         res["activated"] = activated
         res["message"] = status_msg
         res["days_remaining"] = round(days_remaining, 4)
-        if seconds_remaining != -1:
-            res["seconds_remaining"] = max(0, int(remaining))
+        if expiry_unix != -1.0:
+            res["seconds_remaining"] = max(0, int(expiry_unix - current_offline_time))
+        
+        # Update memory cache
+        _license_cache.update({
+            "activated": activated,
+            "message": status_msg,
+            "seconds_remaining": res.get("seconds_remaining", -1),
+            "Actual_offline_time": current_offline_time
+        })
         
         if not activated and _license_cache["activated"]:
             _license_cache["activated"] = False
@@ -511,12 +550,13 @@ def check_activation(force_refresh=False) -> dict:
             cache_data = load_local_license()
             if cache_data:
                 cache_data["activated"] = False
+                cache_data["Actual_offline_time"] = current_offline_time
                 save_local_license(cache_data)
                 
-        current_time = time.time()
+        # Write progressive offline time back to disk
         cache_data = load_local_license()
         if cache_data:
-            cache_data["last_seen_time"] = max(current_time, cache_data.get("last_seen_time", 0.0))
+            cache_data["Actual_offline_time"] = current_offline_time
             save_local_license(cache_data, update_memory=False)
             
         return res

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from xml.sax.saxutils import escape
 import zipfile
@@ -169,7 +169,7 @@ def _write_xlsx(output_path, sheets):
 
     sheet_names = [_sanitize_sheet_name(name) for name, _, _ in sheets]
     sheet_files = [f"worksheets/sheet{index}.xml" for index in range(1, len(sheets) + 1)]
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("[Content_Types].xml", _content_types_xml(sheet_files))

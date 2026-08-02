@@ -1,6 +1,6 @@
 import json
 import uuid
-import datetime
+from datetime import datetime, timezone, timedelta
 import string
 import random
 import os
@@ -79,10 +79,6 @@ def lambda_handler(event, context):
         conn = get_connection()
         if raw_path == "/register-request" or raw_path.endswith("/register-request"):
             return handle_register(conn, data, headers)
-        elif raw_path == "/login" or raw_path.endswith("/login"):
-            return handle_login(conn, data, headers)
-        elif raw_path in ["/restore-license-by-machine", "/restore-license"] or any(raw_path.endswith(p) for p in ["/restore-license-by-machine", "/restore-license"]):
-            return handle_restore(conn, data, headers)
         else:
             return {
                 "statusCode": 404,
@@ -134,8 +130,8 @@ def handle_register(conn, data, headers):
         license_key = f"TRIAL-{block1}-{block2}-{block3}"
         
         license_id = str(uuid.uuid4())
-        now = datetime.datetime.utcnow()
-        expires_at = now + datetime.timedelta(days=7)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        expires_at = now + timedelta(days=7)
         
         # 1. Insert License record with plan_name='trial'
         cursor.execute(
@@ -162,144 +158,5 @@ def handle_register(conn, data, headers):
             "body": json.dumps({
                 "success": True,
                 "message": f"Free 7-Day Trial activated!\n\nYour Trial License Key: {license_key}\n\nCopy this key, switch to the 'Login Console' tab, paste it, and log in."
-            })
-        }
-
-def handle_login(conn, data, headers):
-    license_id = data.get("license_id", "").strip()
-    machine_hash = data.get("machine_hash", "").strip().upper()
-    
-    if not license_id or not machine_hash:
-        return {
-            "statusCode": 400,
-            "headers": headers,
-            "body": json.dumps({"success": False, "message": "License ID and Machine Hash are required."})
-        }
-        
-    with conn.cursor() as cursor:
-        cursor.execute(
-            "SELECT license_id, plan_name, status, machine_hash, expires_at FROM licenses WHERE license_id=%s OR license_key=%s",
-            (license_id, license_id)
-        )
-        row = cursor.fetchone()
-        if not row:
-            return {
-                "statusCode": 404,
-                "headers": headers,
-                "body": json.dumps({"success": False, "message": "License not found"})
-            }
-            
-        lic_id, plan_name, status, db_machine_hash, expires_at = row
-        now = datetime.datetime.utcnow()
-        
-        # Check Expiry
-        if expires_at and now > expires_at:
-            cursor.execute("UPDATE licenses SET status='Expired' WHERE license_id=%s", (lic_id,))
-            conn.commit()
-            return {
-                "statusCode": 403,
-                "headers": headers,
-                "body": json.dumps({"success": False, "message": "Your trial license has expired. Please contact admin to renew."})
-            }
-            
-        if status in ['Revoked', 'Suspended']:
-            return {
-                "statusCode": 403,
-                "headers": headers,
-                "body": json.dumps({"success": False, "message": f"Your license is deactivated (Status: {status})."})
-            }
-            
-        if status != 'Active':
-            return {
-                "statusCode": 403,
-                "headers": headers,
-                "body": json.dumps({"success": False, "message": f"Your license is inactive (Status: {status})."})
-            }
-            
-        if db_machine_hash != machine_hash:
-            return {
-                "statusCode": 403,
-                "headers": headers,
-                "body": json.dumps({"success": False, "message": "Unauthorized machine fingerprint."})
-            }
-            
-        # Update last login time
-        cursor.execute("UPDATE users SET last_login=%s WHERE license_id=%s", (now, lic_id))
-        conn.commit()
-        
-        remaining_seconds = -1
-        if expires_at:
-            remaining_seconds = max(0, int((expires_at - now).total_seconds()))
-            
-        return {
-            "statusCode": 200,
-            "headers": headers,
-            "body": json.dumps({
-                "success": True,
-                "authorized": True,
-                "plan_name": plan_name,
-                "expires_at": expires_at.strftime("%Y-%m-%d %H:%M:%S") if expires_at else "Lifetime",
-                "seconds_remaining": remaining_seconds,
-                "message": "Authentication successful."
-            })
-        }
-
-def handle_restore(conn, data, headers):
-    machine_hash = data.get("machine_hash", "").strip().upper()
-    if not machine_hash:
-        return {
-            "statusCode": 400,
-            "headers": headers,
-            "body": json.dumps({"success": False, "message": "Machine Hash is required."})
-        }
-        
-    with conn.cursor() as cursor:
-        cursor.execute(
-            "SELECT license_id, license_key, plan_name, status, expires_at FROM licenses WHERE machine_hash=%s ORDER BY created_at DESC LIMIT 1",
-            (machine_hash,)
-        )
-        row = cursor.fetchone()
-        if not row:
-            return {
-                "statusCode": 404,
-                "headers": headers,
-                "body": json.dumps({"success": False, "message": "No active license is registered to this computer."})
-            }
-            
-        lic_id, license_key, plan_name, status, expires_at = row
-        now = datetime.datetime.utcnow()
-        
-        if expires_at and now > expires_at:
-            cursor.execute("UPDATE licenses SET status='Expired' WHERE license_id=%s", (lic_id,))
-            conn.commit()
-            return {
-                "statusCode": 403,
-                "headers": headers,
-                "body": json.dumps({"success": False, "message": "The associated license has expired."})
-            }
-            
-        if status != 'Active':
-            return {
-                "statusCode": 403,
-                "headers": headers,
-                "body": json.dumps({"success": False, "message": f"Associated license is currently {status}."})
-            }
-            
-        remaining_seconds = -1
-        if expires_at:
-            remaining_seconds = max(0, int((expires_at - now).total_seconds()))
-            
-        return {
-            "statusCode": 200,
-            "headers": headers,
-            "body": json.dumps({
-                "success": True,
-                "activated": True,
-                "license_id": lic_id,
-                "license_key": license_key,
-                "plan_name": plan_name,
-                "expires_at": expires_at.strftime("%Y-%m-%d %H:%M:%S") if expires_at else "Lifetime",
-                "seconds_remaining": remaining_seconds,
-                "message": "License recovered successfully!"
             })
         }

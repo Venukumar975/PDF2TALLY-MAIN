@@ -19,7 +19,7 @@ def index():
 @routes_bp.route("/activate")
 def activate_page():
     status = licensing.check_activation()
-    if status["activated"]:
+    if status["activated"] and session.get("session_online_verified"):
         return redirect("/")
     return render_template("index.html")  # SPA handles rendering based on license status
 
@@ -42,6 +42,7 @@ def api_status():
     force = request.args.get("refresh", "false").lower() == "true"
     if force:
         session.pop("logged_out", None)
+        session.pop("session_online_verified", None)
     elif session.get("logged_out"):
         return jsonify({
             "activated": False,
@@ -49,7 +50,21 @@ def api_status():
             "message": "Logged out",
             "signature": licensing.get_machine_signature()
         })
-    return jsonify(licensing.check_activation(force_refresh=force))
+        
+    status = licensing.check_activation(force_refresh=force)
+    
+    # If the user has not verified online in this session, return activated: False
+    # but still pass signature and license_key so the frontend can pre-fill
+    if not session.get("session_online_verified"):
+        res = status.copy()
+        res["activated"] = False
+        if status.get("activated"):
+            res["message"] = "Please verify and log in."
+        else:
+            res["message"] = status.get("message", "Unlicensed")
+        return jsonify(res)
+        
+    return jsonify(status)
 
 @routes_bp.route("/api/activate", methods=["POST"])
 def api_activate():
@@ -77,14 +92,15 @@ def api_activate():
                     "activated": True,
                     "role": "USER",
                     "expiry_date": res_data.get("expires_at"),
-                    "seconds_remaining": res_data.get("seconds_remaining"),
-                    "last_sync_real": time.time(),
-                    "last_seen_time": time.time(),
+                    "last_login_time": res_data.get("server_time"),
+                    "Actual_offline_time": res_data.get("server_time"),
+                    "expiry_unix": res_data.get("expiry_unix"),
                     "license_id": res_data.get("license_id"),
                     "license_key": license_key
                 })
                 # Sync cache in memory
                 licensing.check_activation(force_refresh=True)
+                session["session_online_verified"] = True
                 return jsonify({
                     "success": True,
                     "activated": True,
@@ -124,14 +140,15 @@ def api_restore_device():
                     "activated": True,
                     "role": "USER",
                     "expiry_date": res_data.get("expires_at"),
-                    "seconds_remaining": res_data.get("seconds_remaining"),
-                    "last_sync_real": time.time(),
-                    "last_seen_time": time.time(),
+                    "last_login_time": res_data.get("server_time"),
+                    "Actual_offline_time": res_data.get("server_time"),
+                    "expiry_unix": res_data.get("expiry_unix"),
                     "license_id": res_data.get("license_id"),
                     "license_key": res_data.get("license_key")
                 })
                 # Sync cache in memory
                 licensing.check_activation(force_refresh=True)
+                session["session_online_verified"] = True
                 return jsonify({
                     "success": True,
                     "activated": True,
@@ -160,14 +177,30 @@ def api_register_request():
     if not full_name or not email or not phone_number:
         return jsonify({"success": False, "message": "Name, Email, and Phone Number are required."}), 400
 
+    backend_url = licensing.get_cloud_backend_url()
+
+    # Step 1: Pre-ping the Render server to wake it up if it is sleeping
     try:
-        url = f"{licensing.get_cloud_backend_url()}/register-request"
+        logger.info("Pinging Render backend to wake it up...")
+        # Send a GET request to the root URL to trigger Render's spin-up (survives up to 300s wake time)
+        requests.get(backend_url, timeout=300)
+        logger.info("Render backend is awake!")
+    except Exception as e:
+        logger.error(f"Render wake-up ping failed: {e}")
+        return jsonify({
+            "success": False, 
+            "message": "Could not connect to the licensing server. Please check your internet connection or try again later."
+        }), 500
+
+    # Step 2: Send the actual registration request
+    try:
+        url = f"{backend_url}/register-request"
         resp = requests.post(url, json={
             "full_name": full_name,
             "email": email,
             "phone_number": phone_number,
             "machine_hash": machine_hash
-        }, timeout=120)
+        }, timeout=300)
         
         if resp.status_code == 200:
             return jsonify(resp.json())
@@ -179,7 +212,11 @@ def api_register_request():
             return jsonify({"success": False, "message": msg}), resp.status_code
 
     except Exception as e:
-        return jsonify({"success": False, "message": "Could not connect to licensing server."}), 500
+        logger.error(f"Registration request failed: {e}")
+        return jsonify({
+            "success": False, 
+            "message": "Please check your internet connection or try again later."
+        }), 500
 
 @routes_bp.route("/api/deactivate", methods=["POST"])
 def api_deactivate():

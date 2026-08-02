@@ -54,6 +54,9 @@ def check_license():
     if session.get("logged_out"):
         return redirect("/activate")
         
+    if not session.get("session_online_verified"):
+        return redirect("/activate")
+        
     status = licensing.check_activation()
     if not status["activated"]:
         # Redirect to local license activation form

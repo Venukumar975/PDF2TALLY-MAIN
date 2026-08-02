@@ -3,7 +3,7 @@ import re
 import json
 import requests
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import request, jsonify
 from routes_base import routes_bp
 from services.logger import logger
@@ -90,7 +90,7 @@ def api_tally_sync():
         with open(cache_path, "w", encoding="utf-8") as f:
             json.dump({
                 "company_name": company_name,
-                "last_sync": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                "last_sync": datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S"),
                 "ledgers": ledgers
             }, f, indent=4)
             

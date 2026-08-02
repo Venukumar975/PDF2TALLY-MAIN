@@ -265,27 +265,13 @@ window.loadReviewXML = function(xmlText, fileName) {
     const bankInput = document.getElementById("dup-bank-name");
     if (bankInput) bankInput.value = "";
 
-    // Prefill dates
-    if (reviewState.vouchers && reviewState.vouchers.length > 0) {
-        const sortedDates = [...reviewState.vouchers].map(v => v.date).sort();
-        if (sortedDates.length > 0) {
-            const minD = sortedDates[0];
-            const maxD = sortedDates[sortedDates.length - 1];
-            
-            function toISODate(dStr) {
-                const parts = dStr.split("-");
-                if (parts.length === 3) {
-                    return `${parts[2]}-${parts[1]}-${parts[0]}`;
-                }
-                return "";
-            }
-            
-            const dupFrom = document.getElementById("dup-from-date");
-            const dupTo = document.getElementById("dup-to-date");
-            if (dupFrom) dupFrom.value = toISODate(minD);
-            if (dupTo) dupTo.value = toISODate(maxD);
-        }
-    }
+    // Prefill duplicate check dates with the initial period dates once on load
+    const periodFrom = document.getElementById("review-modal-from-date");
+    const periodTo = document.getElementById("review-modal-to-date");
+    const dupFrom = document.getElementById("dup-from-date");
+    const dupTo = document.getElementById("dup-to-date");
+    if (periodFrom && dupFrom) dupFrom.value = periodFrom.value;
+    if (periodTo && dupTo) dupTo.value = periodTo.value;
 };
 
 // F. Table Rows Custom Scroll Rendering Override
