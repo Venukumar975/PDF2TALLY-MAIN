@@ -1108,6 +1108,11 @@ function updateMonthlyAnalysisBalances() {
     let cumulativeBalance = opBalVal;
     const isCashOnly = (reviewState.bankName || "").toLowerCase() === "cash";
     
+    let totalVouchers = 0;
+    let totalDebit = 0;
+    let totalCredit = 0;
+    let finalClosingBalance = opBalVal;
+    
     const sortedMonthKeys = Object.keys(monthlyRollup).sort();
     
     sortedMonthKeys.forEach(mKey => {
@@ -1120,6 +1125,11 @@ function updateMonthlyAnalysisBalances() {
             cumulativeBalance += item.debit - item.credit;
             displayBalance = cumulativeBalance;
         }
+        
+        totalVouchers += item.count;
+        totalDebit += item.debit;
+        totalCredit += item.credit;
+        finalClosingBalance = displayBalance;
         
         // Convert monthKey "2025-04" to Month Name "Apr 2025"
         const [yr, mn] = mKey.split("-");
@@ -1138,6 +1148,22 @@ function updateMonthlyAnalysisBalances() {
         `;
         tbody.appendChild(row);
     });
+    
+    // Add Grand Total row
+    const totalRow = document.createElement("tr");
+    totalRow.style.borderTop = "2px solid #cbd5e0";
+    totalRow.style.borderBottom = "2px solid #cbd5e0";
+    totalRow.style.fontWeight = "bold";
+    totalRow.style.background = "#f8fafc";
+    
+    totalRow.innerHTML = `
+        <td style="padding: 8px; font-weight: bold; color: #1e293b;">Grand Total</td>
+        <td style="padding: 8px; text-align: right; color: #1e293b;">${totalVouchers}</td>
+        <td style="padding: 8px; text-align: right; color: #16a34a;">${formatCurrency(totalDebit)}</td>
+        <td style="padding: 8px; text-align: right; color: #e53e3e;">${formatCurrency(totalCredit)}</td>
+        <td style="padding: 8px; text-align: right; font-weight: bold; color: #1e293b;">${formatCurrency(finalClosingBalance)}</td>
+    `;
+    tbody.appendChild(totalRow);
 }
 
 // -------------------------------------------------------------
