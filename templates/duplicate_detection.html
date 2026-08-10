@@ -126,65 +126,199 @@
     body.night-theme #match-comparison-rows span {
         color: #f1f5f9 !important;
     }
+    
+    /* Night Theme Report Modal Styles */
+    body.night-theme #review-modal-dup-report .tally-modal-card {
+        background-color: #1e293b !important;
+        border-color: #38bdf8 !important;
+    }
+    body.night-theme #review-modal-dup-report .tally-modal-header {
+        background-color: #0f172a !important;
+        color: #38bdf8 !important;
+        border-bottom: 1px solid #334155 !important;
+    }
+    body.night-theme #review-modal-dup-report .tally-modal-body {
+        background-color: #0f172a !important;
+        color: #f1f5f9 !important;
+    }
+    body.night-theme #review-modal-dup-report div {
+        color: #f1f5f9 !important;
+    }
+    body.night-theme #review-modal-dup-report .tally-modal-footer {
+        background-color: #1e293b !important;
+        border-top: 1px solid #334155 !important;
+    }
+    body.night-theme .rep-month-card {
+        background-color: #1e293b !important;
+        border-color: #334155 !important;
+        box-shadow: none !important;
+    }
+    body.night-theme .rep-month-header {
+        border-bottom-color: #334155 !important;
+    }
+    body.night-theme .rep-month-header span {
+        color: #38bdf8 !important;
+    }
+    body.night-theme .rep-month-badge {
+        background-color: #1e3a8a !important;
+        color: #38bdf8 !important;
+        border-color: #2563eb !important;
+    }
+    body.night-theme .rep-month-col-bank {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+        color: #f1f5f9 !important;
+    }
+    body.night-theme .rep-month-col-tally {
+        background-color: #0f172a !important;
+        border-color: #064e3b !important;
+        color: #f1f5f9 !important;
+    }
+    body.night-theme .rep-month-col-rec {
+        background-color: #0f172a !important;
+        border-color: #78350f !important;
+        color: #f1f5f9 !important;
+    }
+    body.night-theme .rep-month-col span {
+        color: #38bdf8 !important;
+    }
+    body.night-theme .rep-month-col div {
+        color: #cbd5e0 !important;
+    }
+    body.night-theme .rep-month-col strong {
+        color: #ffffff !important;
+    }
+    body.night-theme #btn-toggle-dup-stats {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+        color: #38bdf8 !important;
+    }
+    body.night-theme #btn-toggle-dup-stats:hover {
+        background-color: #1e293b !important;
+    }
+    body.night-theme #btn-view-dup-report {
+        background-color: #0f172a !important;
+        border-color: #22c55e !important;
+        color: #4ade80 !important;
+    }
+    body.night-theme #btn-view-dup-report:hover {
+        background-color: #14532d !important;
+    }
+    
+    body.night-theme .final-report-card {
+        background-color: #0f172a !important;
+        border-color: #38bdf8 !important;
+        box-shadow: none !important;
+    }
+    body.night-theme .final-report-card .rep-month-header {
+        border-bottom-color: #38bdf8 !important;
+    }
+    body.night-theme .final-report-card .rep-month-header span {
+        color: #38bdf8 !important;
+    }
+    
+    /* Scrollbar overrides for the Reconciliation Report Modal Body */
+    #review-modal-dup-report .tally-modal-body::-webkit-scrollbar {
+        width: 8px !important;
+        display: block !important;
+    }
+    #review-modal-dup-report .tally-modal-body::-webkit-scrollbar-track {
+        background: #f1f5f9 !important;
+        border-radius: 4px !important;
+    }
+    #review-modal-dup-report .tally-modal-body::-webkit-scrollbar-thumb {
+        background: #cbd5e0 !important;
+        border-radius: 4px !important;
+    }
+    #review-modal-dup-report .tally-modal-body::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8 !important;
+    }
+    
+    body.night-theme #review-modal-dup-report .tally-modal-body::-webkit-scrollbar-track {
+        background: #0f172a !important;
+    }
+    body.night-theme #review-modal-dup-report .tally-modal-body::-webkit-scrollbar-thumb {
+        background: #475569 !important;
+    }
+    body.night-theme #review-modal-dup-report .tally-modal-body::-webkit-scrollbar-thumb:hover {
+        background: #64748b !important;
+    }
 </style>
 
 <!-- 1. DUPLICATE DETECTION PANEL -->
-<div id="duplicate-detection-panel" class="hidden">
-    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-weight: bold; color: #002d5a;">Tally Company Name:</label>
-            <input type="text" id="dup-company-name" list="dup-company-history-list" placeholder="Exact Tally Company Name">
-            <datalist id="dup-company-history-list"></datalist>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-weight: bold; color: #002d5a;">Bank Ledger Name:</label>
-            <input type="text" id="dup-bank-name" list="dup-bank-history-list" placeholder="e.g. BANK OF BARODA">
-            <datalist id="dup-bank-history-list"></datalist>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-weight: bold; color: #002d5a;">From Date:</label>
-            <input type="date" id="dup-from-date">
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-weight: bold; color: #002d5a;">To Date:</label>
-            <input type="date" id="dup-to-date">
-        </div>
-        
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <span style="font-weight: bold; color: #002d5a;">Date Match Tolerance:</span>
-            <div style="display: flex; gap: 10px; align-items: center; height: 28px;">
-                <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
-                    <input type="radio" name="dup-date-tolerance" value="0" checked style="width: auto; margin: 0;"> Exact
-                </label>
-                <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
-                    <input type="radio" name="dup-date-tolerance" value="1" style="width: auto; margin: 0;"> ±1 Day
-                </label>
-                <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
-                    <input type="radio" name="dup-date-tolerance" value="2" style="width: auto; margin: 0;"> ±2 Days
-                </label>
-                <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
-                    <input type="radio" name="dup-date-tolerance" value="3" style="width: auto; margin: 0;"> ±3 Days
-                </label>
+<div id="duplicate-detection-panel" class="hidden" style="margin-bottom: 10px; border-bottom: 1.5px solid #cbd5e0; padding-bottom: 10px; width: 100%;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; width: 100%;">
+        <!-- Left Side: Inputs and Action Buttons -->
+        <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 300px;">
+            <!-- Inputs row -->
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-weight: bold; color: #002d5a;">Tally Company Name:</label>
+                    <input type="text" id="dup-company-name" list="dup-company-history-list" placeholder="Exact Tally Company Name">
+                    <datalist id="dup-company-history-list"></datalist>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-weight: bold; color: #002d5a;">Bank Ledger Name:</label>
+                    <input type="text" id="dup-bank-name" list="dup-bank-history-list" placeholder="e.g. BANK OF BARODA">
+                    <datalist id="dup-bank-history-list"></datalist>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-weight: bold; color: #002d5a;">From Date:</label>
+                    <input type="date" id="dup-from-date">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-weight: bold; color: #002d5a;">To Date:</label>
+                    <input type="date" id="dup-to-date">
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-weight: bold; color: #002d5a;">Date Match Tolerance:</span>
+                    <div style="display: flex; gap: 10px; align-items: center; height: 28px;">
+                        <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
+                            <input type="radio" name="dup-date-tolerance" value="0" checked style="width: auto; margin: 0;"> Exact
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
+                            <input type="radio" name="dup-date-tolerance" value="1" style="width: auto; margin: 0;"> ±1 Day
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
+                            <input type="radio" name="dup-date-tolerance" value="2" style="width: auto; margin: 0;"> ±2 Days
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 3px; font-weight: normal; cursor: pointer; color: #000000;">
+                            <input type="radio" name="dup-date-tolerance" value="3" style="width: auto; margin: 0;"> ±3 Days
+                        </label>
+                    </div>
+                </div>
             </div>
-        </div>
-
-        <!-- Duplicate Filters Group -->
-        <div id="dup-filter-card" class="hidden" style="background: #f0f4f8; border: 2px solid #000000; box-shadow: 2px 2px 0px #000000; border-radius: 4px; padding: 4px 8px; margin-left: 20px; user-select: none; display: flex; flex-direction: column; gap: 2px; align-self: flex-end; margin-bottom: 2px;">
-            <div style="font-weight: bold; color: #002d5a; font-size: 0.72rem; border-bottom: 1px solid #cbd5e0; padding-bottom: 2px; margin-bottom: 2px;">Duplicate Filters</div>
-            <div style="display: flex; gap: 6px; align-items: center; height: 26px;">
-                <button id="btn-stats-dup-all" class="stats-interactive-row active-all" onclick="toggleStatsFilter('all')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">All Vouchers</button>
-                <button id="btn-stats-dup-only" class="stats-interactive-row" onclick="toggleStatsFilter('duplicate')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; color: #b45309; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">Duplicates</button>
-                <button id="btn-stats-new-only" class="stats-interactive-row" onclick="toggleStatsFilter('new')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; color: #4b5563; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">New Vouchers</button>
-            </div>
-        </div>
-        
-        <div style="display: flex; gap: 8px; align-items: center; width: 100%; margin-top: 5px;">
-            <button onclick="importTallyVouchers()" style="background: #002d5a; color: white; border: none; border-radius: 4px; padding: 5px 12px; font-weight: bold; cursor: pointer; font-size: 0.8rem; transition: background 0.15s; height: 28px;" onmouseover="this.style.background='#004488'" onmouseout="this.style.background='#002d5a'">Import Tally Data</button>
-            <button onclick="detectDuplicates()" style="background: #27ae60; color: white; border: none; border-radius: 4px; padding: 5px 12px; font-weight: bold; cursor: pointer; font-size: 0.8rem; transition: background 0.15s; height: 28px;" onmouseover="this.style.background='#2ecc71'" onmouseout="this.style.background='#27ae60'">Detect Duplicates</button>
             
-            <!-- Tip text placed right next to the buttons -->
-            <div id="dup-compare-tip" class="hidden" style="display: inline-flex; align-items: center; font-size: 0.72rem; color: #475569; font-weight: 600; padding: 6px 12px; background: #fffbeb; border: 1px solid #fde047; border-radius: 4px; max-width: 320px; line-height: 1.35; margin-left: 15px;">
-                💡 Compare this balance with Tally to verify duplicate detection.
+            <!-- Buttons row -->
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 2px;">
+                <button onclick="importTallyVouchers()" style="background: #002d5a; color: white; border: none; border-radius: 4px; padding: 5px 12px; font-weight: bold; cursor: pointer; font-size: 0.8rem; transition: background 0.15s; height: 28px;" onmouseover="this.style.background='#004488'" onmouseout="this.style.background='#002d5a'">Import Tally Data</button>
+                <button onclick="detectDuplicates()" style="background: #27ae60; color: white; border: none; border-radius: 4px; padding: 5px 12px; font-weight: bold; cursor: pointer; font-size: 0.8rem; transition: background 0.15s; height: 28px;" onmouseover="this.style.background='#2ecc71'" onmouseout="this.style.background='#27ae60'">Detect Duplicates</button>
+                
+                <span id="dup-import-status-text" style="font-size: 0.78rem; font-weight: 600; margin-left: 10px; display: none;"></span>
+                
+                <!-- Tip text placed right next to the buttons -->
+                <div id="dup-compare-tip" class="hidden" style="display: inline-flex; align-items: center; font-size: 0.72rem; color: #475569; font-weight: 600; padding: 6px 12px; background: #fffbeb; border: 1px solid #fde047; border-radius: 4px; max-width: 320px; line-height: 1.35; margin-left: 15px;">
+                    💡 Compare this balance with Tally to verify duplicate detection.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Side: Duplicate Filters Wrapper -->
+        <div style="display: flex; flex-direction: column; gap: 5px; margin-left: 20px; align-self: flex-start; flex-shrink: 0; align-items: flex-end;">
+            <!-- Duplicate Filters Group -->
+            <div id="dup-filter-card" class="hidden" style="background: #f0f4f8; border: 2px solid #000000; box-shadow: 2px 2px 0px #000000; border-radius: 4px; padding: 4px 8px; user-select: none; display: flex; flex-direction: column; gap: 2px; margin-bottom: 2px;">
+                <div style="font-weight: bold; color: #002d5a; font-size: 0.72rem; border-bottom: 1px solid #cbd5e0; padding-bottom: 2px; margin-bottom: 2px;">Duplicate Filters</div>
+                <div style="display: flex; gap: 6px; align-items: center; height: 26px;">
+                    <button id="btn-stats-dup-all" class="stats-interactive-row active-all" onclick="toggleStatsFilter('all')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">All Vouchers</button>
+                    <button id="btn-stats-dup-only" class="stats-interactive-row" onclick="toggleStatsFilter('duplicate')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; color: #b45309; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">Duplicates</button>
+                    <button id="btn-stats-new-only" class="stats-interactive-row" onclick="toggleStatsFilter('new')" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; color: #4b5563; font-weight: 500; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">New Vouchers</button>
+                </div>
+            </div>
+            <!-- Hide/Show & View Report Buttons -->
+            <div id="dup-report-actions-container" class="hidden" style="display: flex; gap: 6px; align-items: center; height: 26px;">
+                <button id="btn-toggle-dup-stats" onclick="toggleDuplicateStatsVisibility()" style="padding: 2px 8px; font-size: 0.72rem; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer; background: #ffffff; height: 22px; color: #002d5a; font-weight: bold; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">Hide Stats</button>
+                <button id="btn-view-dup-report" onclick="openDuplicateReportModal()" style="padding: 2px 8px; font-size: 0.72rem; border: 2px solid #27ae60; border-radius: 4px; cursor: pointer; background: #f0fdf4; height: 22px; color: #16a34a; font-weight: bold; font-family: 'Inter', sans-serif; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin: 0 !important;">View Report</button>
             </div>
         </div>
     </div>
@@ -269,6 +403,72 @@
         </div>
         <div class="tally-modal-footer">
             <button class="btn btn-primary" onclick="closeReviewModal('match-details')" style="background: #002d5a; color: white !important; border-color: #002d5a; font-size: 0.78rem; padding: 6px 12px; height: 32px;">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- 3. DUPLICATE REPORT DIALOG -->
+<div id="review-modal-dup-report" class="tally-modal-overlay hidden" style="z-index: 1500;">
+    <div class="tally-modal-card" style="width: 96%; max-width: 1100px; height: 90vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px;">
+        <div class="tally-modal-header" style="background: #002d5a; display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; flex-shrink: 0;">
+            <span style="font-size: 1rem; font-weight: bold; color: white;">Duplicate Checking & Reconciliation Report</span>
+            <span onclick="closeDuplicateReportModal()" style="cursor: pointer; font-size: 1.5rem; font-weight: bold; color: white;">×</span>
+        </div>
+        <div class="tally-modal-body" style="padding: 20px; height: calc(90vh - 110px) !important; overflow-y: auto !important; overflow-x: hidden !important; display: block !important; background: #f8fafc; box-sizing: border-box !important;">
+            <!-- Report Meta Info -->
+            <div style="background: #ffffff; border: 1px solid #cbd5e0; padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+                <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 2px;">Tally Company & Ledger</div>
+                    <div id="rep-meta-company-ledger" style="font-size: 0.95rem; font-weight: bold; color: #002d5a;">--</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 2px;">Reconciliation Period</div>
+                    <div id="rep-meta-period" style="font-size: 0.95rem; font-weight: bold; color: #002d5a;">--</div>
+                </div>
+            </div>
+
+            <!-- Summary Cards Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                <div style="background: #ffffff; border: 1px solid #cbd5e0; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <span style="font-size: 0.65rem; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 4px;">Opening Balance</span>
+                    <strong id="rep-stat-opening" style="font-size: 1.1rem; color: #0f172a;">₹0.00</strong>
+                </div>
+                <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <span style="font-size: 0.65rem; text-transform: uppercase; color: #065f46; font-weight: bold; margin-bottom: 4px;">Dup Total Debit</span>
+                    <strong id="rep-stat-debit" style="font-size: 1.1rem; color: #047857;">₹0.00</strong>
+                </div>
+                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <span style="font-size: 0.65rem; text-transform: uppercase; color: #991b1b; font-weight: bold; margin-bottom: 4px;">Dup Total Credit</span>
+                    <strong id="rep-stat-credit" style="font-size: 1.1rem; color: #b91c1c;">₹0.00</strong>
+                </div>
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <span style="font-size: 0.65rem; text-transform: uppercase; color: #166534; font-weight: bold; margin-bottom: 4px;">Dup Closing Bal</span>
+                    <strong id="rep-stat-closing" style="font-size: 1.1rem; color: #15803d;">₹0.00</strong>
+                </div>
+                <div style="background: #f1f5f9; border: 1px solid #cbd5e0; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <span style="font-size: 0.65rem; text-transform: uppercase; color: #475569; font-weight: bold; margin-bottom: 4px;">Total App Vchrs</span>
+                    <strong id="rep-stat-app-total" style="font-size: 1.1rem; color: #0f172a;">0</strong>
+                </div>
+                <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <span style="font-size: 0.65rem; text-transform: uppercase; color: #0369a1; font-weight: bold; margin-bottom: 4px;">Tally Vchrs</span>
+                    <strong id="rep-stat-tally-total" style="font-size: 1.1rem; color: #0284c7;">0</strong>
+                </div>
+                <div style="background: #fef3c7; border: 1px solid #fde047; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                    <span style="font-size: 0.65rem; text-transform: uppercase; color: #92400e; font-weight: bold; margin-bottom: 4px;">Duplicates</span>
+                    <strong id="rep-stat-duplicate" style="font-size: 1.1rem; color: #b45309;">0</strong>
+                </div>
+            </div>
+
+            <!-- Month-wise Analysis Cards Container -->
+            <div style="background: #ffffff; border: 1px solid #cbd5e0; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; width: 100%;">
+                <div style="background: #002d5a; color: white; font-weight: bold; padding: 10px 15px; font-size: 0.82rem;">Month-Wise Reconciliation Breakdown</div>
+                <div id="rep-monthly-cards-container" style="display: flex; flex-direction: column; gap: 15px; padding: 15px; background: #f8fafc;">
+                    <!-- Cards populated dynamically -->
+                </div>
+            </div>
+        </div>
+        <div class="tally-modal-footer" style="padding: 12px 18px; background: #f1f5f9; border-top: 1px solid #cbd5e0; display: flex; justify-content: flex-end; flex-shrink: 0;">
+            <button class="btn btn-primary" onclick="closeDuplicateReportModal()" style="background: #002d5a; color: white !important; border-color: #002d5a; font-size: 0.8rem; padding: 6px 16px; height: 34px; font-weight: bold; cursor: pointer; border-radius: 4px;">Close Report</button>
         </div>
     </div>
 </div>

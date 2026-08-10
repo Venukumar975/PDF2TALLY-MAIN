@@ -5,6 +5,8 @@
 // Extend global state
 reviewState.tallyVouchers = [];
 reviewState.duplicateDetectionRun = false;
+reviewState.showDuplicateStats = true;
+reviewState.duplicatesDetected = false;
 
 // 1. DYNAMIC DOM INTEGRATION & INITIALIZATION ON STARTUP
 document.addEventListener("DOMContentLoaded", () => {
@@ -89,10 +91,12 @@ function toggleDuplicateDetectionPanel() {
             if (el) el.style.display = "block";
         });
         
-        // Show sidebar filter card if detection has results
+        // Show sidebar filter card and actions card if detection has results
         const filterCard = document.getElementById("dup-filter-card");
-        if (filterCard && reviewState.tallyVouchers && reviewState.tallyVouchers.length > 0) {
+        const actionsContainer = document.getElementById("dup-report-actions-container");
+        if (filterCard && reviewState.duplicatesDetected) {
             filterCard.classList.remove("hidden");
+            if (actionsContainer) actionsContainer.classList.remove("hidden");
         }
 
         // Restore results container visibility if it contains active data/messages
@@ -100,12 +104,25 @@ function toggleDuplicateDetectionPanel() {
         const statusMsg = document.getElementById("dup-status-message");
         const summarySec = document.getElementById("dup-summary-section");
         if (resultsContainer && ((statusMsg && statusMsg.style.display !== "none" && statusMsg.innerHTML !== "") || (summarySec && !summarySec.classList.contains("hidden")))) {
-            resultsContainer.classList.remove("hidden");
+            if (reviewState.showDuplicateStats) {
+                resultsContainer.classList.remove("hidden");
+            } else {
+                resultsContainer.classList.add("hidden");
+            }
         }
 
         const compareTip = document.getElementById("dup-compare-tip");
         if (compareTip && ((statusMsg && statusMsg.style.display !== "none" && statusMsg.innerHTML !== "") || (summarySec && !summarySec.classList.contains("hidden")))) {
-            compareTip.classList.remove("hidden");
+            if (reviewState.showDuplicateStats) {
+                compareTip.classList.remove("hidden");
+            } else {
+                compareTip.classList.add("hidden");
+            }
+        }
+        
+        const toggleBtn = document.getElementById("btn-toggle-dup-stats");
+        if (toggleBtn) {
+            toggleBtn.textContent = reviewState.showDuplicateStats ? "Hide Stats" : "Show Stats";
         }
     } else {
         // Hide panel
@@ -126,9 +143,11 @@ function toggleDuplicateDetectionPanel() {
             if (el) el.style.display = "none";
         });
         
-        // Hide sidebar filter card
+        // Hide sidebar filter card and actions card
         const filterCard = document.getElementById("dup-filter-card");
         if (filterCard) filterCard.classList.add("hidden");
+        const actionsContainer = document.getElementById("dup-report-actions-container");
+        if (actionsContainer) actionsContainer.classList.add("hidden");
         
         // Reset state filter if set to duplicate status
         if (reviewState.statusFilter === "duplicate" || reviewState.statusFilter === "new") {
@@ -231,9 +250,14 @@ window.toggleStatsFilter = function(targetFilter) {
 // D. Modal Close Hook
 const originalCloseActiveModal = window.closeActiveModal;
 window.closeActiveModal = function() {
-    const el = document.getElementById("review-modal-match-details");
-    if (el && !el.classList.contains("hidden")) {
+    const el1 = document.getElementById("review-modal-match-details");
+    if (el1 && !el1.classList.contains("hidden")) {
         closeReviewModal("match-details");
+        return true;
+    }
+    const el2 = document.getElementById("review-modal-dup-report");
+    if (el2 && !el2.classList.contains("hidden")) {
+        closeDuplicateReportModal();
         return true;
     }
     return originalCloseActiveModal.apply(this, arguments);
@@ -467,7 +491,7 @@ async function importTallyVouchers() {
     const bankName = document.getElementById("dup-bank-name").value.trim();
     const fromDate = document.getElementById("dup-from-date").value;
     const toDate = document.getElementById("dup-to-date").value;
-    const statusMsg = document.getElementById("dup-status-message");
+    const statusText = document.getElementById("dup-import-status-text");
     
     if (!companyName) {
         alert("Please enter a Tally Company Name.");
@@ -478,15 +502,10 @@ async function importTallyVouchers() {
         return;
     }
     
-    const resultsContainer = document.getElementById("dup-results-container");
-    if (resultsContainer) resultsContainer.classList.remove("hidden");
-
-    if (statusMsg) {
-        statusMsg.style.display = "block";
-        statusMsg.style.background = "#ebf8ff";
-        statusMsg.style.color = "#005ea5";
-        statusMsg.style.border = "1px solid #bae6fd";
-        statusMsg.innerHTML = "⌛ Connecting to Tally Prime and importing vouchers...";
+    if (statusText) {
+        statusText.style.display = "inline-block";
+        statusText.style.color = "#005ea5";
+        statusText.innerHTML = "⌛ Connecting to Tally Prime and importing vouchers...";
     }
     
     try {
@@ -507,17 +526,29 @@ async function importTallyVouchers() {
         if (result.success) {
             reviewState.tallyVouchers = result.vouchers || [];
             
-            if (statusMsg) {
-                statusMsg.style.background = "#f0fdf4";
-                statusMsg.style.color = "#16a34a";
-                statusMsg.style.border = "1px solid #bbf7d0";
-                
-                const fromParts = fromDate.split("-");
-                const toParts = toDate.split("-");
-                const fromFormatted = `${fromParts[2]}/${fromParts[1]}/${fromParts[0]}`;
-                const toFormatted = `${toParts[2]}/${toParts[1]}/${toParts[0]}`;
-                
-                statusMsg.innerHTML = `✓ Company Imported Successfully: <b>${result.company_name}</b><br/>Number of vouchers imported: <b>${reviewState.tallyVouchers.length}</b><br/>Date Range: <b>${fromFormatted} to ${toFormatted}</b>`;
+            // Hide results container if previously shown from another ledger
+            const resultsContainer = document.getElementById("dup-results-container");
+            if (resultsContainer) resultsContainer.classList.add("hidden");
+            const filterCard = document.getElementById("dup-filter-card");
+            if (filterCard) filterCard.classList.add("hidden");
+            const actionsContainer = document.getElementById("dup-report-actions-container");
+            if (actionsContainer) actionsContainer.classList.add("hidden");
+            
+            reviewState.duplicatesDetected = false;
+            
+            if (statusText) {
+                statusText.style.color = "#16a34a";
+                let fromFormatted = "--";
+                let toFormatted = "--";
+                if (fromDate) {
+                    const fromParts = fromDate.split("-");
+                    fromFormatted = `${fromParts[2]}/${fromParts[1]}/${fromParts[0]}`;
+                }
+                if (toDate) {
+                    const toParts = toDate.split("-");
+                    toFormatted = `${toParts[2]}/${toParts[1]}/${toParts[0]}`;
+                }
+                statusText.innerHTML = `✓ Imported <b>${reviewState.tallyVouchers.length}</b> Tally vouchers (<b>${result.company_name}</b>) successfully for <b>${fromFormatted} to ${toFormatted}</b>.`;
             }
             
             // Save successful company and bank name to history
@@ -534,19 +565,15 @@ async function importTallyVouchers() {
                 loadDuplicateHistory();
             }).catch(err => console.error("Failed to save duplicate history:", err));
         } else {
-            if (statusMsg) {
-                statusMsg.style.background = "#fef2f2";
-                statusMsg.style.color = "#ef4444";
-                statusMsg.style.border = "1px solid #fecaca";
-                statusMsg.innerHTML = `❌ Error: ${result.message}`;
+            if (statusText) {
+                statusText.style.color = "#ef4444";
+                statusText.textContent = `❌ Error: ${result.message}`;
             }
         }
     } catch (err) {
-        if (statusMsg) {
-            statusMsg.style.background = "#fef2f2";
-            statusMsg.style.color = "#ef4444";
-            statusMsg.style.border = "1px solid #fecaca";
-            statusMsg.innerHTML = `❌ System Error: ${err.message}`;
+        if (statusText) {
+            statusText.style.color = "#ef4444";
+            statusText.textContent = `❌ System Error: ${err.message}`;
         }
     }
 }
@@ -675,9 +702,19 @@ function detectDuplicates() {
         }
     });
     
-    // Toggle sidebar filters card visibility
+    reviewState.duplicatesDetected = true;
+    
+    // Toggle sidebar filters card and actions container visibility
     const filterCard = document.getElementById("dup-filter-card");
     if (filterCard) filterCard.classList.remove("hidden");
+    
+    const actionsContainer = document.getElementById("dup-report-actions-container");
+    if (actionsContainer) actionsContainer.classList.remove("hidden");
+    
+    const toggleBtn = document.getElementById("btn-toggle-dup-stats");
+    if (toggleBtn) {
+        toggleBtn.textContent = reviewState.showDuplicateStats ? "Hide Stats" : "Show Stats";
+    }
     
     // Calculate and display statistics counts
     const totalCount = reviewState.vouchers.length;
@@ -701,13 +738,31 @@ function detectDuplicates() {
     updateDupBalances();
     
     const compareTip = document.getElementById("dup-compare-tip");
-    if (compareTip) compareTip.classList.remove("hidden");
+    if (compareTip) {
+        if (reviewState.showDuplicateStats) {
+            compareTip.classList.remove("hidden");
+        } else {
+            compareTip.classList.add("hidden");
+        }
+    }
     
     const resultsContainer = document.getElementById("dup-results-container");
-    if (resultsContainer) resultsContainer.classList.remove("hidden");
+    if (resultsContainer) {
+        if (reviewState.showDuplicateStats) {
+            resultsContainer.classList.remove("hidden");
+        } else {
+            resultsContainer.classList.add("hidden");
+        }
+    }
     
     const summarySec = document.getElementById("dup-summary-section");
-    if (summarySec) summarySec.classList.remove("hidden");
+    if (summarySec) {
+        if (reviewState.showDuplicateStats) {
+            summarySec.classList.remove("hidden");
+        } else {
+            summarySec.classList.add("hidden");
+        }
+    }
     
     applyReviewFilters();
     onReviewTableScroll();
@@ -823,3 +878,317 @@ async function loadDuplicateHistory() {
     }
 }
 window.loadDuplicateHistory = loadDuplicateHistory;
+
+// -------------------------------------------------------------
+// RECONCILIATION REPORT MODAL LOGIC
+// -------------------------------------------------------------
+
+function toggleDuplicateStatsVisibility() {
+    reviewState.showDuplicateStats = !reviewState.showDuplicateStats;
+    const resultsContainer = document.getElementById("dup-results-container");
+    const compareTip = document.getElementById("dup-compare-tip");
+    const toggleBtn = document.getElementById("btn-toggle-dup-stats");
+    
+    if (reviewState.showDuplicateStats) {
+        const statusMsg = document.getElementById("dup-status-message");
+        const summarySec = document.getElementById("dup-summary-section");
+        if (resultsContainer && ((statusMsg && statusMsg.style.display !== "none" && statusMsg.innerHTML !== "") || (summarySec && !summarySec.classList.contains("hidden")))) {
+            resultsContainer.classList.remove("hidden");
+        }
+        if (compareTip && ((statusMsg && statusMsg.style.display !== "none" && statusMsg.innerHTML !== "") || (summarySec && !summarySec.classList.contains("hidden")))) {
+            compareTip.classList.remove("hidden");
+        }
+        if (toggleBtn) toggleBtn.textContent = "Hide Stats";
+    } else {
+        if (resultsContainer) resultsContainer.classList.add("hidden");
+        if (compareTip) compareTip.classList.add("hidden");
+        if (toggleBtn) toggleBtn.textContent = "Show Stats";
+    }
+}
+window.toggleDuplicateStatsVisibility = toggleDuplicateStatsVisibility;
+
+function getYearMonthKey(dateObj) {
+    if (!dateObj) return null;
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+}
+
+function getFormattedMonthName(yearMonthKey) {
+    const [y, m] = yearMonthKey.split("-");
+    const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+    return `${monthNames[parseInt(m, 10) - 1]} ${y}`;
+}
+
+function openDuplicateReportModal() {
+    const companyName = document.getElementById("dup-company-name").value.trim() || "--";
+    const bankName = document.getElementById("dup-bank-name").value.trim() || "--";
+    const fromDate = document.getElementById("dup-from-date").value;
+    const toDate = document.getElementById("dup-to-date").value;
+    
+    let formattedFrom = "--";
+    let formattedTo = "--";
+    if (fromDate) {
+        const parts = fromDate.split("-");
+        formattedFrom = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    if (toDate) {
+        const parts = toDate.split("-");
+        formattedTo = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    
+    document.getElementById("rep-meta-company-ledger").textContent = `${companyName} / ${bankName}`;
+    document.getElementById("rep-meta-period").textContent = `${formattedFrom} to ${formattedTo}`;
+    
+    let openingBalance = 0.00;
+    if (reviewState.manualOpeningBalance !== null && reviewState.manualOpeningBalance !== undefined) {
+        openingBalance = parseFloat(reviewState.manualOpeningBalance) || 0.00;
+    } else if (reviewState.openingBalance !== null && reviewState.openingBalance !== undefined) {
+        openingBalance = parseFloat(reviewState.openingBalance) || 0.00;
+    }
+    
+    // Sync the duplicate check input
+    const opInput = document.getElementById("dup-bal-opening-input");
+    if (opInput) {
+        opInput.value = openingBalance.toFixed(2);
+    }
+    
+    document.getElementById("rep-stat-opening").textContent = formatCurrency(openingBalance);
+    
+    const appTotal = reviewState.vouchers.length;
+    const tallyTotal = reviewState.tallyVouchers.length;
+    
+    let dupCount = 0;
+    let dupDebit = 0.00;
+    let dupCredit = 0.00;
+    
+    reviewState.vouchers.forEach(vch => {
+        if (vch.duplicateStatus === "Duplicate") {
+            dupCount++;
+            dupDebit += (vch.debit || 0.00);
+            dupCredit += (vch.credit || 0.00);
+        }
+    });
+    
+    const closingBalance = openingBalance + dupDebit - dupCredit;
+    
+    document.getElementById("rep-stat-debit").textContent = formatCurrency(dupDebit);
+    document.getElementById("rep-stat-credit").textContent = formatCurrency(dupCredit);
+    document.getElementById("rep-stat-closing").textContent = formatCurrency(closingBalance);
+    document.getElementById("rep-stat-app-total").textContent = appTotal;
+    document.getElementById("rep-stat-tally-total").textContent = tallyTotal;
+    document.getElementById("rep-stat-duplicate").textContent = dupCount;
+    
+    const monthsData = {};
+    
+    const getMonthKeyAndInit = (dateStr) => {
+        const dt = parseDateString(dateStr);
+        if (!dt) return null;
+        const key = getYearMonthKey(dt);
+        if (!monthsData[key]) {
+            monthsData[key] = {
+                appCount: 0, appDebit: 0.0, appCredit: 0.0,
+                tallyCount: 0, tallyDebit: 0.0, tallyCredit: 0.0,
+                dupCount: 0, dupDebit: 0.0, dupCredit: 0.0
+            };
+        }
+        return key;
+    };
+    
+    reviewState.vouchers.forEach(vch => {
+        const key = getMonthKeyAndInit(vch.date);
+        if (key) {
+            monthsData[key].appCount++;
+            monthsData[key].appDebit += (vch.debit || 0.0);
+            monthsData[key].appCredit += (vch.credit || 0.0);
+            
+            if (vch.duplicateStatus === "Duplicate") {
+                monthsData[key].dupCount++;
+                monthsData[key].dupDebit += (vch.debit || 0.0);
+                monthsData[key].dupCredit += (vch.credit || 0.0);
+            }
+        }
+    });
+    
+    reviewState.tallyVouchers.forEach(tally => {
+        const formattedDate = formatTallyDate(tally.date);
+        const key = getMonthKeyAndInit(formattedDate);
+        if (key) {
+            monthsData[key].tallyCount++;
+            if (tally.type === "DEBIT") {
+                monthsData[key].tallyDebit += tally.amount;
+            } else if (tally.type === "CREDIT") {
+                monthsData[key].tallyCredit += tally.amount;
+            }
+        }
+    });
+    
+    const sortedKeys = Object.keys(monthsData).sort();
+    
+    let runningClosingApp = openingBalance;
+    let runningClosingTally = openingBalance;
+    let runningClosingDup = openingBalance;
+    
+    let totalAppCount = 0;
+    let totalAppDebit = 0.00;
+    let totalAppCredit = 0.00;
+    
+    let totalTallyCount = 0;
+    let totalTallyDebit = 0.00;
+    let totalTallyCredit = 0.00;
+    
+    let totalDupCount = 0;
+    let totalDupDebit = 0.00;
+    let totalDupCredit = 0.00;
+    
+    let cardsHtml = "";
+    
+    if (sortedKeys.length === 0) {
+        cardsHtml = `<div style="padding: 30px; text-align: center; color: #64748b; font-weight: bold; font-size: 0.9rem; background: #ffffff; border-radius: 8px; border: 1px solid #cbd5e0;">No data available. Please import Tally data first.</div>`;
+    } else {
+        sortedKeys.forEach(key => {
+            const data = monthsData[key];
+            const monthName = getFormattedMonthName(key);
+            
+            runningClosingApp = runningClosingApp + data.appDebit - data.appCredit;
+            runningClosingTally = runningClosingTally + data.tallyDebit - data.tallyCredit;
+            runningClosingDup = runningClosingDup + data.dupDebit - data.dupCredit;
+            
+            totalAppCount += data.appCount;
+            totalAppDebit += data.appDebit;
+            totalAppCredit += data.appCredit;
+            
+            totalTallyCount += data.tallyCount;
+            totalTallyDebit += data.tallyDebit;
+            totalTallyCredit += data.tallyCredit;
+            
+            totalDupCount += data.dupCount;
+            totalDupDebit += data.dupDebit;
+            totalDupCredit += data.dupCredit;
+            
+            let matchText = "";
+            if (data.appCount === 0) {
+                if (data.tallyCount > 0) {
+                    matchText = "Tally Only";
+                } else {
+                    matchText = "No Data";
+                }
+            } else {
+                matchText = `${data.dupCount} / ${data.appCount} Matched`;
+            }
+            
+            cardsHtml += `
+                <div class="rep-month-card" style="background: #ffffff; border: 1px solid #cbd5e0; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <!-- Header -->
+                    <div class="rep-month-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 2px;">
+                        <span style="font-size: 0.95rem; font-weight: bold; color: #002d5a;">${monthName}</span>
+                        <span class="rep-month-badge" style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.7rem; border: 1px solid #bae6fd;">${matchText}</span>
+                    </div>
+                    
+                    <!-- Columns Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                        <!-- Column 1: Imported XML -->
+                        <div class="rep-month-col rep-month-col-bank" style="background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 0.65rem; font-weight: bold; color: #475569; text-transform: uppercase;">Imported XML</span>
+                            <div style="font-size: 0.76rem; color: #0f172a; margin-top: 2px;">Total Vouchers: <strong>${data.appCount}</strong></div>
+                            <div style="font-size: 0.76rem; color: #16a34a;">Total Debit: <strong>${data.appDebit > 0 ? formatCurrency(data.appDebit) : "-"}</strong></div>
+                            <div style="font-size: 0.76rem; color: #ef4444;">Total Credit: <strong>${data.appCredit > 0 ? formatCurrency(data.appCredit) : "-"}</strong></div>
+                            <div style="font-size: 0.78rem; color: #0f172a; margin-top: 2px; border-top: 1px dashed #cbd5e0; padding-top: 2px;">
+                                XML Closing Bal: <strong>${formatCurrency(runningClosingApp)}</strong>
+                            </div>
+                        </div>
+                        
+                        <!-- Column 2: Imported from Tally Prime -->
+                        <div class="rep-month-col rep-month-col-tally" style="background: #f0fdfa; padding: 8px 10px; border-radius: 6px; border: 1px solid #ccfbf1; display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 0.65rem; font-weight: bold; color: #0d9488; text-transform: uppercase;">Data from Tally Prime</span>
+                            <div style="font-size: 0.76rem; color: #0f172a; margin-top: 2px;">Total Vouchers: <strong>${data.tallyCount}</strong></div>
+                            <div style="font-size: 0.76rem; color: #16a34a;">Total Debit: <strong>${data.tallyDebit > 0 ? formatCurrency(data.tallyDebit) : "-"}</strong></div>
+                            <div style="font-size: 0.76rem; color: #ef4444;">Total Credit: <strong>${data.tallyCredit > 0 ? formatCurrency(data.tallyCredit) : "-"}</strong></div>
+                            <div style="font-size: 0.78rem; color: #0f172a; margin-top: 2px; border-top: 1px dashed #cbd5e0; padding-top: 2px;">
+                                Tally Closing Bal: <strong>${formatCurrency(runningClosingTally)}</strong>
+                            </div>
+                        </div>
+                        
+                        <!-- Column 3: Reconciled Stats -->
+                        <div class="rep-month-col rep-month-col-rec" style="background: #fffbeb; padding: 8px 10px; border-radius: 6px; border: 1px solid #fef3c7; display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 0.65rem; font-weight: bold; color: #b45309; text-transform: uppercase;">Reconciliation Stats</span>
+                            <div style="font-size: 0.76rem; color: #0f172a; margin-top: 2px;">Duplicate Vouchers: <strong>${data.dupCount}</strong></div>
+                            <div style="font-size: 0.76rem; color: #0f172a;">Duplicate Debit: <strong style="color: #16a34a;">${data.dupDebit > 0 ? formatCurrency(data.dupDebit) : "-"}</strong></div>
+                            <div style="font-size: 0.76rem; color: #0f172a;">Duplicate Credit: <strong style="color: #ef4444;">${data.dupCredit > 0 ? formatCurrency(data.dupCredit) : "-"}</strong></div>
+                            <div style="font-size: 0.78rem; color: #0f172a; margin-top: 2px; border-top: 1px dashed #cbd5e0; padding-top: 2px;">
+                                Dup Closing Bal: <strong style="color: #0f172a;">${formatCurrency(runningClosingDup)}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        // Compute final aggregates
+        const finalXMLClosing = openingBalance + totalAppDebit - totalAppCredit;
+        const finalTallyClosing = openingBalance + totalTallyDebit - totalTallyCredit;
+        const finalDupClosing = openingBalance + totalDupDebit - totalDupCredit;
+        
+        // Append Grand Totals Card at the end
+        cardsHtml += `
+            <div class="rep-month-card final-report-card" style="background: #f8fafc; border: 2px solid #002d5a; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 15px;">
+                <!-- Header -->
+                <div class="rep-month-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #002d5a; padding-bottom: 6px; margin-bottom: 4px;">
+                    <span style="font-size: 1.05rem; font-weight: 800; color: #002d5a; text-transform: uppercase; letter-spacing: 0.5px;">⭐ GRAND TOTAL / FINAL RECONCILIATION</span>
+                    <span class="rep-month-badge" style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 12px; font-weight: 800; font-size: 0.72rem; border: 1px solid #bbf7d0;">Reconciliation Summary</span>
+                </div>
+                
+                <!-- Columns Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                    <!-- Column 1: Imported XML -->
+                    <div class="rep-month-col rep-month-col-bank" style="background: #e2e8f0; padding: 10px; border-radius: 6px; border: 1.5px solid #cbd5e0; display: flex; flex-direction: column; gap: 3px;">
+                        <span style="font-size: 0.68rem; font-weight: 800; color: #334155; text-transform: uppercase;">Imported XML (Grand Totals)</span>
+                        <div style="font-size: 0.78rem; color: #0f172a; margin-top: 2px;">Total Vouchers: <strong>${totalAppCount}</strong></div>
+                        <div style="font-size: 0.78rem; color: #16a34a;">Total Debit: <strong>${totalAppDebit > 0 ? formatCurrency(totalAppDebit) : "-"}</strong></div>
+                        <div style="font-size: 0.78rem; color: #ef4444;">Total Credit: <strong>${totalAppCredit > 0 ? formatCurrency(totalAppCredit) : "-"}</strong></div>
+                        <div style="font-size: 0.82rem; color: #0f172a; margin-top: 4px; border-top: 1.5px solid #94a3b8; padding-top: 4px;">
+                            XML Final Closing: <strong style="font-size: 0.85rem;">${formatCurrency(finalXMLClosing)}</strong>
+                        </div>
+                    </div>
+                    
+                    <!-- Column 2: Imported from Tally Prime -->
+                    <div class="rep-month-col rep-month-col-tally" style="background: #ccfbf1; padding: 10px; border-radius: 6px; border: 1.5px solid #99f6e4; display: flex; flex-direction: column; gap: 3px;">
+                        <span style="font-size: 0.68rem; font-weight: 800; color: #0f766e; text-transform: uppercase;">Data from Tally Prime (Grand Totals)</span>
+                        <div style="font-size: 0.78rem; color: #0f172a; margin-top: 2px;">Total Vouchers: <strong>${totalTallyCount}</strong></div>
+                        <div style="font-size: 0.78rem; color: #16a34a;">Total Debit: <strong>${totalTallyDebit > 0 ? formatCurrency(totalTallyDebit) : "-"}</strong></div>
+                        <div style="font-size: 0.78rem; color: #ef4444;">Total Credit: <strong>${totalTallyCredit > 0 ? formatCurrency(totalTallyCredit) : "-"}</strong></div>
+                        <div style="font-size: 0.82rem; color: #0f172a; margin-top: 4px; border-top: 1.5px solid #5dd8c4; padding-top: 4px;">
+                            Tally Final Closing: <strong style="font-size: 0.85rem;">${formatCurrency(finalTallyClosing)}</strong>
+                        </div>
+                    </div>
+                    
+                    <!-- Column 3: Reconciliation Stats -->
+                    <div class="rep-month-col rep-month-col-rec" style="background: #fef3c7; padding: 10px; border-radius: 6px; border: 1.5px solid #fde047; display: flex; flex-direction: column; gap: 3px;">
+                        <span style="font-size: 0.68rem; font-weight: 800; color: #92400e; text-transform: uppercase;">Reconciliation Grand Totals</span>
+                        <div style="font-size: 0.78rem; color: #0f172a; margin-top: 2px;">Duplicate Vouchers: <strong>${totalDupCount}</strong></div>
+                        <div style="font-size: 0.78rem; color: #0f172a;">Duplicate Debit: <strong style="color: #16a34a;">${totalDupDebit > 0 ? formatCurrency(totalDupDebit) : "-"}</strong></div>
+                        <div style="font-size: 0.78rem; color: #0f172a;">Duplicate Credit: <strong style="color: #ef4444;">${totalDupCredit > 0 ? formatCurrency(totalDupCredit) : "-"}</strong></div>
+                        <div style="font-size: 0.82rem; color: #0f172a; margin-top: 4px; border-top: 1.5px solid #d97706; padding-top: 4px;">
+                            Dup Final Closing: <strong style="font-size: 0.85rem;">${formatCurrency(finalDupClosing)}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById("rep-monthly-cards-container").innerHTML = cardsHtml;
+    
+    document.body.style.overflow = "hidden";
+    document.getElementById("review-modal-dup-report").classList.remove("hidden");
+}
+window.openDuplicateReportModal = openDuplicateReportModal;
+
+function closeDuplicateReportModal() {
+    document.body.style.overflow = "";
+    document.getElementById("review-modal-dup-report").classList.add("hidden");
+}
+window.closeDuplicateReportModal = closeDuplicateReportModal;
