@@ -8,6 +8,45 @@ from routes_base import routes_bp, FILE_CACHE
 from services.logger import logger
 from datetime import datetime
 
+def validate_gstin_checksum(gstin: str) -> bool:
+    gstin = gstin.strip().upper()
+    if len(gstin) != 15:
+        return False
+    # Pattern check matching official utility
+    pattern = r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Zz1-9A-Ja-j]{1}[0-9A-Z]{1}$"
+    if not re.match(pattern, gstin):
+        return False
+        
+    cp_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    substrgst = gstin[:14]
+    
+    factor = 2
+    total_sum = 0
+    mod = len(cp_chars)
+    
+    for char in reversed(substrgst):
+        code_point = cp_chars.find(char)
+        if code_point == -1:
+            return False
+            
+        digit = factor * code_point
+        factor = 1 if factor == 2 else 2
+        
+        digit = (digit // mod) + (digit % mod)
+        total_sum += digit
+        
+    check_code_point = (mod - (total_sum % mod)) % mod
+    return gstin[14] == cp_chars[check_code_point]
+
+def validate_financial_period(fp: str) -> bool:
+    fp = fp.strip()
+    if len(fp) != 6 or not fp.isdigit():
+        return False
+    month = int(fp[:2])
+    if month < 1 or month > 12:
+        return False
+    return True
+
 @routes_bp.route("/api/convert_gstr1", methods=["POST"])
 def api_convert_gstr1():
     try:
@@ -19,13 +58,13 @@ def api_convert_gstr1():
             return jsonify({"success": False, "message": "No file uploaded."}), 400
             
         uploaded_file = request.files["file"]
-        gstin_input = request.form.get("supplier_gstin", "").strip()
+        gstin_input = request.form.get("supplier_gstin", "").strip().upper()
         fp_input = request.form.get("fp", "").strip()
         
-        if not gstin_input:
-            return jsonify({"success": False, "message": "Supplier GSTIN is required."}), 400
-        if not fp_input:
-            return jsonify({"success": False, "message": "Financial Period (fp) is required."}), 400
+        if not validate_gstin_checksum(gstin_input):
+            return jsonify({"success": False, "message": "Please enter a valid 15-character Supplier GSTIN."}), 400
+        if not validate_financial_period(fp_input):
+            return jsonify({"success": False, "message": "Please enter a valid Financial Period in MMYYYY format (e.g. 082025)."}), 400
             
         filename = uploaded_file.filename.lower()
         file_bytes = uploaded_file.read()
@@ -168,6 +207,14 @@ def api_convert_gstr1():
                     txval = float(row['Taxable Value'])
                     rate = float(row['Rate'])
                     
+                    # Validate standard GST rate slabs
+                    VALID_RATES = {0.0, 0.1, 0.25, 1.0, 1.5, 3.0, 5.0, 6.0, 7.5, 12.0, 18.0, 28.0, 40.0}
+                    if pd.isna(rate) or rate not in VALID_RATES:
+                        return jsonify({
+                            "success": False,
+                            "message": f"Validation Error: Tax rate '{rate}%' for Invoice '{inum_str}' is not a valid official GST slab rate. Allowed slabs: 0%, 0.1%, 0.25%, 1%, 1.5%, 3%, 5%, 6%, 7.5%, 12%, 18%, 28%, 40%."
+                        }), 400
+                        
                     # Format rate: integer if whole number, float if decimal
                     rate_val = int(rate) if rate.is_integer() else rate
                     
@@ -203,7 +250,6 @@ def api_convert_gstr1():
                         "itm_det": itm_det
                     })
                     item_num += 1
-                
                 total_taxable += inv_taxable_sum
                 total_cgst += inv_cgst_sum
                 total_sgst += inv_sgst_sum
@@ -270,9 +316,9 @@ def api_convert_hsn():
         gstin_input = request.form.get("supplier_gstin", "").strip().upper()
         fp_input = request.form.get("fp", "").strip()
         
-        if not gstin_input or len(gstin_input) != 15:
+        if not validate_gstin_checksum(gstin_input):
             return jsonify({"success": False, "message": "Please enter a valid 15-character Supplier GSTIN."}), 400
-        if not fp_input or len(fp_input) != 6 or not fp_input.isdigit():
+        if not validate_financial_period(fp_input):
             return jsonify({"success": False, "message": "Please enter a valid Financial Period in MMYYYY format (e.g. 082025)."}), 400
             
         filename = uploaded_file.filename.lower()
@@ -384,6 +430,14 @@ def api_convert_hsn():
             rate_raw = str(row.get('Rate', '0.0')).strip()
             rate_clean = re.sub(r'[^\d\.]', '', rate_raw)
             rt = float(rate_clean) if rate_clean else 0.0
+            
+            # Validate standard GST rate slabs
+            VALID_RATES = {0.0, 0.1, 0.25, 1.0, 1.5, 3.0, 5.0, 6.0, 7.5, 12.0, 18.0, 28.0, 40.0}
+            if pd.isna(rt) or rt not in VALID_RATES:
+                return jsonify({
+                    "success": False,
+                    "message": f"Validation Error: Tax rate '{rate_raw}%' for HSN Code '{hsn_raw}' is not a valid official GST slab rate. Allowed slabs: 0%, 0.1%, 0.25%, 1%, 1.5%, 3%, 5%, 6%, 7.5%, 12%, 18%, 28%, 40%."
+                }), 400
             
             hsn_entry = {
                 "num": len(b2b_hsn_list) + 1 if current_sply_ty == "B2B" else len(b2c_hsn_list) + 1,
