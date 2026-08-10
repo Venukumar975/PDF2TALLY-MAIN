@@ -577,11 +577,19 @@ function handleGlobalKeydown(e) {
         if (e.key === "Escape") {
             // Escape exits the active filter modal
             closeActiveModal();
+        } else if (activeEl.id === "review-modal-new-ledger") {
+            const list = document.getElementById("review-modal-ledger-autocomplete-list");
+            const isOpen = list && !list.classList.contains("hidden");
+            if (e.key === "Enter" && isOpen && autocompleteIndex !== -1) {
+                handleAutocompleteKeydown(e);
+            } else if (e.key === "Enter") {
+                confirmActiveModal();
+            } else {
+                handleAutocompleteKeydown(e);
+            }
         } else if (e.key === "Enter") {
             // Enter key confirms active modal
             confirmActiveModal();
-        } else if (activeEl.id === "review-modal-new-ledger") {
-            handleAutocompleteKeydown(e);
         }
         return;
     }
@@ -609,7 +617,7 @@ function handleGlobalKeydown(e) {
         // Spacebar toggles row selection
         e.preventDefault();
         toggleFocusedSelection();
-    } else if (e.key === "Delete") {
+    } else if (e.key === "Delete" || (e.altKey && (e.key === "d" || e.key === "D"))) {
         e.preventDefault();
         deleteSelectedVouchers();
     }
@@ -1325,7 +1333,8 @@ const NARRATION_STOP_WORDS = new Set([
     "received", "receive", "credit", "credited", "debit", "debited", "bank",
     "ref", "reference", "to", "from", "by", "via", "cr", "dr", "trf",
     "account", "a/c", "upiid", "mobile", "transaction", "pay", "collect",
-    "merchant", "online", "offline", "cash", "atm", "fund", "number", "id", "payme"
+    "merchant", "online", "offline", "cash", "atm", "fund", "number", "id", "payme",
+    "and", "the", "at", "for", "no", "utr", "am"
 ]);
 
 function normalizeNarration(text) {
