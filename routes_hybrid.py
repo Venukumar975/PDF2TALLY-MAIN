@@ -147,7 +147,7 @@ def api_hybrid_parse():
         boundary_date = None
         if strategy_type == "Incomplete statement (Continuation)" and cutoff_date_str:
             try:
-                boundary_date = datetime.strptime(cutoff_date_str, "%Y-%m-%d").date()
+                boundary_date = datetime.datetime.strptime(cutoff_date_str, "%Y-%m-%d").date()
             except ValueError:
                 pass
                 
