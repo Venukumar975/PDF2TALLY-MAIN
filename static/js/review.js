@@ -539,9 +539,20 @@ function onReviewRowClick(event, index) {
     onReviewTableScroll();
 }
 
-function updateVoucherLedger(vch, newLedgerName, triggerXMLUpdate = true) {
+function updateVoucherLedger(vch, newLedgerName, triggerXMLUpdate = true, convertToContra = false) {
     vch.particulars = newLedgerName;
     vch.modified = true;
+    
+    if (convertToContra) {
+        vch.vchType = "Contra";
+        if (vch.node) {
+            vch.node.setAttribute("VCHTYPE", "Contra");
+            const vchTypeNameNode = vch.node.querySelector("VOUCHERTYPENAME");
+            if (vchTypeNameNode) {
+                vchTypeNameNode.textContent = "Contra";
+            }
+        }
+    }
     
     if (triggerXMLUpdate && reviewState.xmlDoc) {
         // Update PARTYLEDGERNAME tag under VOUCHER
@@ -932,6 +943,7 @@ function openReplaceLedgerModal() {
     
     document.getElementById("review-modal-replace-count").textContent = reviewState.selectedIds.size;
     document.getElementById("review-modal-new-ledger").value = "";
+    document.getElementById("review-modal-convert-contra").checked = false;
     
     // Prefill target ledger input with the particulars name of the first selected voucher
     const firstId = Array.from(reviewState.selectedIds)[0];
@@ -946,6 +958,7 @@ function openReplaceLedgerModal() {
 function confirmReplaceLedger() {
     const newLedgerName = document.getElementById("review-modal-new-ledger").value.trim();
     const targetLedgerName = document.getElementById("review-modal-target-ledger").value.trim();
+    const convertContra = document.getElementById("review-modal-convert-contra").checked;
     
     if (!newLedgerName) {
         alert("Please enter a replace ledger name.");
@@ -957,7 +970,7 @@ function confirmReplaceLedger() {
         if (reviewState.selectedIds.has(vch.id)) {
             const isMatch = (targetLedgerName === "*") || (vch.particulars.toLowerCase() === targetLedgerName.toLowerCase());
             if (isMatch) {
-                updateVoucherLedger(vch, newLedgerName, true);
+                updateVoucherLedger(vch, newLedgerName, true, convertContra);
                 
                 replaceCount++;
             }

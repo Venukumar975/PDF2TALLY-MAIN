@@ -730,7 +730,13 @@
         <div class="tally-modal-card">
             <div class="tally-modal-header">Replace Ledger Account</div>
             <div class="tally-modal-body">
-                <p style="font-size: 0.8rem; margin-bottom: 5px; color: #4a5568;">Selected Vouchers: <strong id="review-modal-replace-count" style="color: #002d5a;">0</strong></p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <p style="font-size: 0.8rem; margin: 0; color: #4a5568;">Selected Vouchers: <strong id="review-modal-replace-count" style="color: #002d5a;">0</strong></p>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #000000; white-space: nowrap; -webkit-user-select: none; user-select: none;">
+                        <input type="checkbox" id="review-modal-convert-contra" style="width: 14px; height: 14px; min-width: 14px; min-height: 14px; margin: 0; padding: 0; cursor: pointer; accent-color: #002d5a; display: inline-block; -webkit-appearance: checkbox; appearance: checkbox; vertical-align: middle;">
+                        Contra Vch
+                    </label>
+                </div>
                 
                 <label for="review-modal-target-ledger">Ledger to Overwrite (Target):</label>
                 <input type="text" id="review-modal-target-ledger" value="Suspense" placeholder="e.g. Suspense">
