@@ -1007,6 +1007,7 @@ function renderBankResults(data) {
     
     // Set metrics
     document.getElementById("m-bank-count").textContent = formatNumber(stmt.transaction_count);
+    document.getElementById("m-bank-opening").textContent = formatCurrency(stmt.opening_balance);
     document.getElementById("m-bank-inflow").textContent = formatCurrency(stmt.debit_total);
     document.getElementById("m-bank-outflow").textContent = formatCurrency(stmt.credit_total);
     document.getElementById("m-bank-closing").textContent = formatCurrency(stmt.closing_balance);

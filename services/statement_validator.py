@@ -100,7 +100,7 @@ def _check_statement_coverage(text, transactions):
     return {"passed": True, "message": ""}
 
 
-def build_validation_report(text, transactions, xml_text, bank_ledger, suspense_ledger):
+def build_validation_report(text, transactions, xml_text, bank_ledger, suspense_ledger, opening_balance=None):
     """
     Main entry point performing the clear 3-Check Audit Pipeline + Statement Coverage.
     """
@@ -132,13 +132,26 @@ def build_validation_report(text, transactions, xml_text, bank_ledger, suspense_
         else:
             audit_msg = fallback_msg
 
+    # Determine display opening balance and calculate closing balance mathematically
+    if opening_balance is not None:
+        try:
+            op_bal = float(opening_balance)
+        except (ValueError, TypeError):
+            op_bal = float(transactions[0]["balance"]) if transactions else 0.0
+    else:
+        op_bal = float(transactions[0]["balance"]) if transactions else 0.0
+
+    debit_total = check_1_report["pdf_totals"]["debit"]
+    credit_total = check_1_report["pdf_totals"]["credit"]
+    calc_closing = op_bal + debit_total - credit_total
+
     return {
         "statement": {
             "transaction_count": len(transactions),
-            "opening_balance": transactions[0]["balance"] if transactions else 0.0,
-            "closing_balance": transactions[-1]["balance"] if transactions else 0.0,
-            "credit_total": check_1_report["pdf_totals"]["credit"],
-            "debit_total": check_1_report["pdf_totals"]["debit"],
+            "opening_balance": round(op_bal, 2),
+            "closing_balance": round(calc_closing, 2),
+            "credit_total": credit_total,
+            "debit_total": debit_total,
             "is_reconciled": pipeline_passed,
             "audit_message": audit_msg,
             "type_counts": dict(Counter(t.get("type", "UNKNOWN") for t in transactions)),

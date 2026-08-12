@@ -223,13 +223,16 @@ def api_hybrid_parse():
         FILE_CACHE["xml_bank"] = xml_text.encode("utf-8")
         FILE_CACHE["xml_bank_filename"] = f"generic_tally_import.xml"
         
+        val_opening_bal = 0.00 if strategy_type == "Incomplete statement (Continuation)" else opening_balance
+        
         # Generate Tally audit validation report
         validation_report = build_validation_report(
             sanitized_text,
             transactions,
             xml_text,
             bank_ledger,
-            suspense_ledger
+            suspense_ledger,
+            opening_balance=val_opening_bal
         )
         
         # Generate Excel audit workbook

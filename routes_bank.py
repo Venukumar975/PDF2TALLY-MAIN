@@ -156,12 +156,15 @@ def api_convert_bank():
                 opening_balance=xml_opening_bal
             )
             
+            val_opening_bal = 0.00 if strategy_type == "Incomplete statement (Continuation)" else opening_bal
+            
             validation_report = build_validation_report(
                 sanitized_text, 
                 transactions, 
                 xml_text, 
                 debit_ledger, 
-                credit_ledger
+                credit_ledger,
+                opening_balance=val_opening_bal
             )
             
             # Create Excel audit workbook
@@ -236,12 +239,15 @@ def api_reprocess_bank():
             opening_balance=opening_bal
         )
         
+        val_opening_bal = 0.00 if opening_bal is None else opening_bal
+        
         validation_report = build_validation_report(
             sanitized_text, 
             transactions, 
             xml_text, 
             debit_ledger, 
-            credit_ledger
+            credit_ledger,
+            opening_balance=val_opening_bal
         )
         
         # Create Excel audit workbook
