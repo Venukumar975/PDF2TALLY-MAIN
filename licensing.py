@@ -14,8 +14,15 @@ LICENSE_FILE_PATH = os.path.join(LICENSE_DIR, ".lic")
 LOGS_DIR = os.path.join(LICENSE_DIR, "logs")
 INTERNAL_DIR = os.path.join(LICENSE_DIR, "internal")
 
+_cached_machine_signature = None
+_cached_raw_identifiers = None
+
 def get_machine_raw_identifiers():
     """Gathers raw hardware identifiers to form a unique hardware fingerprint."""
+    global _cached_raw_identifiers
+    if _cached_raw_identifiers is not None:
+        return _cached_raw_identifiers
+        
     identifiers = []
     
     if platform.system() == "Windows":
@@ -70,14 +77,19 @@ def get_machine_raw_identifiers():
     raw_str = "|".join(filter(None, identifiers))
     if not raw_str:
         raw_str = "DEFAULT_WINDOWS_OFFLINE_SIGNATURE_FALLBACK"
+    _cached_raw_identifiers = raw_str
     return raw_str
 
 def get_machine_signature():
     """Returns a privacy-safe, SHA-256 hashed and formatted machine signature."""
+    global _cached_machine_signature
+    if _cached_machine_signature is not None:
+        return _cached_machine_signature
     raw_str = get_machine_raw_identifiers()
     h = hashlib.sha256(raw_str.encode()).hexdigest()
     # Format signature as XXXX-XXXX-XXXX-XXXX
-    return f"{h[0:4]}-{h[4:8]}-{h[8:12]}-{h[12:16]}".upper()
+    _cached_machine_signature = f"{h[0:4]}-{h[4:8]}-{h[8:12]}-{h[12:16]}".upper()
+    return _cached_machine_signature
 
 import base64
 import requests
@@ -423,6 +435,20 @@ def check_activation(force_refresh=False) -> dict:
     
     with _cache_lock:
         is_mem_synced = (_license_cache["last_sync_monotonic"] > 0)
+        # Fast-path: If status is already verified in RAM and checked disk recently (< 30s)
+        # and no force_refresh requested, evaluate countdown from monotonic clock without disk I/O.
+        if is_mem_synced and not force_refresh and (now_monotonic - _last_disk_read_time < 30.0):
+            if _session_start_monotonic is not None and _session_start_offline_time is not None:
+                elapsed = now_monotonic - _session_start_monotonic
+                current_offline_time = _session_start_offline_time + elapsed
+                expiry_unix = float(_license_cache.get("expiry_unix") or -1.0)
+                if expiry_unix != -1.0 and current_offline_time >= expiry_unix:
+                    _license_cache["activated"] = False
+                    _license_cache["message"] = "License expired."
+                    _license_cache["seconds_remaining"] = 0
+                elif expiry_unix != -1.0:
+                    _license_cache["seconds_remaining"] = max(0, int(expiry_unix - current_offline_time))
+            return _license_cache.copy()
         
     file_exists = os.path.exists(LICENSE_FILE_PATH)
     
@@ -431,6 +457,7 @@ def check_activation(force_refresh=False) -> dict:
         cache_data = load_local_license()
         if cache_data:
             _lic_failure_count = 0
+            _last_disk_read_time = now_monotonic
             
             # Establish monotonic session time baseline on first call of app run
             if _session_start_monotonic is None or _session_start_offline_time is None:
