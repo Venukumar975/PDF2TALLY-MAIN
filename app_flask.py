@@ -54,7 +54,7 @@ def check_license():
     if session.get("logged_out"):
         return redirect("/activate")
         
-    if not session.get("session_online_verified"):
+    if not licensing.is_online_login_verified():
         return redirect("/activate")
         
     status = licensing.check_activation()

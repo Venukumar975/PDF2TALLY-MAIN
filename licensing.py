@@ -109,6 +109,23 @@ _license_cache = {
     "error_type": None,
     "license_key": None
 }
+
+# This is deliberately process-memory only.  It records that this running
+# desktop app has completed an online login; it is never written to .lic and
+# is reset automatically when the desktop app closes.
+_online_login_verified = False
+
+def set_online_login_verified(verified: bool) -> None:
+    """Set the temporary online-login state for this desktop app process."""
+    global _online_login_verified
+    with _cache_lock:
+        _online_login_verified = bool(verified)
+
+def is_online_login_verified() -> bool:
+    """Return whether this running desktop app completed online login."""
+    with _cache_lock:
+        return _online_login_verified
+
 _last_disk_read_time = 0.0
 _boot_sync_done = False
 _lic_failure_count = 0
@@ -589,4 +606,3 @@ def deactivate():
             os.remove(LICENSE_FILE_PATH)
         except Exception as e:
             logger.error("Failed to delete local license file on deactivation: %s", str(e))
-

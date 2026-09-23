@@ -324,7 +324,10 @@ async function checkLicenseStatus(initial = false) {
     }
     
     try {
-        const res = await fetch("/api/status");
+        const res = await fetch("/api/status", {
+            credentials: "same-origin",
+            cache: "no-store"
+        });
         const status = await res.json();
         
         state.activated = status.activated;
@@ -666,8 +669,11 @@ async function verifyDeviceLogin() {
             body: JSON.stringify({ license_key: licenseKey })
         });
         const data = await res.json();
-        
+
         if (data.success && data.activated) {
+            // /api/activate only returns this result after both cloud
+            // verification requests have approved the current device.
+            state.activated = true;
             state.userLoggedIn = true;
             sessionStorage.setItem("userLoggedIn", "true");
             if (statusBox) {
@@ -675,8 +681,12 @@ async function verifyDeviceLogin() {
                 statusBox.className = "alert alert-success";
             }
             if (verifyBtn) verifyBtn.textContent = "Success!";
-            setTimeout(async () => {
-                await checkLicenseStatus();
+            setTimeout(() => {
+                const overlay = document.getElementById("license-overlay");
+                const workspace = document.getElementById("app-workspace");
+                if (overlay) overlay.classList.add("hidden");
+                if (workspace) workspace.classList.remove("hidden");
+                window.location.hash = "#bank-tab";
             }, 1000);
         } else {
             if (keyInput) keyInput.disabled = false;

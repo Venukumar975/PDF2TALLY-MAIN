@@ -19,7 +19,7 @@ def index():
 @routes_bp.route("/activate")
 def activate_page():
     status = licensing.check_activation()
-    if status["activated"] and session.get("session_online_verified"):
+    if status["activated"] and licensing.is_online_login_verified():
         return redirect("/")
     return render_template("index.html")  # SPA handles rendering based on license status
 
@@ -42,7 +42,6 @@ def api_status():
     force = request.args.get("refresh", "false").lower() == "true"
     if force:
         session.pop("logged_out", None)
-        session.pop("session_online_verified", None)
     elif session.get("logged_out"):
         return jsonify({
             "activated": False,
@@ -55,7 +54,7 @@ def api_status():
     
     # If the user has not verified online in this session, return activated: False
     # but still pass signature and license_key so the frontend can pre-fill
-    if not session.get("session_online_verified"):
+    if not licensing.is_online_login_verified():
         res = status.copy()
         res["activated"] = False
         if status.get("activated"):
@@ -98,8 +97,24 @@ def api_activate():
                     "license_id": res_data.get("license_id"),
                     "license_key": license_key
                 })
-                # Sync cache in memory
-                licensing.check_activation(force_refresh=True)
+                # The second Render verification is required before this
+                # desktop app process receives a temporary login session.
+                forced_status = licensing.check_activation(force_refresh=True)
+                if not forced_status.get("activated"):
+                    licensing.set_online_login_verified(False)
+                    session.clear()
+                    return jsonify({
+                        "success": False,
+                        "activated": False,
+                        "message": forced_status.get(
+                            "message",
+                            "Licence could not be verified by the server."
+                        )
+                    }), 403
+
+                # Process-memory only: it disappears when the desktop app
+                # exits and is independent of WebView cookie behaviour.
+                licensing.set_online_login_verified(True)
                 session["session_online_verified"] = True
                 return jsonify({
                     "success": True,
@@ -146,8 +161,20 @@ def api_restore_device():
                     "license_id": res_data.get("license_id"),
                     "license_key": res_data.get("license_key")
                 })
-                # Sync cache in memory
-                licensing.check_activation(force_refresh=True)
+                forced_status = licensing.check_activation(force_refresh=True)
+                if not forced_status.get("activated"):
+                    licensing.set_online_login_verified(False)
+                    session.clear()
+                    return jsonify({
+                        "success": False,
+                        "activated": False,
+                        "message": forced_status.get(
+                            "message",
+                            "Licence could not be verified by the server."
+                        )
+                    }), 403
+
+                licensing.set_online_login_verified(True)
                 session["session_online_verified"] = True
                 return jsonify({
                     "success": True,
@@ -220,6 +247,8 @@ def api_register_request():
 
 @routes_bp.route("/api/deactivate", methods=["POST"])
 def api_deactivate():
+    licensing.set_online_login_verified(False)
+    session.clear()
     session["logged_out"] = True
     licensing.deactivate()
     return jsonify({"success": True, "message": "Logged out successfully."})
