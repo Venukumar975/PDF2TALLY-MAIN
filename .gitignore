@@ -1,48 +1,66 @@
-# Python bytecode and cash artifacts
+# Python bytecode and cache
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 
-# Virtual Environments (Heavy local dependencies)
+# Virtual Environments
 venv/
 .venv/
 env/
 ENV/
 python/
 
-# Private environment variable matrices
+# Private environment variables, secrets & credentials
 .env
 .env.*
+*.lic
 backend/secrets.json
+trial_lambda_url.txt
+
+# Docker configurations & artifacts
+[Dd]ockerfile*
+.dockerignore
+docker-compose*
+
+# AWS Lambda artifacts
+trial_lambda/
+lambda_*/
+lambda_*.*
 
 # Local data input/output drop zones
 uploads/
 temp_uploads/
 outputs/
+logs/
+*.log
 
-*.txt
-# Local spreadsheet and data file footprints
+# Spreadsheets, data & document files
 *.xlsx
 *.xml
 *.json
+*.pdf
+*.zip
+*.tex
+*.txt
 
-
+# Build & packaging artifacts
 build/
 dist/
-logs/
-
-# Prevent compiled executables
+obf_dist/
+.pyarmor/
 *.exe
 
-# Developer scratch scripts
+# PyInstaller specs (keep only primary PDF2TALLY.spec)
+*.spec
+!PDF2TALLY.spec
+
+# Developer scratch & prototype directories
 scratch/
+help_prototype/
 
-# Compiled obfuscation output
-obf_dist/
-
-# Prevent any PDF files from being tracked
-*.pdf
-
-# Allow tracking of requirements.txt
+# Explicit whitelist exceptions
 !requirements.txt
+!telugu_mappings.json
+!assets/**
+!docs/**
