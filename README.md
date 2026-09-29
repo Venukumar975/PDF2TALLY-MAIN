@@ -2,11 +2,20 @@
 
 <div align="center">
 
-[![Official Portal](https://img.shields.io/badge/Official_Gateway-Live_on_Render-22c55e?style=for-the-badge&logo=render&logoColor=white)](https://pdf2tally-backend.onrender.com/)
-[![Target Software](https://img.shields.io/badge/Tally-Prime_Compatible-002D5A?style=for-the-badge&logo=tally)](https://pdf2tally-backend.onrender.com/)
-[![Platform](https://img.shields.io/badge/Platform-Windows_10%2F11-0078D6?style=for-the-badge&logo=windows)](https://pdf2tally-backend.onrender.com/)
-[![Security](https://img.shields.io/badge/Security-100%25_Offline_Processing-green?style=for-the-badge&logo=shield)](https://pdf2tally-backend.onrender.com/)
-[![Version](https://img.shields.io/badge/Version-v1.0.0_Trial-8B5CF6?style=for-the-badge)](https://pdf2tally-backend.onrender.com/)
+[![License](https://img.shields.io/badge/License-Proprietary%20%2F%20Source--Available-red?style=for-the-badge)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://pdf2tally-backend.onrender.com/)
+[![Framework](https://img.shields.io/badge/Framework-Flask_3.1-000000?style=for-the-badge&logo=flask&logoColor=white)](https://pdf2tally-backend.onrender.com/)
+[![Tally Prime](https://img.shields.io/badge/Tally_Prime-Compatible-002D5A?style=for-the-badge&logo=tally)](https://pdf2tally-backend.onrender.com/)
+[![Security](https://img.shields.io/badge/Security-100%25_Offline_Processing-22c55e?style=for-the-badge&logo=shield)](https://pdf2tally-backend.onrender.com/)
+[![Cloud Gateway](https://img.shields.io/badge/Cloud_Gateway-Live_on_Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://pdf2tally-backend.onrender.com/)
+
+</div>
+
+> [!CAUTION]
+> **PROPRIETARY & CONFIDENTIAL SOURCE-AVAILABLE REPOSITORY**  
+> This repository is **NOT open-source software**. Access to view this code is granted strictly for personal, educational code review, security audit, and evaluation purposes only. Copying, cloning, modifying, redistributing, or unauthorized commercial exploitation is strictly prohibited without prior express written permission from **Venu Kumar**. See the full [LICENSE](LICENSE) for details.
+
+<div align="center">
 
 **Automate complex bank statement conversions, voucher audits, GSTR-1 returns, and regional cash ledgers into standard Tally XML in seconds — with absolute local privacy.**
 
